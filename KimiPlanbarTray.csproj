@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>KimiPlanbarTray</AssemblyName>
+    <RootNamespace>KimiPlanbarTray</RootNamespace>
+    <Version>1.0.0</Version>
+    <Description>Kimi Code 套餐额度托盘监控</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="kimi-logo.png" />
+  </ItemGroup>
+
+</Project>

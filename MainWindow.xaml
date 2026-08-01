@@ -1,0 +1,98 @@
+<Window x:Class="KimiPlanbarTray.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+        Width="380" Height="382" WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" Topmost="True" ShowInTaskbar="False"
+        ResizeMode="NoResize">
+    <Border CornerRadius="14" Background="{DynamicResource WindowBgBrush}" Margin="6">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="24" ShadowDepth="2" Opacity="0.25" Color="#000000"/>
+        </Border.Effect>
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 头部 -->
+            <DockPanel Grid.Row="0" Margin="2,0,2,16">
+                <Image Source="pack://application:,,,/kimi-logo.png" Width="20" Height="20"
+                       DockPanel.Dock="Left"/>
+                <TextBlock Text="KimiPlanbar" FontSize="17" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <TextBlock x:Name="LastUpdated" Text="" FontSize="11" DockPanel.Dock="Right"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </DockPanel>
+
+            <!-- 用量卡片 -->
+            <primitives:UniformGrid Grid.Row="1" Columns="2">
+                <Border Background="{DynamicResource CardBgBrush}" CornerRadius="12" Padding="16" Margin="0,0,6,0">
+                    <StackPanel>
+                        <TextBlock Text="本周用量" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="WeekPct" Text="--" FontSize="32" FontWeight="Bold" Margin="0,10,0,10"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Grid Height="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="WeekBarCol" Width="0*"/>
+                                <ColumnDefinition x:Name="WeekRestCol" Width="100*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.ColumnSpan="2" CornerRadius="3" Background="{DynamicResource ProgressTrackBrush}"/>
+                            <Border Grid.Column="0" CornerRadius="3" Background="{DynamicResource AccentBrush}"/>
+                        </Grid>
+                        <TextBlock x:Name="WeekReset" Text="" FontSize="11" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="{DynamicResource CardBgBrush}" CornerRadius="12" Padding="16" Margin="6,0,0,0">
+                    <StackPanel>
+                        <TextBlock Text="5小时用量" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="FivePct" Text="--" FontSize="32" FontWeight="Bold" Margin="0,10,0,10"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Grid Height="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="FiveBarCol" Width="0*"/>
+                                <ColumnDefinition x:Name="FiveRestCol" Width="100*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.ColumnSpan="2" CornerRadius="3" Background="{DynamicResource ProgressTrackBrush}"/>
+                            <Border Grid.Column="0" CornerRadius="3" Background="{DynamicResource AccentBrush}"/>
+                        </Grid>
+                        <TextBlock x:Name="FiveReset" Text="" FontSize="11" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+            </primitives:UniformGrid>
+
+            <!-- 版本行（整行点击跳转 Releases） -->
+            <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" CornerRadius="12"
+                    Padding="14,10" Margin="0,12,0,12" Cursor="Hand"
+                    ToolTip="查看 Kimi Code Releases"
+                    MouseLeftButtonUp="OpenReleases">
+                <DockPanel>
+                    <TextBlock Text="KimiCode CLI" Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontSize="13" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock x:Name="CliVersion" Text="--" Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="13" VerticalAlignment="Center"/>
+                        <Border x:Name="NewVersionBadge" Visibility="Collapsed" CornerRadius="8"
+                                Padding="8,2" Margin="8,0,0,0"
+                                Background="{DynamicResource BadgeBgBrush}">
+                            <TextBlock Text="发现新版本" FontSize="11" Foreground="{DynamicResource BadgeFgBrush}"/>
+                        </Border>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- 底部按钮 -->
+            <primitives:UniformGrid Grid.Row="3" Columns="3">
+                <Button Content="⟳  刷新" Style="{StaticResource ActionButton}" Click="RefreshClick" Margin="0,0,6,0"/>
+                <Button Content="⚙  设置" Style="{StaticResource ActionButton}" Click="SettingsClick" Margin="3,0"/>
+                <Button Content="⏻  退出" Style="{StaticResource ActionButton}" Click="ExitClick" Margin="6,0,0,0"/>
+            </primitives:UniformGrid>
+        </Grid>
+    </Border>
+</Window>
