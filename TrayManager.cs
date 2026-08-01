@@ -12,27 +12,18 @@ public class TrayManager : IDisposable
     private MainWindow? _popup;
     private SettingsWindow? _settings;
     private DateTime _lastHide = DateTime.MinValue;
+    private TrayMenuWindow? _menu;
 
     public TrayManager()
     {
         _notify = new Forms.NotifyIcon
         {
-            Text = "KimiPlanbar",
+            Text = "Kimi Planbar Tray",
             Visible = true,
             Icon = LoadLogoIcon()
         };
-        _notify.MouseClick += OnClick;
-
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("打开", null, (_, _) => TogglePopup());
-        menu.Items.Add("刷新", null, async (_, _) =>
-        {
-            await App.Quota.SafeRefresh();
-            await App.Updates.CheckAsync();
-        });
-        menu.Items.Add("设置", null, (_, _) => ShowSettings());
-        menu.Items.Add("退出", null, (_, _) => Application.Current.Shutdown());
-        _notify.ContextMenuStrip = menu;
+        // 用 MouseUp 而非 MouseClick：右键在无 ContextMenuStrip 时更可靠
+        _notify.MouseUp += OnMouseUp;
 
         App.Quota.Updated += OnQuotaUpdated;
     }
@@ -41,19 +32,27 @@ public class TrayManager : IDisposable
     private void OnQuotaUpdated()
     {
         var l = App.Quota.Last;
-        if (l == null) { _notify.Text = "KimiPlanbar"; return; }
-        _notify.Text = $"KimiPlanbar  5h {Pct(l.FiveHour)} · week {Pct(l.Week)}"
+        if (l == null) { _notify.Text = "Kimi Planbar Tray"; return; }
+        _notify.Text = $"Kimi Planbar Tray  5h {Pct(l.FiveHour)} · week {Pct(l.Week)}"
                        + (l.Error != null ? "（更新失败）" : "");
     }
 
     private static string Pct(QuotaSegment? s) => s == null ? "?" : $"{s.Percent:0}%";
 
-    private void OnClick(object? sender, Forms.MouseEventArgs e)
+    private void OnMouseUp(object? sender, Forms.MouseEventArgs e)
     {
+        if (e.Button == Forms.MouseButtons.Right) { ShowMenu(); return; }
         if (e.Button != Forms.MouseButtons.Left) return;
         // 悬浮窗刚因失焦自动隐藏时，同一次托盘点击不要再把它弹出来
         if ((DateTime.Now - _lastHide).TotalMilliseconds < 300) return;
         TogglePopup();
+    }
+
+    private void ShowMenu()
+    {
+        _menu?.Close();
+        _menu = new TrayMenuWindow();
+        _menu.ShowAtCursor();
     }
 
     public void NotifyPopupHidden() => _lastHide = DateTime.Now;

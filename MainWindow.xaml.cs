@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 namespace KimiPlanbarTray;
 
@@ -23,30 +23,51 @@ public partial class MainWindow : Window
         };
     }
 
+    private bool _hiding;
+
     public void ShowNearTray()
     {
+        _hiding = false;
         var wa = SystemParameters.WorkArea;
         Left = wa.Right - Width - 12;
         Top = wa.Bottom - Height - 12;
-        // 先建句柄但不 Show，由 AnimateWindow 完成原生滑出动画；
-        // 动画结束后 WPF 再 Show() 同步状态（此时窗口已可见，无视觉跳变）
-        var hwnd = new WindowInteropHelper(this).EnsureHandle();
-        AnimateWindow(hwnd, 220, AW_SLIDE | AW_VER_NEGATIVE);
-        Dispatcher.BeginInvoke(new Action(() =>
+        Show();
+        Activate();
+        // 原生风格的滑入 + 淡入（AllowsTransparency 分层窗口上 AnimateWindow 不可靠，
+        // 用 WPF 动画保证可见效果；GPU 合成，开销可忽略）
+        var tt = new TranslateTransform(0, 16);
+        RootBorder.RenderTransform = tt;
+        Opacity = 0;
+        var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160));
+        var slide = new DoubleAnimation(16, 0, TimeSpan.FromMilliseconds(220))
         {
-            Show();
-            Activate();
-        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        BeginAnimation(OpacityProperty, fade);
+        tt.BeginAnimation(TranslateTransform.YProperty, slide);
         Render();
         RenderVersion();
     }
 
     public void HideAnimated()
     {
-        AnimateWindow(new WindowInteropHelper(this).Handle, 180,
-            AW_HIDE | AW_SLIDE | AW_VER_POSITIVE);
-        Hide();
-        App.Tray?.NotifyPopupHidden();
+        if (_hiding) return;
+        _hiding = true;
+        var tt = RootBorder.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        RootBorder.RenderTransform = tt;
+        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130));
+        var slide = new DoubleAnimation(12, TimeSpan.FromMilliseconds(160))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        fade.Completed += (_, _) =>
+        {
+            Hide();
+            Opacity = 1;
+            App.Tray?.NotifyPopupHidden();
+        };
+        BeginAnimation(OpacityProperty, fade);
+        tt.BeginAnimation(TranslateTransform.YProperty, slide);
     }
 
     public void RefreshView()
@@ -137,12 +158,4 @@ public partial class MainWindow : Window
         }
         catch { }
     }
-
-    private const int AW_SLIDE = 0x40000;
-    private const int AW_HIDE = 0x10000;
-    private const int AW_VER_POSITIVE = 0x4;
-    private const int AW_VER_NEGATIVE = 0x8;
-
-    [DllImport("user32.dll")]
-    private static extern bool AnimateWindow(IntPtr hwnd, int time, int flags);
 }

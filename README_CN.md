@@ -1,4 +1,4 @@
-# KimiPlanbarTray
+# Kimi Planbar Tray
 
 [English](README.md)
 

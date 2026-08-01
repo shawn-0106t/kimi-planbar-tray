@@ -5,7 +5,7 @@
         Width="380" Height="382" WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False"
         ResizeMode="NoResize">
-    <Border CornerRadius="14" Background="{DynamicResource WindowBgBrush}" Margin="6">
+    <Border x:Name="RootBorder" CornerRadius="14" Background="{DynamicResource WindowBgBrush}" Margin="6">
         <Border.Effect>
             <DropShadowEffect BlurRadius="24" ShadowDepth="2" Opacity="0.25" Color="#000000"/>
         </Border.Effect>
@@ -21,7 +21,7 @@
             <DockPanel Grid.Row="0" Margin="2,0,2,16">
                 <Image Source="pack://application:,,,/kimi-logo.png" Width="20" Height="20"
                        DockPanel.Dock="Left"/>
-                <TextBlock Text="KimiPlanbar" FontSize="17" FontWeight="SemiBold"
+                <TextBlock Text="Kimi Planbar Tray" FontSize="17" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center" Margin="10,0,0,0"/>
                 <TextBlock x:Name="LastUpdated" Text="" FontSize="11" DockPanel.Dock="Right"
@@ -73,7 +73,7 @@
                     ToolTip="查看 Kimi Code Releases"
                     MouseLeftButtonUp="OpenReleases">
                 <DockPanel>
-                    <TextBlock Text="KimiCode CLI" Foreground="{DynamicResource TextPrimaryBrush}"
+                    <TextBlock Text="Kimi Code CLI" Foreground="{DynamicResource TextPrimaryBrush}"
                                FontSize="13" VerticalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <TextBlock x:Name="CliVersion" Text="--" Foreground="{DynamicResource TextSecondaryBrush}"

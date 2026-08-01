@@ -46,6 +46,8 @@ public partial class App : Application
                 Console.WriteLine("MainWindow OK");
                 var s = new SettingsWindow();
                 Console.WriteLine("SettingsWindow OK");
+                var m = new TrayMenuWindow();
+                Console.WriteLine("TrayMenuWindow OK");
             }
             catch (Exception ex)
             {
