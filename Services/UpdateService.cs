@@ -20,6 +20,42 @@ public class UpdateService
     {
         // 子进程调用放线程池，避免阻塞 UI 线程
         LocalVersion = await Task.Run(DetectLocalVersion).ConfigureAwait(false);
+        // 优先官方文档站 changelog（英文版最及时；绕开 GitHub API 限流与 hosts 屏蔽），
+        // 失败回退 GitHub Releases API
+        var latest = await FetchLatestFromChangelog().ConfigureAwait(false)
+                     ?? await FetchLatestFromGitHub().ConfigureAwait(false);
+        LatestVersion = latest;
+        UpdateAvailable = latest != null
+                          && Version.TryParse(latest, out var lv)
+                          && Version.TryParse(LocalVersion, out var local)
+                          && lv > local;
+        // 网络不可达（如本机 hosts 屏蔽）时静默降级
+        CheckFailed = latest == null;
+        try { Application.Current?.Dispatcher.BeginInvoke(() => Updated?.Invoke()); } catch { }
+    }
+
+    private const string ChangelogUrl =
+        "https://moonshotai.github.io/kimi-code/en/release-notes/changelog.md";
+
+    // 官方文档站 changelog：Range 只取前 4KB，正则首个 "## x.y.z" 标题即最新版
+    // （GitHub Pages 可能忽略 Range 返回 200 全量，两种响应均兼容）
+    private static async Task<string?> FetchLatestFromChangelog()
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, ChangelogUrl);
+            req.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 4095);
+            using var resp = await Http.SendAsync(req).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+            var text = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var m = Regex.Match(text, "^## (\\d+\\.\\d+\\.\\d+)", RegexOptions.Multiline);
+            return m.Success ? m.Groups[1].Value : null;
+        }
+        catch { return null; }
+    }
+
+    private static async Task<string?> FetchLatestFromGitHub()
+    {
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get,
@@ -31,19 +67,9 @@ public class UpdateService
             var tag = doc.RootElement.GetProperty("tag_name").GetString();
             // tag 形如 "@moonshot-ai/kimi-code@0.31.1"，直接提取版本号
             var m = Regex.Match(tag ?? "", @"\d+\.\d+\.\d+");
-            LatestVersion = m.Success ? m.Value : tag;
-            UpdateAvailable = m.Success
-                              && Version.TryParse(m.Value, out var latest)
-                              && Version.TryParse(LocalVersion, out var local)
-                              && latest > local;
-            CheckFailed = false;
+            return m.Success ? m.Value : null;
         }
-        catch
-        {
-            // 网络不可达（如本机 hosts 屏蔽 api.github.com）时静默降级
-            CheckFailed = true;
-        }
-        try { Application.Current?.Dispatcher.BeginInvoke(() => Updated?.Invoke()); } catch { }
+        catch { return null; }
     }
 
     private static string? DetectLocalVersion()

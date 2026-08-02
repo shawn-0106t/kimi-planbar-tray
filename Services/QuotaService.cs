@@ -126,6 +126,15 @@ public class QuotaService : IDisposable
         }
         var w = wallet.Value;
 
+        // isEnabled 防御（借鉴 KimiCodeBar v1.1.1 的 bug）：booster 未启用时
+        // 接口返回的 amountLeft 是"月度上限-已用"估算值而非真实余额，必须视为未开通
+        if (w.TryGetProperty("isEnabled", out var ie)
+            && ie.ValueKind == JsonValueKind.False)
+        {
+            info.State = ExtraState.NotActivated;
+            return info;
+        }
+
         if (w.GetPropertyOrDefault("balance") is { ValueKind: JsonValueKind.Object } bal
             && bal.GetPropertyOrDefault("amountLeft") is JsonElement al
             && TryGetLong(al, out long raw))

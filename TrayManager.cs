@@ -12,6 +12,7 @@ public class TrayManager : IDisposable
     private MainWindow? _popup;
     private SettingsWindow? _settings;
     private DateTime _lastHide = DateTime.MinValue;
+    private DateTime _lastHoverRefresh = DateTime.MinValue;
     private TrayMenuWindow? _menu;
 
     public TrayManager()
@@ -24,8 +25,17 @@ public class TrayManager : IDisposable
         };
         // 用 MouseUp 而非 MouseClick：右键在无 ContextMenuStrip 时更可靠
         _notify.MouseUp += OnMouseUp;
+        // 悬停预热：10 秒节流，用户看 tooltip/点开窗口时数据总是新的（节流后无额外稳态开销）
+        _notify.MouseMove += OnHover;
 
         App.Quota.Updated += OnQuotaUpdated;
+    }
+
+    private void OnHover(object? sender, Forms.MouseEventArgs e)
+    {
+        if ((DateTime.Now - _lastHoverRefresh).TotalSeconds < 10) return;
+        _lastHoverRefresh = DateTime.Now;
+        _ = App.Quota.SafeRefresh();
     }
 
     // 图标静态不变，刷新只更新 tooltip 里的用量数字（失败时也展示保留数据并标注）

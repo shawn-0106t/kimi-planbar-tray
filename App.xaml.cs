@@ -36,6 +36,16 @@ public partial class App : Application
             return;
         }
 
+        // Headless 版本检测自检：打印本地/最新版本后退出
+        if (e.Args.Contains("--test-update"))
+        {
+            Task.Run(() => Updates.CheckAsync()).GetAwaiter().GetResult();
+            Console.WriteLine($"local={Updates.LocalVersion} latest={Updates.LatestVersion} " +
+                              $"updateAvailable={Updates.UpdateAvailable} checkFailed={Updates.CheckFailed}");
+            Shutdown();
+            return;
+        }
+
         // Headless UI 自检：构造两个窗口验证资源解析与 XAML 加载
         if (e.Args.Contains("--test-ui"))
         {
