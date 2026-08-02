@@ -59,13 +59,34 @@ public partial class App : Application
         }
 
         // 截图模式：真实额度数据 + 指定主题渲染悬浮窗为 PNG（供 README 使用）
-        // 用法：--screenshot <输出路径> [--dark]
+        // 用法：--screenshot <输出路径> [--dark] [--mock 用模拟数据（含 Extra 余额）]
         if (e.Args.Contains("--screenshot"))
         {
             int i = e.Args.ToList().IndexOf("--screenshot");
             var path = i + 1 < e.Args.Length ? e.Args[i + 1] : "screenshot.png";
             Theme.Apply(e.Args.Contains("--dark") ? "dark" : "light");
-            var r = Task.Run(() => Quota.FetchAsync()).GetAwaiter().GetResult();
+            QuotaResult? r;
+            if (e.Args.Contains("--mock"))
+            {
+                r = new QuotaResult
+                {
+                    FetchedAt = DateTimeOffset.Now,
+                    FiveHour = new QuotaSegment { Percent = 42, ResetAt = DateTimeOffset.Now.AddHours(3.5) },
+                    Week = new QuotaSegment { Percent = 68, ResetAt = DateTimeOffset.Now.AddDays(4) },
+                    Extra = new ExtraInfo
+                    {
+                        State = ExtraState.Ready,
+                        BalanceCents = 1234,
+                        MonthlyEnabled = true,
+                        MonthlyUsedCents = 4567,
+                        MonthlyLimitCents = 10000
+                    }
+                };
+            }
+            else
+            {
+                r = Task.Run(() => Quota.FetchAsync()).GetAwaiter().GetResult();
+            }
             Quota.Inject(r);
             Task.Run(() => Updates.CheckAsync()).GetAwaiter().GetResult();
             var w = new MainWindow();

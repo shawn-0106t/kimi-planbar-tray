@@ -11,10 +11,23 @@ public class QuotaSegment
     public DateTimeOffset? ResetAt { get; set; }
 }
 
+public enum ExtraState { NotActivated, NoData, Ready }
+
+// Extra Usage（boosterWallet）：余额三态 + 月度已用/上限
+public class ExtraInfo
+{
+    public ExtraState State { get; set; }
+    public long? BalanceCents { get; set; }      // amountLeft（1e-8 元）换算到分
+    public bool MonthlyEnabled { get; set; }
+    public long? MonthlyUsedCents { get; set; }
+    public long? MonthlyLimitCents { get; set; }
+}
+
 public class QuotaResult
 {
     public QuotaSegment? FiveHour { get; set; }
     public QuotaSegment? Week { get; set; }
+    public ExtraInfo? Extra { get; set; }
     public DateTimeOffset FetchedAt { get; set; }
     public string? Error { get; set; }
 }
@@ -51,6 +64,7 @@ public class QuotaService : IDisposable
             {
                 r.FiveHour ??= Last.FiveHour;
                 r.Week ??= Last.Week;
+                r.Extra ??= Last.Extra;
             }
             Last = r;
             // 失败后 30 秒快速重试（对齐 quota-status.py 的 RETRY 策略），成功则回到正常周期
@@ -91,12 +105,65 @@ public class QuotaService : IDisposable
             }
             if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
                 r.Week = ParseSegment(u);
+            r.Extra = ParseExtra(root.GetPropertyOrDefault("boosterWallet"));
             return r;
         }
         catch (Exception ex)
         {
             return new QuotaResult { Error = ex.GetType().Name, FetchedAt = DateTimeOffset.Now };
         }
+    }
+
+    // boosterWallet：余额三态（未开通/无数据/有值）+ 月度已用/上限
+    // 注意 JSON 数字皆为字符串；amountLeft 单位 1e-8 元，priceInCents 单位分
+    private static ExtraInfo ParseExtra(JsonElement? wallet)
+    {
+        var info = new ExtraInfo();
+        if (wallet == null || wallet.Value.ValueKind != JsonValueKind.Object)
+        {
+            info.State = ExtraState.NotActivated;
+            return info;
+        }
+        var w = wallet.Value;
+
+        if (w.GetPropertyOrDefault("balance") is { ValueKind: JsonValueKind.Object } bal
+            && bal.GetPropertyOrDefault("amountLeft") is JsonElement al
+            && TryGetLong(al, out long raw))
+        {
+            info.State = ExtraState.Ready;
+            info.BalanceCents = (raw + 500000) / 1000000; // 1e-8 元 → 分，四舍五入
+        }
+        else
+        {
+            info.State = ExtraState.NoData;
+        }
+
+        if (w.TryGetProperty("monthlyChargeLimitEnabled", out var en)
+            && en.ValueKind == JsonValueKind.True)
+        {
+            info.MonthlyEnabled = true;
+            info.MonthlyUsedCents = ParseCents(w.GetPropertyOrDefault("monthlyUsed"));
+            info.MonthlyLimitCents = ParseCents(w.GetPropertyOrDefault("monthlyChargeLimit"));
+        }
+        return info;
+    }
+
+    // JSON 数字按字符串建模（服务端惯例），容忍数字型兜底
+    private static bool TryGetLong(JsonElement e, out long v)
+    {
+        if (e.ValueKind == JsonValueKind.String) return long.TryParse(e.GetString(), out v);
+        if (e.ValueKind == JsonValueKind.Number) return e.TryGetInt64(out v);
+        v = 0;
+        return false;
+    }
+
+    private static long? ParseCents(JsonElement? money)
+    {
+        if (money is { ValueKind: JsonValueKind.Object } m
+            && m.TryGetProperty("priceInCents", out var p)
+            && TryGetLong(p, out long v))
+            return v;
+        return null;
     }
 
     private static QuotaSegment ParseSegment(JsonElement e)

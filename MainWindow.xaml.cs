@@ -96,7 +96,44 @@ public partial class MainWindow : Window
         var r = App.Quota.Last;
         SetCard(WeekPct, WeekBarCol, WeekRestCol, WeekReset, r?.Week);
         SetCard(FivePct, FiveBarCol, FiveRestCol, FiveReset, r?.FiveHour);
+        RenderExtra(r?.Extra);
         LastUpdated.Text = r == null ? "" : r.Error != null ? "更新失败" : $"更新于 {r.FetchedAt.LocalDateTime:HH:mm}";
+    }
+
+    private void RenderExtra(ExtraInfo? e)
+    {
+        if (e == null)
+        {
+            ExtraBalance.Text = "--";
+            ExtraMonthlyPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+        ExtraBalance.Text = e.State switch
+        {
+            ExtraState.Ready => e.BalanceCents.HasValue ? FmtYuan(e.BalanceCents.Value) : "--",
+            ExtraState.NoData => "无数据",
+            _ => "未开通",
+        };
+        if (e.MonthlyEnabled && e.MonthlyLimitCents is > 0 && e.MonthlyUsedCents.HasValue)
+        {
+            double p = Math.Clamp((double)e.MonthlyUsedCents.Value / e.MonthlyLimitCents.Value * 100, 0, 100);
+            ExtraBarCol.Width = new GridLength(p, GridUnitType.Star);
+            ExtraRestCol.Width = new GridLength(100 - p, GridUnitType.Star);
+            ExtraMonthly.Text = $"本月已用 {FmtYuan(e.MonthlyUsedCents.Value)} / 上限 {FmtYuan(e.MonthlyLimitCents.Value)}";
+            ExtraMonthlyPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ExtraMonthlyPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    // 分 → ¥ 显示，整元省略小数（编码安全：WPF 全程 UTF-16，无 GBK 环节）
+    private static string FmtYuan(long cents)
+    {
+        if (cents < 0) return "-" + FmtYuan(-cents);
+        long yuan = cents / 100, frac = cents % 100;
+        return "¥" + yuan + (frac > 0 ? "." + frac.ToString("00") : "");
     }
 
     private static void SetCard(System.Windows.Controls.TextBlock pct,

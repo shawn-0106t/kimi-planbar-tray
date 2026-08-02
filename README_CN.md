@@ -15,6 +15,7 @@
 - **亮暗双主题**——月之亮面 / 月之暗面，可跟随 Windows 系统主题实时切换（也可在设置里固定）；强调色 `#1A88FF`
 - **抗抖动刷新**——按设定间隔自动刷新（1/5/10/30 分钟）；失败时保留上一次成功的数据，30 秒后快速重试
 - **CLI 版本检测**——显示本机 `kimi --version`；[kimi-code Releases](https://github.com/MoonshotAI/kimi-code/releases) 有新版时出现橙色徽章（点击版本行直达发布页）；GitHub 不可达时静默降级
+- **Extra Usage 卡片**——显示 booster 钱包余额（¥）与本月已用/上限；未充值过时优雅显示"未开通 / 无数据"
 - **绿色免 UAC**——单 exe，仅操作用户域（自启走 HKCU，不碰 HKLM 和 Program Files）；在 exe 旁放一个空的 `portable.dat` 即切换为配置随身携带的便携模式
 - **占用小**——单文件版 ~195 KB，运行内存 ~80 MB，除刷新定时器外无任何后台轮询
 

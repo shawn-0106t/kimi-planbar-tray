@@ -15,6 +15,7 @@ A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/
 - **Light / dark themes** — "Moonlit" and "Moondark" palettes that follow the Windows system theme in real time (or pin one in Settings); accent color `#1A88FF`
 - **Resilient refresh** — auto-refresh on a configurable interval (1/5/10/30 min); on failure the last good values stay visible and a fast retry kicks in after 30 s
 - **CLI version check** — shows your local `kimi --version`; an orange badge appears when a newer release exists on [kimi-code Releases](https://github.com/MoonshotAI/kimi-code/releases) (click the row to open the page); fails silently when GitHub is unreachable
+- **Extra Usage card** — shows your booster wallet balance (¥) and monthly charge usage/limit; gracefully shows "not activated / no data" when the wallet has never been topped up
 - **Portable & UAC-free** — single exe, per-user only (HKCU autostart, no admin rights, nothing written to HKLM or Program Files); drop an empty `portable.dat` next to the exe to store settings beside it instead of `%APPDATA%`
 - **Small footprint** — ~195 KB single-file build, ~80 MB working set at runtime, no background polling beyond the refresh timer
 
