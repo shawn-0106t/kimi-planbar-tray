@@ -5,7 +5,7 @@
 use crate::state::AppState;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition};
 
 // Window sizes include the transparent shadow fade room around the card:
 // main/settings grew by 2*22px (margin 6 -> 28), menu by 2*19px (margin 5 -> 24).
@@ -13,8 +13,9 @@ const PANEL_W: f64 = 424.0;
 const PANEL_H: f64 = 512.0;
 const MENU_W: f64 = 188.0;
 
-/// Primary-monitor work area in DIP (matches WPF SystemParameters.WorkArea).
-fn work_area_dip(app: &AppHandle) -> (f64, f64, f64, f64) {
+/// Primary-monitor work area in physical px (SPI_GETWORKAREA returns
+/// physical pixels of the primary monitor for a per-monitor-aware process).
+fn work_area_phys() -> (f64, f64, f64, f64) {
     use windows::Win32::Foundation::RECT;
     use windows::Win32::UI::WindowsAndMessaging::{
         SystemParametersInfoW, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SPI_GETWORKAREA,
@@ -28,19 +29,30 @@ fn work_area_dip(app: &AppHandle) -> (f64, f64, f64, f64) {
             SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
         );
     }
+    (
+        rect.left as f64,
+        rect.top as f64,
+        rect.right as f64,
+        rect.bottom as f64,
+    )
+}
+
+/// Primary monitor scale factor (1.0 fallback).
+fn primary_scale(app: &AppHandle) -> f64 {
     let scale = app
         .primary_monitor()
         .ok()
         .flatten()
         .map(|m| m.scale_factor())
         .unwrap_or(1.0);
-    let s = if scale > 0.0 { scale } else { 1.0 };
-    (
-        rect.left as f64 / s,
-        rect.top as f64 / s,
-        rect.right as f64 / s,
-        rect.bottom as f64 / s,
-    )
+    if scale > 0.0 { scale } else { 1.0 }
+}
+
+/// Primary-monitor work area in DIP (matches WPF SystemParameters.WorkArea).
+fn work_area_dip(app: &AppHandle) -> (f64, f64, f64, f64) {
+    let s = primary_scale(app);
+    let (l, t, r, b) = work_area_phys();
+    (l / s, t / s, r / s, b / s)
 }
 
 /// ShowNearTray: bottom-right of the work area, 12px margin (SPEC 1.1).
@@ -48,17 +60,24 @@ pub fn show_panel(app: &AppHandle) {
     let Some(w) = app.get_webview_window("main") else {
         return;
     };
-    // Defensive re-size: tao can inflate a shown window's logical size when
-    // the display scale changes (WM_DPICHANGED computed with a stale scale
-    // factor). Pinning the size on every show keeps the panel at 424x512.
+    // Size stays LOGICAL (tao re-scales the physical size from the logical
+    // size on WM_DPICHANGED, so 424x512 DIP is correct on any monitor), but
+    // the position must be PHYSICAL: the window may currently sit on a
+    // different monitor than the primary (Windows places new windows on the
+    // launcher window's monitor, e.g. when the exe is started from a File
+    // Explorer window on a secondary screen), and LogicalPosition would
+    // convert using that monitor's scale instead of the primary's — which
+    // placed the first-ever show mid-screen on mixed-DPI setups. Physical
+    // units skip the window's current scale entirely.
+    let s = primary_scale(app);
     let _ = w.set_size(LogicalSize::new(PANEL_W, PANEL_H));
-    let (_, _, right, bottom) = work_area_dip(app);
+    let (_, _, right, bottom) = work_area_phys();
     // +22 compensates the margin growth (6 -> 28, shadow fade room): the window
     // shifts 22px left/up so the card's visible position is unchanged (card
     // right/bottom edges still sit 18px off the work-area corner).
-    let _ = w.set_position(LogicalPosition::new(
-        right - PANEL_W - 12.0 + 22.0,
-        bottom - PANEL_H - 12.0 + 22.0,
+    let _ = w.set_position(PhysicalPosition::new(
+        right - (PANEL_W + 12.0 - 22.0) * s,
+        bottom - (PANEL_H + 12.0 - 22.0) * s,
     ));
     app.state::<AppState>()
         .panel_hiding
@@ -194,8 +213,13 @@ pub fn show_menu(app: &AppHandle, px: f64, py: f64) {
     // SizeToContent equivalent: the frontend-reported height (content + 2*24px
     // shadow fade room) is the real window height; the conf height is only the
     // initial guess. Apply it so the card never overflows the window edge.
+    // Size stays LOGICAL (tao re-scales physical size from it on
+    // WM_DPICHANGED); position must be PHYSICAL — same launcher-monitor trap
+    // as show_panel: the hidden menu window may sit on a monitor whose scale
+    // differs from the cursor's, and LogicalPosition would convert with the
+    // wrong scale.
     let _ = w.set_size(LogicalSize::new(MENU_W, h));
-    let _ = w.set_position(LogicalPosition::new(left, top));
+    let _ = w.set_position(PhysicalPosition::new(left * scale, top * scale));
     let _ = w.show();
     let _ = w.set_focus();
     if let Some(h) = hwnd {
