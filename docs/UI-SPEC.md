@@ -335,6 +335,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - **系统主题实时跟随**：读注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize` 的 `AppsUseLightTheme`（DWORD，0=dark，1=light，缺失默认 1）；通过 `SystemEvents.UserPreferenceChanged` 事件监听，仅当设置为 `"system"` 时重新应用（切回 UI 线程）。Tauri 复刻可用 `dark-light` crate 或自读注册表 + 监听 `WM_SETTINGCHANGE`。
 - **主题切换实现**：清空应用级资源字典，依次加入 Shared + Light/Dark。所有颜色经动态资源引用，切换即时生效无需重建窗口。Shared 样式字典只加载一次。
 - **DPI**：锁定系统级 DPI 感知（SystemAware）。托盘菜单定位依赖 `Cursor.Position`（物理像素）÷ `GetDpiForWindow/96` 换算 DIP，高 DPI 下缺此换算菜单会偏出屏幕。
+- **DPI 陷阱（Tauri/tao 复刻）**：tao 在 app 启动时就创建全部 HWND（隐藏），位置为 `CW_USEDEFAULT`——Windows 会把新窗口放在**启动者所在屏**（例如从副屏的资源管理器窗口双击 exe，隐藏窗口就挂在副屏，带上副屏的 scale）。之后跨屏定位时若用 `LogicalPosition`/`LogicalSize`，换算用的是窗口当前所在屏的 scale 而非目标屏，多屏异 DPI 下首开必偏。**规则：跨屏落位一律用 `PhysicalPosition`（面板按主屏工作区物理像素、菜单按光标所在屏物理像素）；尺寸保持 `LogicalSize`**——tao 在 `WM_DPICHANGED` 时会用逻辑尺寸 × 新 scale 重算物理尺寸，尺寸给物理值反而会被二次放大。WPF 版无此问题：`Window` 的 HWND 在 `Show()` 时才创建，`Left`/`Top` 已先设好，换算天然用目标屏 DPI。
 - **图标资源**：`kimi-logo.png` 嵌入程序集，用于：面板 logo（20x20）、设置窗 logo（18x18）、托盘图标（手工 PNG→ICO 包装，Vista+ 原生支持且保留 alpha）。Tauri 复刻需将同一 PNG 嵌入并提供 ICO（可用 `ico` crate 预生成，或直接内嵌 PNG 进 ICO 容器，同参考实现思路）。
 - **事件订阅生命周期**：主面板构造时订阅 `Quota.Updated`/`Updates.Updated`，关闭时取消订阅（窗口实际只 Hide 不 Close，单例复用）；托盘订阅 `Quota.Updated` 更新 tooltip，退出时退订并销毁托盘图标。
 - **异常处理基调**：所有 IO、注册表、外部进程、HTTP 调用均 try/catch 静默吞掉，失败路径以 UI 文案（"更新失败"/"未检测到"）或状态字段表达，绝不弹窗报错。
