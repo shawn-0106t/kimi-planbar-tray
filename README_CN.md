@@ -24,10 +24,13 @@
 
 从 [Releases](../../releases) 获取最新 exe：
 
-| 版本 | 体积 | 前提 |
-|---|---|---|
-| `KimiPlanbarTray.exe` | ~195 KB | 已安装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0) |
-| `KimiPlanbarTray-selfcontained.exe` | ~65 MB | 无——运行时已打包在内 |
+| 版本 | 体积 | 前提 | 内存占用（实测） |
+|---|---|---|---|
+| `KimiPlanbarTray-wpf.exe` | ~195 KB | 已安装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0) | ~69 MB |
+| `KimiPlanbarTray-wpf-selfcontained.exe` | ~65 MB | 无——运行时已打包在内 | ~69 MB |
+| `KimiPlanbarTray-rust.exe` | ~5.6 MB | 无——使用系统自带 WebView2 | ~317 MB |
+
+两个版本 UI/UX 完全一致（见 `docs/UI-SPEC.md`），共用同一份设置文件。追求最小占用选 WPF 版，想要免 .NET 单文件选 Rust 版。
 
 > exe 未做代码签名，首次运行 Windows SmartScreen 可能提示"已保护你的电脑"——点"更多信息 → 仍要运行"即可，这是未签名个人作品的正常提示。
 

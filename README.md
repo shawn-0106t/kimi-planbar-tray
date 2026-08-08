@@ -24,10 +24,13 @@ A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/
 
 Get the latest exe from [Releases](../../releases):
 
-| Build | Size | Requirement |
-|---|---|---|
-| `KimiPlanbarTray.exe` | ~195 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed |
-| `KimiPlanbarTray-selfcontained.exe` | ~65 MB | Nothing — runtime bundled |
+| Build | Size | Requirement | Working set (measured) |
+|---|---|---|---|
+| `KimiPlanbarTray-wpf.exe` | ~195 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed | ~69 MB |
+| `KimiPlanbarTray-wpf-selfcontained.exe` | ~65 MB | Nothing — runtime bundled | ~69 MB |
+| `KimiPlanbarTray-rust.exe` | ~5.6 MB | Nothing — uses the system WebView2 | ~317 MB |
+
+Both editions share the same UI/UX (see `docs/UI-SPEC.md`) and the same settings file. Pick WPF for the smallest footprint, Rust for a .NET-free single file.
 
 > Windows SmartScreen may warn on first launch because the exe is not code-signed. Click "More info" → "Run anyway" — this is expected for unsigned personal builds.
 
