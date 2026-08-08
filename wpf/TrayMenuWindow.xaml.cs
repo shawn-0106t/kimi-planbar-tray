@@ -21,11 +21,13 @@ public partial class TrayMenuWindow : Window
     public void ShowAtCursor()
     {
         // Cursor.Position 返回物理像素，WPF 坐标是 DIP（系统 DPI 感知），
-        // 高 DPI 缩放下必须换算，否则菜单会偏出屏幕（表现为"没弹出来"）
+        // 高 DPI 缩放下必须换算，否则菜单会偏出屏幕（表现为"没弹出来"）。
+        // 多屏异 DPI 时必须用光标所在屏的缩放：隐藏状态的菜单窗口停在主屏，
+        // GetDpiForWindow 会拿错系数
         var pos = System.Windows.Forms.Cursor.Position;
         Show();
         var hwnd = new WindowInteropHelper(this).Handle;
-        double scale = GetDpiForWindow(hwnd) / 96.0;
+        double scale = GetDpiForPoint(pos.X, pos.Y) / 96.0;
         if (scale <= 0) scale = 1;
         double cx = pos.X / scale, cy = pos.Y / scale;
         var wa = SystemParameters.WorkArea;
@@ -75,5 +77,25 @@ public partial class TrayMenuWindow : Window
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hWnd);
+    private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+
+    // Effective DPI of the monitor containing the given physical pixel point.
+    private static double GetDpiForPoint(int x, int y)
+    {
+        const uint MONITOR_DEFAULTTONEAREST = 2;
+        const int MDT_EFFECTIVE_DPI = 0;
+        var mon = MonitorFromPoint(new POINT { X = x, Y = y }, MONITOR_DEFAULTTONEAREST);
+        if (mon != IntPtr.Zero &&
+            GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, out uint dx, out _) == 0 && dx > 0)
+        {
+            return dx;
+        }
+        return 96.0;
+    }
 }

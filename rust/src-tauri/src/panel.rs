@@ -48,6 +48,10 @@ pub fn show_panel(app: &AppHandle) {
     let Some(w) = app.get_webview_window("main") else {
         return;
     };
+    // Defensive re-size: tao can inflate a shown window's logical size when
+    // the display scale changes (WM_DPICHANGED computed with a stale scale
+    // factor). Pinning the size on every show keeps the panel at 424x512.
+    let _ = w.set_size(LogicalSize::new(PANEL_W, PANEL_H));
     let (_, _, right, bottom) = work_area_dip(app);
     // +22 compensates the margin growth (6 -> 28, shadow fade room): the window
     // shifts 22px left/up so the card's visible position is unchanged (card
@@ -129,12 +133,13 @@ pub fn on_main_blur(app: &AppHandle) {
     }
 }
 
-/// ShowAtCursor (SPEC 1.3): physical cursor px -> DIP via GetDpiForWindow,
-/// clamp horizontally, flip up near the bottom edge, then steal the foreground
-/// so the menu actually receives focus (otherwise Deactivated closes it at once).
+/// ShowAtCursor (SPEC 1.3): physical cursor px -> DIP, clamp horizontally,
+/// flip up near the bottom edge, then steal the foreground so the menu
+/// actually receives focus (otherwise Deactivated closes it at once).
 pub fn show_menu(app: &AppHandle, px: f64, py: f64) {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows::Win32::Foundation::{HWND, POINT};
+    use windows::Win32::Graphics::Gdi::{MonitorFromPoint, MONITOR_DEFAULTTONEAREST};
+    use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
     use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
 
     let Some(w) = app.get_webview_window("menu") else {
@@ -144,12 +149,24 @@ pub fn show_menu(app: &AppHandle, px: f64, py: f64) {
         .hwnd()
         .ok()
         .map(|h| HWND(h.0 as *mut core::ffi::c_void));
+    // Mixed-DPI multi-monitor: the px->DIP conversion must use the scale of
+    // the monitor UNDER THE CURSOR, not the menu window's (hidden windows sit
+    // on the primary monitor, so GetDpiForWindow would use the wrong scale).
     let mut scale = 1.0f64;
-    if let Some(h) = hwnd {
-        let dpi = unsafe { GetDpiForWindow(h) };
-        let s = dpi as f64 / 96.0;
-        if s > 0.0 {
-            scale = s;
+    unsafe {
+        let mon = MonitorFromPoint(
+            POINT {
+                x: px as i32,
+                y: py as i32,
+            },
+            MONITOR_DEFAULTTONEAREST,
+        );
+        let (mut dx, mut dy) = (0u32, 0u32);
+        if GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &mut dx, &mut dy).is_ok() {
+            let s = dx as f64 / 96.0;
+            if s > 0.0 {
+                scale = s;
+            }
         }
     }
     let cx = px / scale;

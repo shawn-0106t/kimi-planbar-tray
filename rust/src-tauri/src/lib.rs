@@ -119,6 +119,8 @@ fn open_settings(app: AppHandle) {
         .settings_open
         .store(true, Ordering::SeqCst);
     if let Some(w) = app.get_webview_window("settings") {
+        // Same DPI-inflation guard as show_panel: pin the size on every open.
+        let _ = w.set_size(tauri::LogicalSize::new(404.0, 464.0));
         let _ = w.show();
         let _ = w.set_focus();
     }
