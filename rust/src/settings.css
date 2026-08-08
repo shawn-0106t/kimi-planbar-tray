@@ -1,0 +1,66 @@
+/* SettingsWindow layout — 1:1 port of SettingsWindow.xaml (docs/UI-SPEC.md section 4) */
+
+#root {
+  border-radius: 14px;
+  background: var(--window-bg);
+  margin: 28px; /* shadow fade room: lets the 24px-blur box-shadow decay to 0
+                   before the window edge, so it is no longer hard-clipped into
+                   a translucent box outline */
+  /* padding instead of .content margin: child margin would collapse through
+     #root and flush the title bar against the card edge */
+  padding: 16px;
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.25); /* BlurRadius=24 Depth=2 Opacity=0.25 */
+  height: calc(100vh - 56px);
+  box-sizing: border-box;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Title bar: DockPanel Margin=2,0,2,16, whole row draggable */
+.titlebar {
+  display: flex;
+  align-items: center;
+  margin: 0 2px 16px 2px;
+  cursor: default;
+}
+.titlebar .logo {
+  width: 18px;
+  height: 18px;
+}
+.titlebar .title {
+  font-size: 15px;
+  font-weight: 600; /* SemiBold */
+  color: var(--text-primary);
+  margin-left: 10px;
+}
+.titlebar .chrome-close {
+  margin-left: auto;
+}
+
+/* Settings items: StackPanel Margin=6,0,4,0 */
+.body {
+  margin: 0 4px 0 6px;
+  display: flex;
+  flex-direction: column;
+}
+.section-title {
+  font-size: 13px;
+  font-weight: 600; /* SemiBold */
+  color: var(--text-secondary);
+}
+.pills {
+  display: flex;
+  margin-top: 10px;
+}
+.pills .pill {
+  margin-right: 6px;
+}
+.pills .pill:last-child {
+  margin-right: 0;
+}
+#btn-save {
+  width: 100%;
+}

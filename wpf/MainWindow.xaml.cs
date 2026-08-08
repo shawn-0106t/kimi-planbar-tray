@@ -29,8 +29,11 @@ public partial class MainWindow : Window
     {
         _hiding = false;
         var wa = SystemParameters.WorkArea;
-        Left = wa.Right - Width - 12;
-        Top = wa.Bottom - Height - 12;
+        // +22 compensates the root Border margin growing 6 -> 28 (shadow fade
+        // room): the visual card's right/bottom edges stay 18px off the work
+        // area, exactly where they were before
+        Left = wa.Right - Width - 12 + 22;
+        Top = wa.Bottom - Height - 12 + 22;
         Show();
         Activate();
         // 原生风格的滑入 + 淡入（AllowsTransparency 分层窗口上 AnimateWindow 不可靠，

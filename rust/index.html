@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kimi Planbar Tray</title>
+  </head>
+  <body>
+    <div id="root">
+      <div class="content">
+        <!-- Header (SPEC 3.1) -->
+        <div class="header">
+          <img id="logo" class="logo" alt="" />
+          <span class="title">Kimi Planbar Tray</span>
+          <span id="last-updated" class="last-updated"></span>
+        </div>
+
+        <!-- Usage cards (SPEC 3.2) -->
+        <div class="cards">
+          <div class="card card-left">
+            <div class="card-title">本周用量</div>
+            <div class="pct" id="week-pct">--</div>
+            <div class="bar"><div class="bar-fill" id="week-fill"></div></div>
+            <div class="reset" id="week-reset"></div>
+          </div>
+          <div class="card card-right">
+            <div class="card-title">5小时用量</div>
+            <div class="pct" id="five-pct">--</div>
+            <div class="bar"><div class="bar-fill" id="five-fill"></div></div>
+            <div class="reset" id="five-reset"></div>
+          </div>
+        </div>
+
+        <!-- Extra Usage card (SPEC 3.4) -->
+        <div class="card extra">
+          <div class="extra-row">
+            <span class="card-title">Extra Usage</span>
+            <span class="extra-balance" id="extra-balance">--</span>
+          </div>
+          <div class="extra-monthly" id="extra-monthly" hidden>
+            <div class="bar"><div class="bar-fill" id="extra-fill"></div></div>
+            <div class="extra-monthly-text" id="extra-monthly-text"></div>
+          </div>
+        </div>
+
+        <!-- Version row (SPEC 3.6) -->
+        <div class="card version" id="version-row" title="查看 Kimi Code Releases">
+          <span class="version-label">Kimi Code CLI</span>
+          <span class="version-right">
+            <span class="cli-version" id="cli-version">--</span>
+            <span class="badge" id="badge" hidden>发现新版本</span>
+          </span>
+        </div>
+
+        <!-- Bottom buttons (SPEC 3.7) -->
+        <div class="actions">
+          <button class="btn" id="btn-refresh">&#10227;  刷新</button>
+          <button class="btn" id="btn-settings">&#9881;  设置</button>
+          <button class="btn" id="btn-exit">&#9211;  退出</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
