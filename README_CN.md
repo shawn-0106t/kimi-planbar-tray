@@ -49,12 +49,23 @@
 
 ## 从源码构建
 
-需要 .NET 8 SDK（Windows）：
+本仓库包含两个版本：`wpf/`（原版 .NET 8 / WPF）和 `rust/`（Tauri 2 / Rust 重写版）。共享 UI/UX 规格见 `docs/UI-SPEC.md`。
+
+WPF 版——需要 .NET 8 SDK（Windows）：
 
 ```bash
+cd wpf
 dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 # 自包含版：
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish-sc
+```
+
+Rust 版——需要 Rust（stable，MSVC）、Node.js 18+ 和 WebView2 Runtime：
+
+```bash
+cd rust
+npm install
+npx tauri build   # 单文件 exe 产出于 src-tauri/target/release/
 ```
 
 无头自检（适合 CI 或改动后验证）：

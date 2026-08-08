@@ -2,6 +2,7 @@
 
 > 写给接力设备上的 Kimi Code 会话：读完本文件 + `docs/UI-SPEC.md` 即可无缝开工。
 > 上一份会话日期：2026-08-07。暂停原因：原设备（Windows，无管理员权限）无法安装 MSVC 构建工具，Rust 工具链无法落地。
+> 状态更新（2026-08-08）：**重写已完成并通过验证**（双端含阴影边距修复）；仓库已重组为 `wpf/` + `rust/` 双版本 monorepo，两个版本均继续维护。
 
 ## 1. 目标
 
@@ -19,14 +20,17 @@
 
 接力载体：**GitHub 仓库 [shawn-0106t/kimi-planbar-tray](https://github.com/shawn-0106t/kimi-planbar-tray) 的 `rust-rewrite` 分支**（从 main 切出，WPF 源码原样保留作只读参考）。
 
-分支上新增的文件：
+分支上的目录结构（2026-08-08 重组后）：
 
 ```
 kimi-planbar-tray/                 # rust-rewrite 分支
 ├── HANDOFF.md                     # 本文件（仓库根目录）
-├── docs/UI-SPEC.md                # UI/UX + 行为完整规格（343 行）
-├── docs/*.png                     # 原版界面截图（main 已有，作视觉对比基准）
-└── （其余为 WPF 源码，重写完成并验证前勿删）
+├── docs/UI-SPEC.md                # UI/UX + 行为完整规格（343 行，双端共享）
+├── docs/*.png                     # 原版界面截图（作视觉对比基准）
+├── wpf/                           # WPF / .NET 8 原版（继续维护）
+├── rust/                          # Tauri 2 / Rust 重写版（含 src-tauri/ + vanilla TS 前端）
+├── analyze_wpf_shadow.py          # 阴影 alpha 通道验证脚本
+└── measure_run.ps1                # 进程树性能测量脚本
 ```
 
 新设备上手：
@@ -84,8 +88,8 @@ Node.js 需要 18+（Tauri CLI 用），若无则 `winget install OpenJS.NodeJS.
 
 ## 7. 注意事项
 
-- 参考源码 = 分支根目录的 WPF 文件（同 main 分支），重写完成并验证前勿删。
-- 图标资产：复用仓库根目录 `kimi-logo.png`（Kimi 官方 logo，版权属 Moonshot AI，README 需保留非官方声明）。
+- 参考源码 = `wpf/` 目录（同 main 分支内容 + 后续修复），两个版本并行维护，勿删。
+- 图标资产：WPF 版用 `wpf/kimi-logo.png`，Rust 版用 `rust/src-tauri/icons/`（Kimi 官方 logo，版权属 Moonshot AI，README 需保留非官方声明）。
 - **许可证与归属**：保留 `LICENSE`（MIT © Shawn Qi）与 `NOTICE`（portions © baigong-ai / kimi-planbar）——Rust 重写属衍生作品，attribution 不可移除。
 - 代码/注释/提交信息跟随原项目英文风格；对话用中文。
 - 若打算发版回原仓库：先与用户确认是提 PR 还是另开仓库。

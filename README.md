@@ -49,12 +49,23 @@ No credentials are stored or sent anywhere except the official `api.kimi.com/cod
 
 ## Build from source
 
-Requires .NET 8 SDK (Windows):
+This repo hosts two editions: `wpf/` (original .NET 8 / WPF) and `rust/` (Tauri 2 / Rust rewrite). Shared UI/UX spec lives in `docs/UI-SPEC.md`.
+
+WPF edition — requires .NET 8 SDK (Windows):
 
 ```bash
+cd wpf
 dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 # self-contained variant:
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish-sc
+```
+
+Rust edition — requires Rust (stable, MSVC), Node.js 18+ and the WebView2 Runtime:
+
+```bash
+cd rust
+npm install
+npx tauri build   # single-file exe at src-tauri/target/release/
 ```
 
 Headless self-checks (useful in CI or after changes):
