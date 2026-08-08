@@ -30,9 +30,20 @@ public partial class TrayMenuWindow : Window
         double cx = pos.X / scale, cy = pos.Y / scale;
         var wa = SystemParameters.WorkArea;
         double h = ActualHeight, w = ActualWidth;
-        Left = Math.Min(cx, wa.Right - w - 8);
-        // 光标靠近屏幕底部时菜单向上弹出，否则向下
-        Top = cy + h + 24 > wa.Bottom ? cy - h - 8 : cy + 8;
+        // Root Border margin 24 is shadow fade room, not visual inset.
+        // Position the visual card (window minus both margins) so it lands
+        // exactly where the old 5px-margin menu did.
+        const double m = 24;
+        double cardW = w - 2 * m, cardH = h - 2 * m;
+        // Card left trails the cursor by 5 (the old margin); the right clamp
+        // keeps the card 13px inside the work area (old clamp 8 + old margin 5).
+        double cardX = Math.Min(cx + 5, wa.Right - cardW - 13);
+        // 光标靠近屏幕底部时菜单向上弹出，否则向下。
+        // Threshold matches the old window-edge test: old height = cardH + 10,
+        // plus the same 24px lookahead.
+        double cardY = cy + cardH + 34 > wa.Bottom ? cy - cardH - 13 : cy + 13;
+        Left = cardX - m;
+        Top = cardY - m;
         Activate();
         // 托盘点击的输入归 explorer，后台进程必须显式抢前台，
         // 否则菜单拿不到焦点会立刻被 Deactivated 关闭（表现为"没弹出来"）
