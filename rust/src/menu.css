@@ -1,0 +1,11 @@
+/* TrayMenuWindow layout — 1:1 port of TrayMenuWindow.xaml (docs/UI-SPEC.md section 1.3) */
+
+#root {
+  border-radius: 12px;
+  background: var(--window-bg);
+  margin: 24px; /* shadow fade room: lets the 20px-blur box-shadow decay to 0
+                   before the window edge, so it is no longer hard-clipped into
+                   a translucent box outline */
+  padding: 4px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3); /* BlurRadius=20 Depth=2 Opacity=0.3 */
+}

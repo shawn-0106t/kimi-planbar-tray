@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KimiPlanbarTray",
+  "version": "1.3.0",
+  "identifier": "com.shawnqi.kimiplanbartray",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kimi Planbar Tray",
+        "url": "index.html",
+        "width": 424,
+        "height": 512,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": false
+      },
+      {
+        "label": "settings",
+        "title": "Kimi Planbar Tray 设置",
+        "url": "settings.html",
+        "width": 404,
+        "height": 464,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "center": true,
+        "visible": false
+      },
+      {
+        "label": "menu",
+        "title": "Kimi Planbar Tray Menu",
+        "url": "menu.html",
+        "width": 188,
+        "height": 160,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png", "icons/icon.ico"]
+  }
+}

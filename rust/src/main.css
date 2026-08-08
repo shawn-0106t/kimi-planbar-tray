@@ -1,0 +1,183 @@
+/* MainWindow layout — 1:1 port of MainWindow.xaml (docs/UI-SPEC.md section 3) */
+
+/* Show/hide animation (SPEC 6.1/6.2): initial state = faded out, 16px down */
+#root {
+  border-radius: 14px;
+  background: var(--window-bg);
+  margin: 28px; /* shadow fade room: lets the 24px-blur box-shadow decay to 0
+                   before the window edge, so it is no longer hard-clipped into
+                   a translucent box outline */
+  /* padding (not .content margin) keeps the 16px inset: a child margin would
+     collapse through #root and flush the header against the card edge */
+  padding: 16px;
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.25); /* DropShadowEffect BlurRadius=24 Depth=2 Opacity=0.25 */
+  height: calc(100vh - 56px);
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(16px);
+}
+body.enter #root {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 160ms linear,
+    transform 220ms cubic-bezier(0.215, 0.61, 0.355, 1); /* CubicEase EaseOut */
+}
+body.leave #root {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 130ms linear,
+    transform 160ms cubic-bezier(0.55, 0.055, 0.675, 0.19); /* CubicEase EaseIn */
+}
+
+.content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header: DockPanel Margin=2,0,2,16 */
+.header {
+  display: flex;
+  align-items: center;
+  margin: 0 2px 16px 2px;
+}
+.header .logo {
+  width: 20px;
+  height: 20px;
+}
+.header .title {
+  font-size: 17px;
+  font-weight: 600; /* SemiBold */
+  color: var(--text-primary);
+  margin-left: 10px;
+}
+.header .last-updated {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Usage cards: UniformGrid Columns=2, gap 12 */
+.cards {
+  display: flex;
+  flex: 1;
+}
+.card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.card-left {
+  flex: 1;
+  margin-right: 6px;
+}
+.card-right {
+  flex: 1;
+  margin-left: 6px;
+}
+.card-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.pct {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 10px 0;
+  color: var(--text-primary);
+}
+
+/* Progress bar: 6px high capsule, 3px radius (SPEC 2.2) */
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--progress-track);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.reset {
+  font-size: 11px;
+  margin-top: 12px;
+  color: var(--text-secondary);
+}
+
+/* Extra Usage card (SPEC 3.4): Margin=0,12,0,0 Padding=16,12 */
+.extra {
+  margin-top: 12px;
+  padding: 12px 16px;
+}
+.extra-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.extra-balance {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+.extra-monthly {
+  margin-top: 8px;
+}
+.extra-monthly-text {
+  font-size: 11px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+/* Version row (SPEC 3.6): Margin=0,12,0,12 Padding=14,10 */
+.version {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.version-label {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.version-right {
+  display: flex;
+  align-items: center;
+}
+.cli-version {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.badge {
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  font-size: 11px;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+}
+
+/* Bottom buttons (SPEC 3.7): UniformGrid Columns=3, margins 0,0,6,0 / 3,0 / 6,0,0,0
+   (WPF margins don't collapse, so each gap is 6+3 = 9px) */
+.actions {
+  display: flex;
+}
+.actions .btn {
+  flex: 1;
+}
+.actions #btn-refresh {
+  margin-right: 6px;
+}
+.actions #btn-settings {
+  margin-left: 3px;
+  margin-right: 3px;
+}
+.actions #btn-exit {
+  margin-left: 6px;
+}

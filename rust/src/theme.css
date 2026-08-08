@@ -1,0 +1,214 @@
+/* Kimi Planbar Tray — shared theme (Moonlit light / Moondark dark)
+   1:1 port of Themes/{Light,Dark,Shared}.xaml from the WPF reference.
+   Brush key table: docs/UI-SPEC.md section 2.1 */
+
+:root[data-theme='light'] {
+  --accent: #1a88ff;
+  --window-bg: #f3f4f6;
+  --card-bg: #ffffff;
+  --text-primary: #1f2329;
+  --text-secondary: #6b7280;
+  --progress-track: #e5e7eb;
+  --button-bg: #e9ecf0;
+  --button-hover: #dce2e9;
+  --badge-bg: #fff0e0;
+  --badge-fg: #e06d00;
+}
+
+:root[data-theme='dark'] {
+  --accent: #1a88ff;
+  --window-bg: #17191e;
+  --card-bg: #23262d;
+  --text-primary: #f2f3f5;
+  --text-secondary: #9aa0a8;
+  --progress-track: #3a3e47;
+  --button-bg: #2c3039;
+  --button-hover: #3a404b;
+  --badge-bg: #3d2e1a;
+  --badge-fg: #f0a040;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: var(--text-primary);
+}
+
+/* ---- ActionButton (Shared.xaml) ---- */
+.btn {
+  padding: 10px 0;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--button-bg);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--button-hover);
+}
+
+/* ---- ThemeRadio (Shared.xaml): 18px circle + 8px inner dot ---- */
+.radio {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.radio input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.radio .circle {
+  position: relative;
+  width: 15px; /* 18px box minus 1.5px border each side */
+  height: 15px;
+  border: 1.5px solid var(--text-secondary);
+  border-radius: 50%;
+  background: transparent;
+  flex: none;
+}
+.radio .circle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--accent);
+  visibility: hidden;
+}
+.radio input:checked + .circle::after {
+  visibility: visible;
+}
+.radio .radio-text {
+  margin-left: 8px;
+}
+.radio:hover .radio-text {
+  color: var(--accent);
+}
+
+/* ---- PillRadio (Shared.xaml): segmented pill ---- */
+.pill {
+  cursor: pointer;
+}
+.pill input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.pill .pill-text {
+  display: block;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--button-bg);
+  border-radius: 9px;
+}
+.pill:hover .pill-text {
+  background: var(--button-hover);
+}
+.pill input:checked + .pill-text,
+.pill input:checked:hover + .pill-text {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* ---- ThemeCheckBox (Shared.xaml): 18px rounded square + white tick ---- */
+.checkbox {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.checkbox input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.checkbox .box {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--text-secondary);
+  border-radius: 5px;
+  background: transparent;
+  flex: none;
+}
+.checkbox .box::after {
+  content: '\2713'; /* ✓ */
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 15px;
+  text-align: center;
+  color: #ffffff;
+  visibility: hidden;
+}
+.checkbox input:checked + .box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.checkbox input:checked + .box::after {
+  visibility: visible;
+}
+.checkbox .checkbox-text {
+  margin-left: 8px;
+}
+
+/* ---- ChromeCloseButton (Shared.xaml) ---- */
+.chrome-close {
+  /* WPF Width=28 includes Padding=8,2 -> border-box so total width stays 28 */
+  box-sizing: border-box;
+  width: 28px;
+  padding: 2px 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+}
+.chrome-close:hover {
+  background: var(--button-hover);
+  color: var(--text-primary);
+}
+
+/* ---- MenuItemButton (Shared.xaml) ---- */
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: var(--button-hover);
+}
