@@ -18,7 +18,7 @@ A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/
 - **Hover-to-fresh** — hovering the tray icon prefetches quota in the background (10s throttle), so the tooltip and popup always show fresh numbers
 - **Extra Usage card** — shows your booster wallet balance (¥) and monthly charge usage/limit; gracefully shows "not activated / no data" when the wallet has never been topped up
 - **Portable & UAC-free** — single exe, per-user only (HKCU autostart, no admin rights, nothing written to HKLM or Program Files); drop an empty `portable.dat` next to the exe to store settings beside it instead of `%APPDATA%`
-- **Small footprint** — ~195 KB single-file build, ~80 MB working set at runtime, no background polling beyond the refresh timer
+- **Small footprint** — ~260 KB single-file build, ~80 MB working set at runtime, no background polling beyond the refresh timer
 
 ## Download
 
@@ -26,7 +26,7 @@ Get the latest exe from [Releases](../../releases):
 
 | Build | Size | Requirement | Working set (measured) |
 |---|---|---|---|
-| `KimiPlanbarTray-wpf.exe` | ~195 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed | ~69 MB |
+| `KimiPlanbarTray-wpf.exe` | ~260 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed | ~69 MB |
 | `KimiPlanbarTray-wpf-selfcontained.exe` | ~65 MB | Nothing — runtime bundled | ~69 MB |
 | `KimiPlanbarTray-rust.exe` | ~5.6 MB | Nothing — uses the system WebView2 | ~317 MB |
 
