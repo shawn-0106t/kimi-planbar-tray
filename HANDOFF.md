@@ -81,7 +81,7 @@ Node.js 需要 18+（Tauri CLI 用），若无则 `winget install OpenJS.NodeJS.
 
 - [ ] 视觉与交互对照 UI-SPEC 逐项一致（含动画时长/缓动、tooltip 格式、菜单定位边缘情况）
 - [ ] 断网/凭证失效时保留上次数据 + 30s 重试，不崩溃
-- [ ] Extra Usage 未开通时正确显示「未开通」（`isEnabled=false` 陷阱）
+- [ ] Extra Usage 未开通时正确显示 "Not activated"（`isEnabled=false` 陷阱）
 - [ ] portable.dat 便携模式、HKCU 自启、单实例均生效
 - [ ] `--test-fetch` / `--test-ui` 通过
 - [ ] 产物为单 exe（约 3 MB 量级），运行内存 ~10–20 MB，无 .NET 依赖

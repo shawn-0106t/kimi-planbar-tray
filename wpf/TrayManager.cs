@@ -44,7 +44,7 @@ public class TrayManager : IDisposable
         var l = App.Quota.Last;
         if (l == null) { _notify.Text = "Kimi Planbar Tray"; return; }
         _notify.Text = $"Kimi Planbar Tray  5h {Pct(l.FiveHour)} · week {Pct(l.Week)}"
-                       + (l.Error != null ? "（更新失败）" : "");
+                       + (l.Error != null ? " (update failed)" : "");
     }
 
     private static string Pct(QuotaSegment? s) => s == null ? "?" : $"{s.Percent:0}%";

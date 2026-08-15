@@ -47,7 +47,7 @@ No credentials are stored or sent anywhere except the official `api.kimi.com/cod
 - **Left-click tray icon** — show/hide the panel
 - **Right-click tray icon** — menu: Open / Refresh / Settings / Exit
 - **Hover the tray icon** — quick `5h X% · week Y%` tooltip
-- **Settings** — theme (follow system / Moonlit / Moondark), refresh interval, launch at login
+- **Settings** — theme (System default / Moonlit / Moondark), refresh interval, launch at login
 - **CLI version row** — click to open the Releases page
 
 ## Build from source

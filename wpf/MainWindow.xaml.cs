@@ -100,7 +100,7 @@ public partial class MainWindow : Window
         SetCard(WeekPct, WeekBarCol, WeekRestCol, WeekReset, r?.Week);
         SetCard(FivePct, FiveBarCol, FiveRestCol, FiveReset, r?.FiveHour);
         RenderExtra(r?.Extra);
-        LastUpdated.Text = r == null ? "" : r.Error != null ? "更新失败" : $"更新于 {r.FetchedAt.LocalDateTime:HH:mm}";
+        LastUpdated.Text = r == null ? "" : r.Error != null ? "Update failed" : $"Updated {r.FetchedAt.LocalDateTime:HH:mm}";
     }
 
     private void RenderExtra(ExtraInfo? e)
@@ -114,15 +114,15 @@ public partial class MainWindow : Window
         ExtraBalance.Text = e.State switch
         {
             ExtraState.Ready => e.BalanceCents.HasValue ? FmtYuan(e.BalanceCents.Value) : "--",
-            ExtraState.NoData => "无数据",
-            _ => "未开通",
+            ExtraState.NoData => "No data",
+            _ => "Not activated",
         };
         if (e.MonthlyEnabled && e.MonthlyLimitCents is > 0 && e.MonthlyUsedCents.HasValue)
         {
             double p = Math.Clamp((double)e.MonthlyUsedCents.Value / e.MonthlyLimitCents.Value * 100, 0, 100);
             ExtraBarCol.Width = new GridLength(p, GridUnitType.Star);
             ExtraRestCol.Width = new GridLength(100 - p, GridUnitType.Star);
-            ExtraMonthly.Text = $"本月已用 {FmtYuan(e.MonthlyUsedCents.Value)} / 上限 {FmtYuan(e.MonthlyLimitCents.Value)}";
+            ExtraMonthly.Text = $"Used {FmtYuan(e.MonthlyUsedCents.Value)} this month / {FmtYuan(e.MonthlyLimitCents.Value)} limit";
             ExtraMonthlyPanel.Visibility = Visibility.Visible;
         }
         else
@@ -161,15 +161,15 @@ public partial class MainWindow : Window
     private static string FormatReset(DateTimeOffset at)
     {
         var span = at - DateTimeOffset.Now;
-        if (span < TimeSpan.Zero) return "即将重置";
-        if (span.TotalDays >= 1) return $"{(int)span.TotalDays}天{span.Hours}小时后重置";
-        if (span.TotalHours >= 1) return $"{(int)span.TotalHours}小时{span.Minutes}分钟后重置";
-        return $"{Math.Max(1, span.Minutes)}分钟后重置";
+        if (span < TimeSpan.Zero) return "Resets soon";
+        if (span.TotalDays >= 1) return $"Resets in {(int)span.TotalDays}d {span.Hours}h";
+        if (span.TotalHours >= 1) return $"Resets in {(int)span.TotalHours}h {span.Minutes}m";
+        return $"Resets in {Math.Max(1, span.Minutes)}m";
     }
 
     private void RenderVersion()
     {
-        CliVersion.Text = App.Updates.LocalVersion ?? "未检测到";
+        CliVersion.Text = App.Updates.LocalVersion ?? "Not detected";
         NewVersionBadge.Visibility =
             App.Updates.UpdateAvailable ? Visibility.Visible : Visibility.Collapsed;
     }

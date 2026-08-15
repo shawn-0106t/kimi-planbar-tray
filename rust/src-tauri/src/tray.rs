@@ -93,7 +93,7 @@ fn on_hover(app: &AppHandle) {
     });
 }
 
-/// Tooltip: "Kimi Planbar Tray  5h X% · week Y%" (+ "（更新失败）" on error).
+/// Tooltip: "Kimi Planbar Tray  5h X% · week Y%" (+ " (update failed)" on error).
 pub fn update_tooltip(app: &AppHandle) {
     let st = app.state::<AppState>();
     let last: Option<QuotaResult> = st.last_quota.read().unwrap().clone();
@@ -106,7 +106,7 @@ pub fn update_tooltip(app: &AppHandle) {
                 pct(&l.week)
             );
             if l.error.is_some() {
-                t.push_str("（更新失败）");
+                t.push_str(" (update failed)");
             }
             t
         }

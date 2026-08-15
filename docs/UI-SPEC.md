@@ -30,7 +30,7 @@
 - 根 Border：`CornerRadius=14`，`Margin=6`，背景 `WindowBgBrush`，阴影同主面板（BlurRadius=24, Depth=2, Opacity=0.25）
 - 内容 Grid：`Margin=16`，2 行（Auto / *）
 - 自定义标题栏：整行 `MouseLeftButtonDown` 时 `DragMove()` 可拖动
-- 行为：失焦不自动关闭；仅 ✕ 按钮或「保存」关闭。单例复用。
+- 行为：失焦不自动关闭；仅 ✕ 按钮或 "Save" 关闭。单例复用。
 
 ### 1.3 托盘右键菜单（TrayMenuWindow）
 - 尺寸：`Width=150`，高度 `SizeToContent=Height`（4 项自适应）
@@ -50,7 +50,7 @@
 
 ### 2.1 画刷键值表（ARGB hex，源码原文）
 
-| 画刷 Key | Light（月之亮面） | Dark（月之暗面） |
+| 画刷 Key | Light（Moonlit） | Dark（Moondark） |
 |---|---|---|
 | `AccentBrush`（强调色/进度条） | `#FF1A88FF` | `#FF1A88FF` |
 | `WindowBgBrush`（窗口底） | `#FFF3F4F6` | `#FF17191E` |
@@ -75,7 +75,7 @@
 
 ## 3. 面板 UI 结构（MainWindow）
 
-整体：`Grid Margin=16`，5 行。所有文案为简体中文原文。
+整体：`Grid Margin=16`，5 行。所有文案为英文（术语对齐 Kimi console：Weekly usage / 5-hour usage / Extra Usage）。
 
 ### 3.1 头部（Row 0）
 - `DockPanel Margin=2,0,2,16`
@@ -83,23 +83,23 @@
 - 标题：`"Kimi Planbar Tray"`，`FontSize=17`，`FontWeight=SemiBold`，`TextPrimaryBrush`，`Margin=10,0,0,0`，垂直居中
 - 右侧（Dock Right）：`LastUpdated`，`FontSize=11`，`TextSecondaryBrush`，`Margin=12,0,0,0`
   - 无数据：空字符串
-  - 有错误：`"更新失败"`
-  - 正常：`"更新于 HH:mm"`（`FetchedAt` 本地时间，24 小时制）
+  - 有错误：`"Update failed"`
+  - 正常：`"Updated HH:mm"`（`FetchedAt` 本地时间，24 小时制）
 
 ### 3.2 用量卡片区（Row 1）
 - `UniformGrid Columns=2`，两张卡片：左卡 `Margin=0,0,6,0`，右卡 `Margin=6,0,0,0`（卡间距 12）
 - 卡片样式：`CardBgBrush`，`CornerRadius=12`，`Padding=16`
-- 左卡「本周用量」（week）/ 右卡「5小时用量」（5h），结构相同：
-  - 标题：`"本周用量"` / `"5小时用量"`，`FontSize=13`，`TextSecondaryBrush`
+- 左卡「Weekly usage」（week）/ 右卡「5-hour usage」（5h），结构相同：
+  - 标题：`"Weekly usage"` / `"5-hour usage"`，`FontSize=13`，`TextSecondaryBrush`
   - 百分比大字：默认 `"--"`，`FontSize=32`，`FontWeight=Bold`，`Margin=0,10,0,10`，`TextPrimaryBrush`；数据到达后为 `$"{Percent:0}%"`（显示用原始 Percent 未 clamp，进度条用 clamp 后值）
   - 进度条：`Grid Height=6`，两列（填充列起始 `0*` / 剩余列起始 `100*`）；底层 `Border CornerRadius=3` 跨两列 `ProgressTrackBrush`，上层填充 `Border CornerRadius=3 AccentBrush`（高 6、圆角 3 的胶囊条）
   - 重置倒计时：`FontSize=11`，`Margin=0,12,0,0`，`TextSecondaryBrush`
 
 ### 3.3 重置倒计时格式（`FormatReset`，`span = at - now`）
-- `span < 0`：`"即将重置"`
-- `>= 1 天`：`"{int(TotalDays)}天{Hours}小时后重置"`（例：`4天3小时后重置`）
-- `>= 1 小时`：`"{int(TotalHours)}小时{Minutes}分钟后重置"`
-- `< 1 小时`：`"{max(1, Minutes)}分钟后重置"`（至少显示 1 分钟）
+- `span < 0`：`"Resets soon"`
+- `>= 1 天`：`"Resets in {int(TotalDays)}d {Hours}h"`（例：`Resets in 4d 3h`）
+- `>= 1 小时`：`"Resets in {int(TotalHours)}h {Minutes}m"`
+- `< 1 小时`：`"Resets in {max(1, Minutes)}m"`（至少显示 1 分钟）
 - 无 `resetTime`：空字符串
 
 ### 3.4 Extra Usage 卡片（Row 2）
@@ -107,28 +107,28 @@
 - 第一行 DockPanel：左 `"Extra Usage"`（`FontSize=13`，`TextSecondaryBrush`），右 `ExtraBalance`（默认 `"--"`，`FontSize=18`，`FontWeight=Bold`，`TextPrimaryBrush`，右对齐）
 - 余额文案三态（`ExtraState`）：
   - `Ready`：有 `BalanceCents` 显示 `FmtYuan`（见 3.5），否则 `"--"`
-  - `NoData`：`"无数据"`
-  - 其他（`NotActivated`）：`"未开通"`
+  - `NoData`：`"No data"`
+  - 其他（`NotActivated`）：`"Not activated"`
 - 月度子面板 `ExtraMonthlyPanel`（`Margin=0,8,0,0`，默认 `Collapsed`）：仅当 `MonthlyEnabled && MonthlyLimitCents > 0 && MonthlyUsedCents.HasValue` 时显示
   - 同款进度条（高 6、圆角 3），`p = clamp(used/limit*100, 0, 100)`
-  - 文本：`"本月已用 {FmtYuan(used)} / 上限 {FmtYuan(limit)}"`，`FontSize=11`，`Margin=0,8,0,0`，`TextSecondaryBrush`
+  - 文本：`"Used {FmtYuan(used)} this month / {FmtYuan(limit)} limit"`，`FontSize=11`，`Margin=0,8,0,0`，`TextSecondaryBrush`
 
 ### 3.5 金额格式化（`FmtYuan`，单位：分 → 元）
 - 负数：`"-" + FmtYuan(-cents)`
 - `¥{cents/100}`，余数 > 0 时追加 `.{frac:00}`；整元省略小数。例：`1234 → "¥12.34"`，`10000 → "¥100"`
 
 ### 3.6 版本行（Row 3）
-- 整行可点击卡片：`Margin=0,12,0,12`，`Padding=14,10`，`CornerRadius=12`，`Cursor=Hand`，`ToolTip="查看 Kimi Code Releases"`
+- 整行可点击卡片：`Margin=0,12,0,12`，`Padding=14,10`，`CornerRadius=12`，`Cursor=Hand`，`ToolTip="View Kimi Code releases"`
 - 点击打开浏览器：`https://github.com/MoonshotAI/kimi-code/releases`（异常静默吞掉）
 - DockPanel：左 `"Kimi Code CLI"`（`FontSize=13`，`TextPrimaryBrush`）；右侧水平排列：
-  - `CliVersion`：默认 `"--"`，显示本地版本号或 `"未检测到"`，`FontSize=13`，`TextSecondaryBrush`
-  - 新版本徽标 `NewVersionBadge`：默认 `Collapsed`；`CornerRadius=8`，`Padding=8,2`，`Margin=8,0,0,0`，底 `BadgeBgBrush`，文字 `"发现新版本"` `FontSize=11` `BadgeFgBrush`
+  - `CliVersion`：默认 `"--"`，显示本地版本号或 `"Not detected"`，`FontSize=13`，`TextSecondaryBrush`
+  - 新版本徽标 `NewVersionBadge`：默认 `Collapsed`；`CornerRadius=8`，`Padding=8,2`，`Margin=8,0,0,0`，底 `BadgeBgBrush`，文字 `"Update available"` `FontSize=11` `BadgeFgBrush`
 
 ### 3.7 底部按钮（Row 4）
 - `UniformGrid Columns=3`，样式 `ActionButton`（见 4.3）：
-  - `"⟳  刷新"`（U+27F3 + 两个空格）`Margin=0,0,6,0` → `SafeRefresh()` + `CheckAsync()`
-  - `"⚙  设置"` `Margin=3,0` → 打开设置窗（期间抑制失焦收起）
-  - `"⏻  退出"` `Margin=6,0,0,0` → `Application.Current.Shutdown()`
+  - `"⟳  Refresh"`（U+27F3 + 两个空格）`Margin=0,0,6,0` → `SafeRefresh()` + `CheckAsync()`
+  - `"⚙  Settings"` `Margin=3,0` → 打开设置窗（期间抑制失焦收起）
+  - `"⏻  Exit"` `Margin=6,0,0,0` → `Application.Current.Shutdown()`
 
 ---
 
@@ -136,18 +136,18 @@
 
 ### 4.1 标题栏（Row 0）
 - `DockPanel Margin=2,0,2,16`，整行可拖动
-- logo `18x18` + 标题 `"Kimi Planbar Tray 设置"`（`FontSize=15`，`SemiBold`，`TextPrimaryBrush`，`Margin=10,0,0,0`）
+- logo `18x18` + 标题 `"Kimi Planbar Tray Settings"`（`FontSize=15`，`SemiBold`，`TextPrimaryBrush`，`Margin=10,0,0,0`）
 - 右侧关闭按钮 `"✕"`，样式 `ChromeCloseButton`
 
 ### 4.2 设置项（Row 1，`StackPanel Margin=6,0,4,0`）
 | 设置项 | 控件 | 选项 | 默认值 |
 |---|---|---|---|
-| 「主题」小标题（`FontSize=13 SemiBold TextSecondaryBrush`） | — | — | — |
-| 主题单选 | `RadioButton` x3，`GroupName="theme"`，样式 `ThemeRadio`；间距 `Margin=0,10,0,0` / `0,8,0,0` / `0,8,0,0` | `"跟随系统"`=system、`"月之亮面"`=light、`"月之暗面"`=dark | `"system"` |
-| 「刷新间隔」小标题（`Margin=0,20,0,0`） | — | — | — |
-| 刷新间隔 | 水平 `StackPanel Margin=0,10,0,0`，`RadioButton` x4，`GroupName="interval"`，样式 `PillRadio`，前三个 `Margin=0,0,6,0` | `"1 分钟"`(Tag=1)、`"5 分钟"`(Tag=5)、`"10 分钟"`(Tag=10)、`"30 分钟"`(Tag=30) | `5`（XAML 中 5 分钟 `IsChecked=True`） |
-| 开机自启 | `CheckBox "开机自动启动"`，样式 `ThemeCheckBox`，`Margin=0,22,0,0` | bool | `false` |
-| 保存 | `Button "保存"`，样式 `ActionButton`，`Margin=0,26,0,0` | — | — |
+| 「Theme」小标题（`FontSize=13 SemiBold TextSecondaryBrush`） | — | — | — |
+| 主题单选 | `RadioButton` x3，`GroupName="theme"`，样式 `ThemeRadio`；间距 `Margin=0,10,0,0` / `0,8,0,0` / `0,8,0,0` | `"System default"`=system、`"Moonlit (light)"`=light、`"Moondark (dark)"`=dark | `"system"` |
+| 「Refresh interval」小标题（`Margin=0,20,0,0`） | — | — | — |
+| 刷新间隔 | 水平 `StackPanel Margin=0,10,0,0`，`RadioButton` x4，`GroupName="interval"`，样式 `PillRadio`，前三个 `Margin=0,0,6,0` | `"1 min"`(Tag=1)、`"5 min"`(Tag=5)、`"10 min"`(Tag=10)、`"30 min"`(Tag=30) | `5`（XAML 中 5 min `IsChecked=True`） |
+| 开机自启 | `CheckBox "Launch at Windows startup"`，样式 `ThemeCheckBox`，`Margin=0,22,0,0` | bool | `false` |
+| 保存 | `Button "Save"`，样式 `ActionButton`，`Margin=0,26,0,0` | — | — |
 
 - 保存动作：写 `settings.json` → `ApplyAutoStart()` → `Theme.Apply(theme)` → `Quota.Reschedule()` → `Close()`。
 - 打开窗口时按当前设置回填勾选状态；`RefreshMinutes` 通过 Tag 字符串匹配。
@@ -168,12 +168,12 @@
 - **悬停（MouseMove）→ hover-to-refresh**：节流 **10 秒**（距上次 hover 刷新 <10s 则跳过），触发 `Quota.SafeRefresh()`（异步，不等待）。
 - **左键（MouseUp，Left）**：toggle 主面板。防重入：面板刚因失焦自动隐藏后的 **300 毫秒** 内的左键点击被忽略（`_lastHide` 判定，避免同一次点击先触发失焦隐藏又立刻弹回）。面板已可见 → `HideAnimated()`；不可见 → 单例复用 `ShowNearTray()`。
 - **右键（MouseUp，Right）**：关闭旧菜单实例，新建 `TrayMenuWindow` 并 `ShowAtCursor()`。
-  - 菜单项：「打开」→ 关菜单 + `TogglePopup()`；「刷新」→ 关菜单 + `SafeRefresh()` + `CheckAsync()`；「设置」→ 关菜单 + `ShowSettings()`；「退出」→ `Shutdown()`。
+  - 菜单项："Open" → 关菜单 + `TogglePopup()`；"Refresh" → 关菜单 + `SafeRefresh()` + `CheckAsync()`；"Settings" → 关菜单 + `ShowSettings()`；"Exit" → `Shutdown()`。
   - 用 `MouseUp` 而非 `MouseClick`（右键在无 ContextMenuStrip 时更可靠）。
 - **Tooltip（NotifyIcon.Text）**：
   - 无数据：`"Kimi Planbar Tray"`
   - 有数据：`"Kimi Planbar Tray  5h {x}% · week {y}%"`（两个空格分隔；段缺失显示 `"?"`；`Percent:0` 格式）
-  - 有错误时尾部追加 `"（更新失败）"`（全角括号），失败时仍展示保留的上次数据
+  - 有错误时尾部追加 `" (update failed)"`，失败时仍展示保留的上次数据
 - 图标加载：优先内嵌 `kimi-logo.png` 手工包装为 ICO（ICONDIR：reserved=0, type=1, count=1；入口 width=0/height=0 表示 256，32bpp，planes=1，payload offset=22）保留 alpha；资源缺失或异常时回退程序绘制的 32x32 蓝色圆球（圆 `(1,1,30,30)` 填充 `#1A88FF`，高光椭圆 `(7,5,10,7)` 填充 `rgba(255,255,255,90)`）。
 
 ---
@@ -221,10 +221,10 @@
 - **周段**：`root.usage`（对象）→ `ParseSegment`
 - `ParseSegment`：`percent = used/limit*100`（`used`、`limit` 兼容数字或数字字符串，缺失按 0；`limit<=0` 时按 1 防除零）；`resetTime`（字符串，`DateTimeOffset.TryParse`）→ `ResetAt`
 - **Extra Usage**：`root.boosterWallet`（对象）：
-  - 非对象/缺失 → `State = NotActivated`（"未开通"）
+  - 非对象/缺失 → `State = NotActivated`（"Not activated"）
   - `isEnabled == false` → `NotActivated`（防御：booster 未启用时 `amountLeft` 是"月度上限-已用"估算值而非真实余额，必须视为未开通——借鉴 KimiCodeBar v1.1.1 的 bug）
   - `balance.amountLeft`（字符串数字，兼容数字型）可解析 → `State = Ready`；单位 **1e-8 元**，换算分：`BalanceCents = (raw + 500000) / 1000000`（四舍五入）
-  - 否则 → `State = NoData`（"无数据"）
+  - 否则 → `State = NoData`（"No data"）
   - `monthlyChargeLimitEnabled == true` → `MonthlyEnabled=true`，`monthlyUsed.priceInCents` → `MonthlyUsedCents`，`monthlyChargeLimit.priceInCents` → `MonthlyLimitCents`（单位分，字符串数字）
 - **注意：服务端 JSON 数字一律按字符串建模**，解析时容忍数字型兜底。
 
@@ -256,7 +256,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - **5000ms** 超时等待退出，超时 `Kill()` 返回 null
 - 先 `WaitForExit` 再读输出（输出仅一行不会撑满管道缓冲）
 - 对 stdout+stderr 合并文本正则取首个 `\d+\.\d+\.\d+`
-- 任何异常 → null（面板显示 `"未检测到"`）
+- 任何异常 → null（面板显示 `"Not detected"`）
 
 ### 8.2 最新版本（两级 fallback）
 1. **官方文档站 changelog**（优先，英文版最及时；绕开 GitHub API 限流与 hosts 屏蔽）：
@@ -273,11 +273,11 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - `UpdateAvailable = latest != null && 两者均可解析为语义化版本 && latest > local`
 - `CheckFailed = latest == null`（网络不可达时静默降级，UI 不提示）
 - 完成后触发 `Updated` 事件
-- 触发时机：启动时后台执行；面板「刷新」按钮、托盘菜单「刷新」同步触发
+- 触发时机：启动时后台执行；面板 "Refresh" 按钮、托盘菜单 "Refresh" 同步触发
 
 ### 8.4 UI 表现
-- 版本行显示 `LocalVersion ?? "未检测到"`
-- `UpdateAvailable == true` 时显示橙色徽标「发现新版本」（颜色见 2.1 BadgeBg/BadgeFg）
+- 版本行显示 `LocalVersion ?? "Not detected"`
+- `UpdateAvailable == true` 时显示橙色徽标「Update available」（颜色见 2.1 BadgeBg/BadgeFg）
 - 整行点击跳转 `https://github.com/MoonshotAI/kimi-code/releases`
 
 ---
@@ -338,7 +338,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - **DPI 陷阱（Tauri/tao 复刻）**：tao 在 app 启动时就创建全部 HWND（隐藏），位置为 `CW_USEDEFAULT`——Windows 会把新窗口放在**启动者所在屏**（例如从副屏的资源管理器窗口双击 exe，隐藏窗口就挂在副屏，带上副屏的 scale）。之后跨屏定位时若用 `LogicalPosition`/`LogicalSize`，换算用的是窗口当前所在屏的 scale 而非目标屏，多屏异 DPI 下首开必偏。**规则：跨屏落位一律用 `PhysicalPosition`（面板按主屏工作区物理像素、菜单按光标所在屏物理像素）；尺寸保持 `LogicalSize`**——tao 在 `WM_DPICHANGED` 时会用逻辑尺寸 × 新 scale 重算物理尺寸，尺寸给物理值反而会被二次放大。WPF 版无此问题：`Window` 的 HWND 在 `Show()` 时才创建，`Left`/`Top` 已先设好，换算天然用目标屏 DPI。
 - **图标资源**：`kimi-logo.png` 嵌入程序集，用于：面板 logo（20x20）、设置窗 logo（18x18）、托盘图标（手工 PNG→ICO 包装，Vista+ 原生支持且保留 alpha）。Tauri 复刻需将同一 PNG 嵌入并提供 ICO（可用 `ico` crate 预生成，或直接内嵌 PNG 进 ICO 容器，同参考实现思路）。
 - **事件订阅生命周期**：主面板构造时订阅 `Quota.Updated`/`Updates.Updated`，关闭时取消订阅（窗口实际只 Hide 不 Close，单例复用）；托盘订阅 `Quota.Updated` 更新 tooltip，退出时退订并销毁托盘图标。
-- **异常处理基调**：所有 IO、注册表、外部进程、HTTP 调用均 try/catch 静默吞掉，失败路径以 UI 文案（"更新失败"/"未检测到"）或状态字段表达，绝不弹窗报错。
+- **异常处理基调**：所有 IO、注册表、外部进程、HTTP 调用均 try/catch 静默吞掉，失败路径以 UI 文案（"Update failed"/"Not detected"）或状态字段表达，绝不弹窗报错。
 - **金额单位陷阱**：`amountLeft` 是 1e-8 元（换算分需 `(raw + 500000) / 1000000` 四舍五入），`priceInCents` 才是分；JSON 中数字均为字符串。
-- **`isEnabled=false` 陷阱**：booster 未启用时 `amountLeft` 并非真实余额，必须整体判为"未开通"。
+- **`isEnabled=false` 陷阱**：booster 未启用时 `amountLeft` 并非真实余额，必须整体判为 "Not activated"。
 - **退出清理**：隐藏并销毁托盘图标 → 停刷新定时器 → 释放单实例 Mutex。

@@ -48,15 +48,15 @@ function renderExtra(extra: ExtraInfo | null | undefined): void {
   if (extra.state === 'Ready') {
     balance.textContent = extra.balanceCents != null ? fmtYuan(extra.balanceCents) : '--';
   } else if (extra.state === 'NoData') {
-    balance.textContent = '无数据';
+    balance.textContent = 'No data';
   } else {
-    balance.textContent = '未开通';
+    balance.textContent = 'Not activated';
   }
   if (extra.monthlyEnabled && extra.monthlyLimitCents != null && extra.monthlyLimitCents > 0 && extra.monthlyUsedCents != null) {
     const p = clampPercent((extra.monthlyUsedCents / extra.monthlyLimitCents) * 100);
     el('extra-fill').style.width = `${p}%`;
     el('extra-monthly-text').textContent =
-      `本月已用 ${fmtYuan(extra.monthlyUsedCents)} / 上限 ${fmtYuan(extra.monthlyLimitCents)}`;
+      `Used ${fmtYuan(extra.monthlyUsedCents)} this month / ${fmtYuan(extra.monthlyLimitCents)} limit`;
     monthlyPanel.hidden = false;
   } else {
     monthlyPanel.hidden = true;
@@ -71,17 +71,17 @@ function renderQuota(r: QuotaResult | null): void {
   if (!r) {
     lastUpdated.textContent = '';
   } else if (r.error) {
-    lastUpdated.textContent = '更新失败';
+    lastUpdated.textContent = 'Update failed';
   } else {
     const d = new Date(r.fetchedAt);
     const hh = String(d.getHours()).padStart(2, '0');
     const mm = String(d.getMinutes()).padStart(2, '0');
-    lastUpdated.textContent = `更新于 ${hh}:${mm}`;
+    lastUpdated.textContent = `Updated ${hh}:${mm}`;
   }
 }
 
 function renderVersion(u: UpdateStatus): void {
-  el('cli-version').textContent = u.localVersion ?? '未检测到';
+  el('cli-version').textContent = u.localVersion ?? 'Not detected';
   el('badge').hidden = !u.updateAvailable;
 }
 

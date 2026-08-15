@@ -62,24 +62,24 @@ export async function initTheme(): Promise<AppStateDto> {
 
 // ---- Formatting (UI-SPEC 3.3 / 3.5) ----
 
-/** FormatReset: span = at - now, Chinese countdown text. */
+/** FormatReset: span = at - now, English countdown text. */
 export function formatReset(atIso: string): string {
   const spanMs = new Date(atIso).getTime() - Date.now();
   if (Number.isNaN(spanMs)) return '';
-  if (spanMs < 0) return '即将重置';
+  if (spanMs < 0) return 'Resets soon';
   const totalSec = Math.floor(spanMs / 1000);
   const days = Math.floor(totalSec / 86400);
   if (days >= 1) {
     const hours = Math.floor(totalSec / 3600) % 24;
-    return `${days}天${hours}小时后重置`;
+    return `Resets in ${days}d ${hours}h`;
   }
   const totalHours = Math.floor(totalSec / 3600);
   if (totalHours >= 1) {
     const minutes = Math.floor(totalSec / 60) % 60;
-    return `${totalHours}小时${minutes}分钟后重置`;
+    return `Resets in ${totalHours}h ${minutes}m`;
   }
   const minutes = Math.floor(totalSec / 60);
-  return `${Math.max(1, minutes)}分钟后重置`;
+  return `Resets in ${Math.max(1, minutes)}m`;
 }
 
 /** FmtYuan: cents -> ¥, fraction omitted for whole yuan. */
