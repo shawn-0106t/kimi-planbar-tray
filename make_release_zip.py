@@ -15,7 +15,7 @@ import os
 import zipfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 OUT = os.path.join(ROOT, f"KimiPlanbarTray-v{VERSION}.zip")
 
 # (absolute source, arcname in zip)
