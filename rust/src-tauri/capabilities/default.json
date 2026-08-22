@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability set for all three windows",
-  "windows": ["main", "settings", "menu"],
+  "description": "Default capability set for all four windows",
+  "windows": ["main", "settings", "skills", "menu"],
   "permissions": ["core:default", "opener:default"]
 }

@@ -137,10 +137,11 @@ pub fn toggle_panel(app: &AppHandle, from_tray: bool) {
     }
 }
 
-/// Deactivated auto-hide, suppressed while the settings window is open (SPEC 11).
+/// Deactivated auto-hide, suppressed while the settings or skills window is
+/// open (SPEC 11 / 12).
 pub fn on_main_blur(app: &AppHandle) {
     let st = app.state::<AppState>();
-    if st.settings_open.load(Ordering::SeqCst) {
+    if st.settings_open.load(Ordering::SeqCst) || st.skills_open.load(Ordering::SeqCst) {
         return;
     }
     let visible = app

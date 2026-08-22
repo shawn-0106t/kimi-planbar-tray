@@ -1,5 +1,6 @@
 use crate::quota::QuotaResult;
 use crate::settings::SettingsData;
+use crate::skills::SkillInfo;
 use crate::update::UpdateStatus;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
@@ -20,6 +21,10 @@ pub struct AppState {
     pub panel_hiding: AtomicBool,
     /// While the settings window is open, panel focus-loss hide is suppressed
     pub settings_open: AtomicBool,
+    /// While the skills window is open, panel focus-loss hide is suppressed
+    pub skills_open: AtomicBool,
+    /// Lazy one-shot cache for the skills window (no background scanning)
+    pub skills_cache: RwLock<Option<Vec<SkillInfo>>>,
     /// Content-measured menu height in DIP (WPF SizeToContent equivalent)
     pub menu_height: Mutex<f64>,
     /// Fired when the polling schedule must restart (settings saved)
@@ -42,6 +47,8 @@ impl AppState {
             last_hover: Mutex::new(None),
             panel_hiding: AtomicBool::new(false),
             settings_open: AtomicBool::new(false),
+            skills_open: AtomicBool::new(false),
+            skills_cache: RwLock::new(None),
             menu_height: Mutex::new(160.0),
             reschedule: Arc::new(Notify::new()),
             retime: Arc::new(Notify::new()),

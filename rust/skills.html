@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kimi Skills</title>
+  </head>
+  <body>
+    <div id="root">
+      <div class="content">
+        <!-- Custom title bar, draggable (SPEC 12.1) -->
+        <div class="titlebar" id="titlebar">
+          <img id="logo" class="logo" alt="" />
+          <span class="title">Kimi Skills</span>
+          <button class="chrome-close" id="btn-close">&#10005;</button>
+        </div>
+
+        <!-- Summary + manual rescan (SPEC 12.2) -->
+        <div class="summary">
+          <span id="summary-text" class="summary-text">Loading…</span>
+          <button class="btn-mini" id="btn-refresh">&#10227; Refresh</button>
+        </div>
+
+        <!-- Grouped read-only skill list (SPEC 12.3) -->
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/skills.ts"></script>
+  </body>
+</html>

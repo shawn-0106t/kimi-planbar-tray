@@ -16,3 +16,7 @@ Desktop.ini
 
 ## Local tools / intermediates
 kimi logo.webp
+
+## Release artifacts (built locally, uploaded to GitHub Releases)
+KimiPlanbarTray-*.zip
+SHA256SUMS.txt

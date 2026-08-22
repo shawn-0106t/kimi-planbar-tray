@@ -21,6 +21,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         settings: resolve(__dirname, 'settings.html'),
+        skills: resolve(__dirname, 'skills.html'),
         menu: resolve(__dirname, 'menu.html'),
       },
     },

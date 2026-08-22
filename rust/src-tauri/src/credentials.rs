@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 
-fn home_dir() -> Option<PathBuf> {
+pub(crate) fn home_dir() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("USERPROFILE") {
         if !p.is_empty() {
             return Some(PathBuf::from(p));

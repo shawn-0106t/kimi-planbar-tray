@@ -7,6 +7,7 @@ pub mod panel;
 pub mod polling;
 pub mod quota;
 pub mod settings;
+pub mod skills;
 pub mod state;
 pub mod theme_watch;
 pub mod tray;
@@ -139,6 +140,49 @@ fn close_settings(app: AppHandle) {
     }
 }
 
+/// Skills window: same reuse pattern as settings (SPEC 12). The scan itself
+/// is lazy — it only runs when the frontend calls get_skills.
+#[tauri::command]
+fn open_skills(app: AppHandle) {
+    app.state::<AppState>()
+        .skills_open
+        .store(true, Ordering::SeqCst);
+    if let Some(w) = app.get_webview_window("skills") {
+        // Same DPI-inflation guard as show_panel: pin the size on every open.
+        let _ = w.set_size(tauri::LogicalSize::new(404.0, 520.0));
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+    let _ = app.emit("skills-show", ());
+}
+
+#[tauri::command]
+fn close_skills(app: AppHandle) {
+    app.state::<AppState>()
+        .skills_open
+        .store(false, Ordering::SeqCst);
+    if let Some(w) = app.get_webview_window("skills") {
+        let _ = w.hide();
+    }
+}
+
+/// Cached skill list; `refresh` forces a rescan. Read-only (SPEC 12.2).
+/// Async so the file scan never blocks the main thread / webviews.
+#[tauri::command]
+async fn get_skills(app: AppHandle, refresh: bool) -> Result<Vec<skills::SkillInfo>, ()> {
+    let st = app.state::<AppState>();
+    if !refresh {
+        if let Some(cached) = st.skills_cache.read().unwrap().clone() {
+            return Ok(cached);
+        }
+    }
+    let list = tauri::async_runtime::spawn_blocking(skills::scan)
+        .await
+        .unwrap_or_default();
+    *st.skills_cache.write().unwrap() = Some(list.clone());
+    Ok(list)
+}
+
 /// Save -> persist -> ApplyAutoStart -> apply theme -> Reschedule -> close (SPEC 4.2).
 #[tauri::command]
 fn save_settings(app: AppHandle, settings: SaveSettingsArgs) {
@@ -182,6 +226,7 @@ fn menu_action(app: AppHandle, action: String) {
         "open" => panel::toggle_panel(&app, false),
         "refresh" => refresh_now(app),
         "settings" => open_settings(app),
+        "skills" => open_skills(app),
         "quit" => app.exit(0),
         _ => {}
     }
@@ -230,12 +275,11 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         // Windows are single-instance reused: never destroy, only hide
         tauri::WindowEvent::CloseRequested { api, .. } => {
             api.prevent_close();
-            if window.label() == "settings" {
-                window
-                    .app_handle()
-                    .state::<AppState>()
-                    .settings_open
-                    .store(false, Ordering::SeqCst);
+            let st = window.app_handle().state::<AppState>();
+            match window.label() {
+                "settings" => st.settings_open.store(false, Ordering::SeqCst),
+                "skills" => st.skills_open.store(false, Ordering::SeqCst),
+                _ => {}
             }
             let _ = window.hide();
         }
@@ -249,6 +293,9 @@ fn invoke_handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'sta
         refresh_now,
         open_settings,
         close_settings,
+        open_skills,
+        close_skills,
+        get_skills,
         save_settings,
         open_releases,
         finish_hide_panel,
@@ -283,7 +330,7 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// --test-ui: apply the current theme and construct all three windows to
+/// --test-ui: apply the current theme and construct all four windows to
 /// validate resource resolution, printing one OK line per window (SPEC 10).
 /// Runs WITHOUT the single-instance plugin so it works alongside a live GUI.
 pub fn run_ui_test() {
@@ -295,6 +342,7 @@ pub fn run_ui_test() {
             for (label, name) in [
                 ("main", "MainWindow"),
                 ("settings", "SettingsWindow"),
+                ("skills", "SkillsWindow"),
                 ("menu", "TrayMenuWindow"),
             ] {
                 match app.get_webview_window(label) {
@@ -318,9 +366,11 @@ pub fn run_ui_test() {
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(2500));
                 let _ = handle.emit("panel-show", ());
+                // Lets the skills window render its list in --test-ui too.
+                let _ = handle.emit("skills-show", ());
             });
             std::thread::spawn(|| {
-                std::thread::sleep(std::time::Duration::from_millis(3000));
+                std::thread::sleep(std::time::Duration::from_millis(6000));
                 std::process::exit(0);
             });
             Ok(())
