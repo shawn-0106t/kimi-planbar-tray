@@ -320,7 +320,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 |---|---|---|
 | `--test-fetch` | 拉取一次额度，打印 JSON | `QuotaResult` 的 JSON（缩进格式、不转义非 ASCII） |
 | `--test-update` | 执行一次版本检查 | 单行：`local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | 应用当前主题后依次构造三个窗口验证资源解析与 XAML 加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
+| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust 版另有 `SkillsWindow OK`）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
 | `--screenshot <path> [--dark] [--mock]` | 真实（或模拟）额度数据 + 指定主题渲染主面板为 PNG（README 用） | `saved: <path>` |
 
 - `--screenshot`：默认 light 主题，`--dark` 切 dark；`--mock` 注入固定数据（5h=42% 3.5 小时后重置，week=68% 4 天后重置，Extra：余额 1234 分、月度已用 4567/上限 10000 分）；否则真实拉取。渲染为 96 DPI Pbgra32 PNG，自动创建输出目录。
@@ -342,3 +342,33 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - **金额单位陷阱**：`amountLeft` 是 1e-8 元（换算分需 `(raw + 500000) / 1000000` 四舍五入），`priceInCents` 才是分；JSON 中数字均为字符串。
 - **`isEnabled=false` 陷阱**：booster 未启用时 `amountLeft` 并非真实余额，必须整体判为 "Not activated"。
 - **退出清理**：隐藏并销毁托盘图标 → 停刷新定时器 → 释放单实例 Mutex。
+
+---
+
+## 12. Skills 只读窗口（Rust 版专属，v1.6 新增）
+
+借鉴 [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard) 的 `/api/skills` 思路，裁剪为纯只读展示。
+
+### 12.1 窗口
+
+- 范式完全复用设置窗：无边框透明、`margin: 28px` 阴影留白、自定义标题栏（logo 18×18 + 标题 "Kimi Skills" + ✕ 关闭，可拖动）、居中、置顶、跳过任务栏、不可缩放。
+- 尺寸：404×520（卡片可视区 348×464）。
+- 单例复用：关闭只 hide；打开时 pin 尺寸（同 show_panel 的 DPI 守卫）并 emit `skills-show` 让前端回填。
+- 打开期间置 `skills_open`，与 `settings_open` 一样抑制主面板失焦自动隐藏。
+
+### 12.2 数据源与性能
+
+- 三处根目录：`<kimi_home>/skills`（标签 "Kimi Code"）、`~/.agents/skills`（"Agents"）、`<kimi_home>/plugins/managed/<plugin>/skills`（"Plugin: <名>"）；`<kimi_home>` 支持 `KIMI_CODE_HOME` 覆盖。
+- 每个 `<dir>/<id>/SKILL.md` 只读前 4 KiB 解析 YAML frontmatter 的 `name` / `description`（手写行解析、去首尾引号，缺省回退目录名；不引 YAML 依赖）。字节读取后 `from_utf8_lossy` 解码，容忍 4 KiB 截断处切断的多字节字符与 GBK 混杂字节，并剥离 `---` 前的 UTF-8 BOM。
+- 前端纯事件驱动：skills 页面启动时（窗口隐藏）**不**加载数据，扫描完全由 `open_skills` 发出的 `skills-show` 事件触发（listener 在 `initTheme` 前注册防竞态）。
+- 禁用集合：`~/.agents/.skill-lock.json` 的 `disabled` 键（只读，绝不写回）。
+- **零后台开销**：不轮询、不监视文件；只在窗口首次打开时扫描一次并缓存进 `AppState`，`get_skills(refresh=false)` 直接回缓存；窗口上的 Refresh 按钮传 `refresh=true` 强制重扫。
+
+### 12.3 呈现
+
+- 顶部汇总行：`N skills · M enabled` + Refresh 按钮。
+- 列表按来源分组（组内按名称不区分大小写排序），可滚动；每项为卡片：名称（SemiBold、单行省略）+ 描述（12px、2 行 clamp，完整描述放卡片 tooltip）。
+- 禁用项整体 opacity 0.5 并带 "disabled" 徽标（复用 badge 配色）。
+- 全部颜色走 `theme.css` 变量，自动跟随 Moonlit/Moondark。
+- 前端渲染一律 `textContent`（skill 描述是外部输入，不用 innerHTML）。
+- 入口：托盘右键菜单新增 "Skills"（位于 Settings 与 Exit 之间），菜单高度由前端内容自适应上报，无需改定位逻辑。

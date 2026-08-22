@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kimi Planbar Tray — Windows 11 Fluent redesign demo</title>
+<style>
+  /* ============================================================
+     Demo page chrome (not part of the redesign)
+     ============================================================ */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 40px 64px;
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    background: #202020;
+    color: #1b1b1b;
+    transition: background 150ms;
+  }
+  html[data-theme="light"] body { background: #e8e8e8; color: #1b1b1b; }
+  html[data-theme="dark"]  body { background: #202020; color: #f3f3f3; }
+
+  .page-head { max-width: 1280px; margin: 0 auto 8px; }
+  .page-head h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .page-head p  { font-size: 13px; opacity: .75; margin: 0 0 16px; max-width: 900px; line-height: 1.5; }
+
+  .theme-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 8px; margin-bottom: 24px; }
+  html[data-theme="light"] .theme-switch { background: #d6d6d6; }
+  html[data-theme="dark"]  .theme-switch { background: #2b2b2b; }
+  .theme-switch button {
+    font: inherit; font-size: 13px; padding: 5px 14px; border: none; border-radius: 6px;
+    cursor: pointer; background: transparent; color: inherit; opacity: .7;
+  }
+  .theme-switch button.on { background: #1a88ff; color: #fff; opacity: 1; }
+
+  .columns { display: flex; gap: 48px; max-width: 1700px; margin: 0 auto; align-items: flex-start; flex-wrap: wrap; }
+  .col { flex: 1 1 400px; max-width: 520px; }
+  .col > h2 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+  .col > .col-sub { font-size: 12px; opacity: .65; margin: 0 0 20px; }
+  .stage { padding: 28px; border-radius: 12px; margin-bottom: 32px; display: flex; justify-content: center; }
+  html[data-theme="light"] .stage { background: #d0d0d0; }
+  html[data-theme="dark"]  .stage { background: #2b2b2b; }
+  .stage-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .55; margin: 0 0 8px; }
+
+  /* ============================================================
+     App theme palettes (identical to production Moonlit/Moondark,
+     docs/UI-SPEC.md section 2.1)
+     ============================================================ */
+  .app[data-theme="light"] {
+    --accent: #1a88ff; --window-bg: #f3f4f6; --card-bg: #ffffff;
+    --text-primary: #1f2329; --text-secondary: #6b7280;
+    --progress-track: #e5e7eb; --button-bg: #e9ecf0; --button-hover: #dce2e9;
+    --badge-bg: #fff0e0; --badge-fg: #e06d00;
+    --divider: rgba(0,0,0,.08); --btn-border: rgba(0,0,0,.08); --btn-border-strong: rgba(0,0,0,.20);
+  }
+  .app[data-theme="dark"] {
+    --accent: #1a88ff; --window-bg: #17191e; --card-bg: #23262d;
+    --text-primary: #f2f3f5; --text-secondary: #9aa0a8;
+    --progress-track: #3a3e47; --button-bg: #2c3039; --button-hover: #3a404b;
+    --badge-bg: #3d2e1a; --badge-fg: #f0a040;
+    --divider: rgba(255,255,255,.08); --btn-border: rgba(255,255,255,.08); --btn-border-strong: rgba(255,255,255,.20);
+  }
+
+  /* ============================================================
+     Variant tokens — the ONLY difference between the two columns
+     ============================================================ */
+  /* Current (production today, macOS-leaning) */
+  .variant-current {
+    --r-window: 14px; --r-card: 12px; --r-btn: 10px; --r-menu: 12px; --r-menu-item: 8px;
+    --r-bar: 3px;  --bar-h: 6px;
+    --font: "Segoe UI", system-ui, sans-serif;
+    --fs-body: 13px; --fs-small: 11px; --fs-pct: 32px; --w-pct: 700;
+    --fs-title: 17px; --fs-settings-title: 15px; --fs-balance: 18px; --w-balance: 700;
+    --menu-pad: 9px 14px; --btn-pad: 10px 0;
+  }
+  /* Windows 11 Fluent (proposal)
+     Sources: geometry 8/4px  -> learn.microsoft.com/windows/apps/design/signature-experiences/geometry
+              type ramp        -> learn.microsoft.com/windows/apps/design/signature-experiences/typography */
+  .variant-fluent {
+    --r-window: 8px;  --r-card: 8px;  --r-btn: 4px;  --r-menu: 8px;  --r-menu-item: 4px;
+    --r-bar: 4px;  --bar-h: 6px;
+    --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --fs-body: 14px; --fs-small: 12px; --fs-pct: 28px; --w-pct: 600;
+    --fs-title: 14px; --fs-settings-title: 14px; --fs-balance: 16px; --w-balance: 600;
+    --menu-pad: 8px 12px; --btn-pad: 8px 0;
+  }
+
+  /* ============================================================
+     Shared components (structure identical across variants)
+     ============================================================ */
+  .app {
+    font-family: var(--font);
+    color: var(--text-primary);
+    user-select: none;
+  }
+
+  /* ---- Main panel (MainWindow, 380x468 content area) ---- */
+  .panel {
+    width: 368px;
+    border-radius: var(--r-window);
+    background: var(--window-bg);
+    box-shadow: 0 2px 24px rgba(0,0,0,.25);
+    padding: 16px;
+  }
+  .p-header { display: flex; align-items: center; margin: 0 2px 16px; }
+  .p-header img { width: 20px; height: 20px; }
+  .p-header .title { font-size: var(--fs-title); font-weight: 600; margin-left: 10px; }
+  .p-header .stamp { margin-left: auto; padding-left: 12px; font-size: var(--fs-small); color: var(--text-secondary); }
+
+  .p-cards { display: flex; }
+  .card { background: var(--card-bg); border-radius: var(--r-card); padding: 16px; }
+  .card.left  { flex: 1; margin-right: 6px; }
+  .card.right { flex: 1; margin-left: 6px; }
+  .card-title { font-size: var(--fs-body); color: var(--text-secondary); }
+  .pct { font-size: var(--fs-pct); font-weight: var(--w-pct); margin: 10px 0; }
+
+  .bar { height: var(--bar-h); border-radius: var(--r-bar); background: var(--progress-track); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: var(--r-bar); background: var(--accent); }
+  .reset { font-size: var(--fs-small); margin-top: 12px; color: var(--text-secondary); }
+
+  .card.extra { margin-top: 12px; padding: 12px 16px; }
+  .extra-row { display: flex; align-items: center; justify-content: space-between; }
+  .extra-balance { font-size: var(--fs-balance); font-weight: var(--w-balance); }
+  .extra-monthly { margin-top: 8px; }
+  .extra-monthly-text { font-size: var(--fs-small); margin-top: 8px; color: var(--text-secondary); }
+
+  .card.version {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 12px 0; padding: 10px 14px; cursor: pointer;
+  }
+  .version-label { font-size: var(--fs-body); }
+  .version-right { display: flex; align-items: center; }
+  .cli-version { font-size: var(--fs-body); color: var(--text-secondary); }
+  .badge {
+    border-radius: 8px; padding: 2px 8px; margin-left: 8px;
+    font-size: var(--fs-small); background: var(--badge-bg); color: var(--badge-fg);
+  }
+
+  .p-actions { display: flex; }
+  .btn {
+    flex: 1; padding: var(--btn-pad);
+    font-family: inherit; font-size: var(--fs-body);
+    color: var(--text-primary); background: var(--button-bg);
+    border: none; border-radius: var(--r-btn); cursor: pointer;
+  }
+  .btn:hover { background: var(--button-hover); }
+  .p-actions .btn + .btn { margin-left: 8px; }
+
+  /* ---- Tray menu (TrayMenuWindow) ---- */
+  .menu {
+    width: 160px;
+    border-radius: var(--r-menu);
+    background: var(--window-bg);
+    box-shadow: 0 2px 20px rgba(0,0,0,.3);
+    padding: 4px;
+  }
+  .menu-item {
+    display: block; width: 100%; padding: var(--menu-pad);
+    font-family: inherit; font-size: var(--fs-body); text-align: left;
+    color: var(--text-primary); background: transparent;
+    border: none; border-radius: var(--r-menu-item); cursor: pointer;
+  }
+  .menu-item:hover { background: var(--button-hover); }
+
+  /* ---- Settings window (SettingsWindow) ---- */
+  .settings {
+    width: 348px;
+    border-radius: var(--r-window);
+    background: var(--window-bg);
+    box-shadow: 0 2px 24px rgba(0,0,0,.25);
+    padding: 16px;
+  }
+  .s-titlebar { display: flex; align-items: center; margin: 0 2px 16px; }
+  .s-titlebar img { width: 18px; height: 18px; }
+  .s-titlebar .title { font-size: var(--fs-settings-title); font-weight: 600; margin-left: 10px; }
+  .s-close {
+    margin-left: auto; width: 28px; padding: 2px 8px; font-size: 14px; font-family: inherit;
+    color: var(--text-secondary); background: transparent; border: none;
+    border-radius: var(--r-btn); cursor: pointer; text-align: center;
+  }
+  .s-close:hover { background: var(--button-hover); color: var(--text-primary); }
+  .s-body { margin: 0 4px 0 6px; }
+  .section-title { font-size: var(--fs-body); font-weight: 600; color: var(--text-secondary); }
+
+  .radio { display: flex; align-items: center; font-size: var(--fs-body); cursor: pointer; margin-top: 8px; }
+  .radio input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .radio .circle {
+    position: relative; width: 15px; height: 15px; flex: none;
+    border: 1.5px solid var(--text-secondary); border-radius: 50%; background: transparent;
+  }
+  .radio .circle::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px;
+    margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent); visibility: hidden;
+  }
+  .radio input:checked + .circle::after { visibility: visible; }
+  .radio .radio-text { margin-left: 8px; }
+  .radio:hover .radio-text { color: var(--accent); }
+
+  .pills { display: flex; margin-top: 10px; gap: 6px; }
+  .pill { cursor: pointer; }
+  .pill input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .pill .pill-text {
+    display: block; padding: 6px 12px; font-size: var(--fs-small);
+    background: var(--button-bg); border-radius: var(--r-btn);
+  }
+  .pill:hover .pill-text { background: var(--button-hover); }
+  .pill input:checked + .pill-text,
+  .pill input:checked:hover + .pill-text { background: var(--accent); color: #fff; }
+
+  .checkbox { display: flex; align-items: center; font-size: var(--fs-body); cursor: pointer; margin-top: 22px; }
+  .checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .checkbox .box {
+    position: relative; width: 15px; height: 15px; flex: none;
+    border: 1.5px solid var(--text-secondary); border-radius: 4px; background: transparent;
+  }
+  .checkbox .box::after {
+    content: "\2713"; position: absolute; inset: 0; font-size: 12px; font-weight: 600;
+    line-height: 15px; text-align: center; color: #fff; visibility: hidden;
+  }
+  .checkbox input:checked + .box { background: var(--accent); border-color: var(--accent); }
+  .checkbox input:checked + .box::after { visibility: visible; }
+  .checkbox .checkbox-text { margin-left: 8px; }
+
+  .s-save { width: 100%; margin-top: 26px; }
+
+  /* ============================================================
+     Variant 3 — Windows 11 native (WinUI / Settings-app language)
+     No cards: content sits on the window surface with 1px dividers,
+     standard bordered buttons, ToggleSwitch, accent primary button.
+     ============================================================ */
+  .variant-native {
+    --fs-body: 14px; /* feeds the shared .radio component */
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  .n-panel, .n-settings {
+    width: 368px; border-radius: 8px; background: var(--window-bg);
+    box-shadow: 0 2px 24px rgba(0,0,0,.25); padding: 16px;
+  }
+  .n-header { display: flex; align-items: center; margin: 0 2px 12px; }
+  .n-header img { width: 16px; height: 16px; }
+  .n-header .title { font-size: 14px; font-weight: 600; margin-left: 8px; }
+  .n-header .stamp { margin-left: auto; font-size: 12px; color: var(--text-secondary); }
+  .n-close {
+    margin-left: auto; width: 32px; height: 28px; font-size: 12px; font-family: inherit;
+    color: var(--text-secondary); background: transparent; border: none;
+    border-radius: 4px; cursor: pointer;
+  }
+  .n-close:hover { background: var(--button-hover); color: var(--text-primary); }
+
+  .n-stats { display: flex; gap: 20px; padding: 2px 2px 0; }
+  .n-stat { flex: 1; }
+  .n-stat .lbl { font-size: 12px; color: var(--text-secondary); }
+  .n-stat .val { font-size: 24px; font-weight: 600; margin: 2px 0 6px; }
+  .n-stat .reset { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+  .n-bar { height: 4px; border-radius: 2px; background: var(--progress-track); overflow: hidden; }
+  .n-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+
+  .n-divider { height: 1px; background: var(--divider); margin: 12px 0; }
+
+  .n-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 6px; margin: 0 -6px; border-radius: 4px;
+  }
+  .n-row.link { cursor: pointer; }
+  .n-row.link:hover { background: var(--button-bg); }
+  .n-row .lbl { font-size: 14px; }
+  .n-row .val { font-size: 14px; font-weight: 600; }
+  .n-row .ver { font-size: 12px; color: var(--text-secondary); }
+  .n-row .right { display: flex; align-items: center; }
+  .n-chevron { color: var(--text-secondary); font-size: 14px; margin-left: 8px; }
+  .n-badge {
+    border-radius: 4px; padding: 2px 6px; margin-left: 8px; font-size: 12px;
+    background: var(--badge-bg); color: var(--badge-fg);
+  }
+  .n-monthly { padding: 0 6px 6px; }
+  .n-monthly-text { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+  .n-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .n-btn {
+    flex: 1; padding: 7px 0; font-family: inherit; font-size: 14px;
+    color: var(--text-primary); background: var(--button-bg);
+    border: 1px solid var(--btn-border); border-bottom-color: var(--btn-border-strong);
+    border-radius: 4px; cursor: pointer;
+  }
+  .n-btn:hover { background: var(--button-hover); }
+  .n-btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .n-btn.accent:hover { background: var(--accent); filter: brightness(1.08); }
+
+  .n-menu {
+    width: 180px; border-radius: 8px; background: var(--window-bg);
+    box-shadow: 0 2px 20px rgba(0,0,0,.3); padding: 4px;
+  }
+  .n-menu-item {
+    display: flex; align-items: center; width: 100%; height: 32px; padding: 0 12px;
+    font-family: inherit; font-size: 14px; text-align: left;
+    color: var(--text-primary); background: transparent; border: none;
+    border-radius: 4px; cursor: pointer;
+  }
+  .n-menu-item:hover { background: var(--button-hover); }
+
+  .n-section { font-size: 14px; font-weight: 600; margin: 14px 2px 2px; }
+  .n-section:first-child { margin-top: 0; }
+  .n-radios { display: flex; gap: 16px; padding: 6px 2px; flex-wrap: wrap; }
+
+  /* ToggleSwitch (WinUI default for on/off settings) */
+  .n-switch { display: flex; align-items: center; font-size: 14px; cursor: pointer; margin: 14px 2px 0; }
+  .n-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .n-switch .track {
+    position: relative; width: 40px; height: 20px; flex: none;
+    border-radius: 10px; border: 1px solid var(--text-secondary); background: transparent;
+  }
+  .n-switch .track::after {
+    content: ""; position: absolute; left: 3px; top: 50%; width: 12px; height: 12px;
+    margin-top: -6px; border-radius: 50%; background: var(--text-secondary);
+  }
+  .n-switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+  .n-switch input:checked + .track::after { left: 23px; background: #fff; }
+  .n-switch .sw-text { margin-left: 12px; }
+  .n-save { width: 100%; margin-top: 20px; }
+
+  /* ---- Change list footer ---- */
+  .changes { max-width: 1280px; margin: 8px auto 0; font-size: 13px; line-height: 1.6; }
+  .changes h2 { font-size: 15px; font-weight: 600; }
+  .changes table { border-collapse: collapse; width: 100%; }
+  .changes th, .changes td { text-align: left; padding: 6px 10px; vertical-align: top; }
+  .changes th { font-size: 12px; opacity: .65; font-weight: 600; }
+  .changes tr + tr td { border-top: 1px solid rgba(128,128,128,.25); }
+  .changes code { font-size: 12px; }
+  .changes a { color: #1a88ff; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Kimi Planbar Tray — Windows 11 Fluent redesign demo</h1>
+  <p>Three-way comparison: <b>Current</b> (faithful replica of production tokens), <b>Windows 11 Fluent</b>
+     (same card layout, Fluent geometry + typography tokens), and <b>Windows 11 native</b> (structural rework in
+     the Settings-app language — no cards, list rows with dividers, ToggleSwitch, accent primary button).
+     Mock data per UI-SPEC --screenshot --mock. English copy follows the Kimi console terminology
+     (Weekly usage / 5-hour usage / Extra Usage / Update available).</p>
+  <div class="theme-switch" id="themeSwitch">
+    <button data-t="light" class="on">Moonlit (light)</button>
+    <button data-t="dark">Moondark (dark)</button>
+  </div>
+</div>
+
+<div class="columns">
+
+  <!-- ============ LEFT: CURRENT ============ -->
+  <div class="col variant-current app" data-theme="light">
+    <h2>Current</h2>
+    <p class="col-sub">14/12px radii &middot; 13px body &middot; 32px Bold figures</p>
+
+    <p class="stage-label">Main panel</p>
+    <div class="stage"><div class="panel">
+      <div class="p-header">
+        <img src="../rust/src/assets/kimi-logo.png" alt="" />
+        <span class="title">Kimi Planbar Tray</span>
+        <span class="stamp">Updated 14:34</span>
+      </div>
+      <div class="p-cards">
+        <div class="card left">
+          <div class="card-title">Weekly usage</div>
+          <div class="pct">68%</div>
+          <div class="bar"><div class="bar-fill" style="width:68%"></div></div>
+          <div class="reset">Resets in 4d 3h</div>
+        </div>
+        <div class="card right">
+          <div class="card-title">5-hour usage</div>
+          <div class="pct">42%</div>
+          <div class="bar"><div class="bar-fill" style="width:42%"></div></div>
+          <div class="reset">Resets in 3h 30m</div>
+        </div>
+      </div>
+      <div class="card extra">
+        <div class="extra-row">
+          <span class="card-title">Extra Usage</span>
+          <span class="extra-balance">&#165;12.34</span>
+        </div>
+        <div class="extra-monthly">
+          <div class="bar"><div class="bar-fill" style="width:46%"></div></div>
+          <div class="extra-monthly-text">Used &#165;45.67 this month / &#165;100 limit</div>
+        </div>
+      </div>
+      <div class="card version" title="View Kimi Code releases">
+        <span class="version-label">Kimi Code CLI</span>
+        <span class="version-right">
+          <span class="cli-version">0.31.1</span>
+          <span class="badge">Update available</span>
+        </span>
+      </div>
+      <div class="p-actions">
+        <button class="btn">&#10227;&nbsp;&nbsp;Refresh</button>
+        <button class="btn">&#9881;&nbsp;&nbsp;Settings</button>
+        <button class="btn">&#9211;&nbsp;&nbsp;Exit</button>
+      </div>
+    </div></div>
+
+    <p class="stage-label">Tray menu</p>
+    <div class="stage"><div class="menu">
+      <button class="menu-item">Open</button>
+      <button class="menu-item">Refresh</button>
+      <button class="menu-item">Settings</button>
+      <button class="menu-item">Exit</button>
+    </div></div>
+
+    <p class="stage-label">Settings window</p>
+    <div class="stage"><div class="settings">
+      <div class="s-titlebar">
+        <img src="../rust/src/assets/kimi-logo.png" alt="" />
+        <span class="title">Kimi Planbar Tray Settings</span>
+        <button class="s-close">&#10005;</button>
+      </div>
+      <div class="s-body">
+        <div class="section-title">Theme</div>
+        <label class="radio"><input type="radio" name="theme-c" checked /><span class="circle"></span><span class="radio-text">System default</span></label>
+        <label class="radio"><input type="radio" name="theme-c" /><span class="circle"></span><span class="radio-text">Moonlit (light)</span></label>
+        <label class="radio"><input type="radio" name="theme-c" /><span class="circle"></span><span class="radio-text">Moondark (dark)</span></label>
+
+        <div class="section-title" style="margin-top:20px">Refresh interval</div>
+        <div class="pills">
+          <label class="pill"><input type="radio" name="int-c" /><span class="pill-text">1 min</span></label>
+          <label class="pill"><input type="radio" name="int-c" checked /><span class="pill-text">5 min</span></label>
+          <label class="pill"><input type="radio" name="int-c" /><span class="pill-text">10 min</span></label>
+          <label class="pill"><input type="radio" name="int-c" /><span class="pill-text">30 min</span></label>
+        </div>
+
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span><span class="checkbox-text">Launch at Windows startup</span></label>
+
+        <button class="btn s-save">Save</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ RIGHT: WINDOWS 11 FLUENT ============ -->
+  <div class="col variant-fluent app" data-theme="light">
+    <h2>Windows 11 Fluent</h2>
+    <p class="col-sub">8/4px radii &middot; 14px body &middot; 28px Semibold figures</p>
+
+    <p class="stage-label">Main panel</p>
+    <div class="stage"><div class="panel">
+      <div class="p-header">
+        <img src="../rust/src/assets/kimi-logo.png" alt="" />
+        <span class="title">Kimi Planbar Tray</span>
+        <span class="stamp">Updated 14:34</span>
+      </div>
+      <div class="p-cards">
+        <div class="card left">
+          <div class="card-title">Weekly usage</div>
+          <div class="pct">68%</div>
+          <div class="bar"><div class="bar-fill" style="width:68%"></div></div>
+          <div class="reset">Resets in 4d 3h</div>
+        </div>
+        <div class="card right">
+          <div class="card-title">5-hour usage</div>
+          <div class="pct">42%</div>
+          <div class="bar"><div class="bar-fill" style="width:42%"></div></div>
+          <div class="reset">Resets in 3h 30m</div>
+        </div>
+      </div>
+      <div class="card extra">
+        <div class="extra-row">
+          <span class="card-title">Extra Usage</span>
+          <span class="extra-balance">&#165;12.34</span>
+        </div>
+        <div class="extra-monthly">
+          <div class="bar"><div class="bar-fill" style="width:46%"></div></div>
+          <div class="extra-monthly-text">Used &#165;45.67 this month / &#165;100 limit</div>
+        </div>
+      </div>
+      <div class="card version" title="View Kimi Code releases">
+        <span class="version-label">Kimi Code CLI</span>
+        <span class="version-right">
+          <span class="cli-version">0.31.1</span>
+          <span class="badge">Update available</span>
+        </span>
+      </div>
+      <div class="p-actions">
+        <button class="btn">&#10227;&nbsp;&nbsp;Refresh</button>
+        <button class="btn">&#9881;&nbsp;&nbsp;Settings</button>
+        <button class="btn">&#9211;&nbsp;&nbsp;Exit</button>
+      </div>
+    </div></div>
+
+    <p class="stage-label">Tray menu</p>
+    <div class="stage"><div class="menu">
+      <button class="menu-item">Open</button>
+      <button class="menu-item">Refresh</button>
+      <button class="menu-item">Settings</button>
+      <button class="menu-item">Exit</button>
+    </div></div>
+
+    <p class="stage-label">Settings window</p>
+    <div class="stage"><div class="settings">
+      <div class="s-titlebar">
+        <img src="../rust/src/assets/kimi-logo.png" alt="" />
+        <span class="title">Kimi Planbar Tray Settings</span>
+        <button class="s-close">&#10005;</button>
+      </div>
+      <div class="s-body">
+        <div class="section-title">Theme</div>
+        <label class="radio"><input type="radio" name="theme-f" checked /><span class="circle"></span><span class="radio-text">System default</span></label>
+        <label class="radio"><input type="radio" name="theme-f" /><span class="circle"></span><span class="radio-text">Moonlit (light)</span></label>
+        <label class="radio"><input type="radio" name="theme-f" /><span class="circle"></span><span class="radio-text">Moondark (dark)</span></label>
+
+        <div class="section-title" style="margin-top:20px">Refresh interval</div>
+        <div class="pills">
+          <label class="pill"><input type="radio" name="int-f" /><span class="pill-text">1 min</span></label>
+          <label class="pill"><input type="radio" name="int-f" checked /><span class="pill-text">5 min</span></label>
+          <label class="pill"><input type="radio" name="int-f" /><span class="pill-text">10 min</span></label>
+          <label class="pill"><input type="radio" name="int-f" /><span class="pill-text">30 min</span></label>
+        </div>
+
+        <label class="checkbox"><input type="checkbox" /><span class="box"></span><span class="checkbox-text">Launch at Windows startup</span></label>
+
+        <button class="btn s-save">Save</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ COLUMN 3: WINDOWS 11 NATIVE ============ -->
+  <div class="col variant-native app" data-theme="light">
+    <h2>Windows 11 native (alt)</h2>
+    <p class="col-sub">no cards &middot; list rows + dividers &middot; ToggleSwitch &middot; 24px Semibold figures</p>
+
+    <p class="stage-label">Main panel</p>
+    <div class="stage"><div class="n-panel">
+      <div class="n-header">
+        <img src="../rust/src/assets/kimi-logo.png" alt="" />
+        <span class="title">Kimi Planbar Tray</span>
+        <span class="stamp">Updated 14:34</span>
+      </div>
+      <div class="n-stats">
+        <div class="n-stat">
+          <div class="lbl">Weekly usage</div>
+          <div class="val">68%</div>
+          <div class="n-bar"><div class="n-bar-fill" style="width:68%"></div></div>
+          <div class="reset">Resets in 4d 3h</div>
+        </div>
+        <div class="n-stat">
+          <div class="lbl">5-hour usage</div>
+          <div class="val">42%</div>
+          <div class="n-bar"><div class="n-bar-fill" style="width:42%"></div></div>
+          <div class="reset">Resets in 3h 30m</div>
+        </div>
+      </div>
+      <div class="n-divider"></div>
+      <div class="n-row">
+        <span class="lbl">Extra Usage</span>
+        <span class="val">&#165;12.34</span>
+      </div>
+      <div class="n-monthly">
+        <div class="n-bar"><div class="n-bar-fill" style="width:46%"></div></div>
+        <div class="n-monthly-text">Used &#165;45.67 this month / &#165;100 limit</div>
+      </div>
+      <div class="n-divider"></div>
+      <div class="n-row link" title="View Kimi Code releases">
+        <span class="lbl">Kimi Code CLI</span>
+        <span class="right">
+          <span class="ver">0.31.1</span>
+          <span class="n-badge">Update available</span>
+          <span class="n-chevron">&#8250;</span>
+        </span>
+      </div>
+      <div class="n-actions">
+        <button class="n-btn">Refresh</button>
+        <button class="n-btn">Settings</button>
+        <button class="n-btn">Exit</button>
+      </div>
+    </div></div>
+
+    <p class="stage-label">Tray menu</p>
+    <div class="stage"><div class="n-menu">
+      <button class="n-menu-item">Open</button>
+      <button class="n-menu-item">Refresh</button>
+      <button class="n-menu-item">Settings</button>
+      <button class="n-menu-item">Exit</button>
+    </div></div>
+
+    <p class="stage-label">Settings window</p>
+    <div class="stage"><div class="n-settings">
+      <div class="n-header">
+        <img src="../rust/src/assets/kimi-logo.png" alt="" />
+        <span class="title">Settings</span>
+        <button class="n-close">&#10005;</button>
+      </div>
+      <div class="n-section">Theme</div>
+        <label class="radio"><input type="radio" name="theme-n" checked /><span class="circle"></span><span class="radio-text">System default</span></label>
+        <label class="radio"><input type="radio" name="theme-n" /><span class="circle"></span><span class="radio-text">Moonlit (light)</span></label>
+        <label class="radio"><input type="radio" name="theme-n" /><span class="circle"></span><span class="radio-text">Moondark (dark)</span></label>
+
+      <div class="n-section">Refresh interval</div>
+      <div class="n-radios">
+        <label class="radio" style="margin-top:0"><input type="radio" name="int-n" /><span class="circle"></span><span class="radio-text">1 min</span></label>
+        <label class="radio" style="margin-top:0"><input type="radio" name="int-n" checked /><span class="circle"></span><span class="radio-text">5 min</span></label>
+        <label class="radio" style="margin-top:0"><input type="radio" name="int-n" /><span class="circle"></span><span class="radio-text">10 min</span></label>
+        <label class="radio" style="margin-top:0"><input type="radio" name="int-n" /><span class="circle"></span><span class="radio-text">30 min</span></label>
+      </div>
+
+      <label class="n-switch"><input type="checkbox" checked /><span class="track"></span><span class="sw-text">Launch at Windows startup</span></label>
+
+      <button class="n-btn accent n-save">Save</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============ Change list ============ -->
+<div class="changes">
+  <h2>What changes, and why</h2>
+  <table>
+    <tr><th>Element</th><th>Current</th><th>Windows 11 Fluent</th><th>Source</th></tr>
+    <tr>
+      <td>Window / flyout corner radius</td><td><code>14px</code> (panel, settings), <code>12px</code> (menu)</td>
+      <td><code>8px</code> — top-level containers and overlay/flyout surfaces</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry">Geometry in Windows 11</a></td>
+    </tr>
+    <tr>
+      <td>Card / button / menu-item radius</td><td><code>12px / 10px / 8px</code></td>
+      <td><code>8px</code> (cards, containers) / <code>4px</code> (buttons, menu items — <code>ControlCornerRadius</code>)</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry">Geometry</a>; <a href="https://fluent2.microsoft.design/shapes">Fluent 2 Shapes</a></td>
+    </tr>
+    <tr>
+      <td>Percentage figure</td><td><code>32px Bold (700)</code></td>
+      <td><code>28px Semibold (600)</code> — Display 28/36 ramp; Bold is not part of the Windows type ramp, emphasis uses Semibold</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography">Typography / type ramp</a></td>
+    </tr>
+    <tr>
+      <td>Body text</td><td><code>13px</code></td>
+      <td><code>14px</code> (Text 14/20 ramp); titles stay Semibold; minimums: 14px Semibold / 12px Regular</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography">Typography best practices</a></td>
+    </tr>
+    <tr>
+      <td>Auxiliary text (timestamps, reset)</td><td><code>11px</code></td>
+      <td><code>12px</code> (Small 12/16 ramp)</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography">Typography / type ramp</a></td>
+    </tr>
+    <tr>
+      <td>Font family</td><td><code>Segoe UI</code></td>
+      <td><code>Segoe UI Variable Text</code> (falls back to Segoe UI)</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography">Typography</a></td>
+    </tr>
+    <tr>
+      <td>Progress bar</td><td><code>6px</code> high, <code>3px</code> radius</td>
+      <td>bar/line elements use <code>4px</code> radius</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry">Geometry</a></td>
+    </tr>
+    <tr>
+      <td>Accent color</td><td><code>#1A88FF</code> (Kimi brand blue)</td>
+      <td>kept — Fluent allows app-defined accents</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Theme palettes (Moonlit/Moondark)</td><td colspan="2">unchanged — structure, layout, animation and behavior all stay 1:1</td>
+      <td>docs/UI-SPEC.md §2.1</td>
+    </tr>
+    <tr>
+      <td>Out of scope</td><td colspan="2">Mica / Acrylic materials deliberately excluded (solid colors only, per decision)</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/materials">Materials</a></td>
+    </tr>
+  </table>
+
+  <h2 style="margin-top:28px">Column 3 — Windows 11 native variant: structural deltas vs column 2</h2>
+  <table>
+    <tr><th>Element</th><th>Fluent (column 2)</th><th>Native (column 3)</th><th>Source</th></tr>
+    <tr>
+      <td>Layout</td><td>white/dark cards on tinted window background</td>
+      <td>no cards — content directly on the window surface, sections split by 1px dividers (Settings-app list language)</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/layering">Layering &amp; elevation</a></td>
+    </tr>
+    <tr>
+      <td>Percentage figure</td><td><code>28px Semibold</code></td>
+      <td><code>24px Semibold</code> — de-emphasized stats, hierarchy carried by labels and rows</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography">Typography / type ramp</a></td>
+    </tr>
+    <tr>
+      <td>Progress bar</td><td><code>6px</code> high</td>
+      <td><code>4px</code> high, <code>2px</code> radius (closer to WinUI ProgressBar)</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/controls/progress-controls">Progress controls</a></td>
+    </tr>
+    <tr>
+      <td>Version row</td><td>clickable card</td>
+      <td>Settings-style navigation row with trailing chevron &#8250;</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/controls/listview">Lists / navigation rows</a></td>
+    </tr>
+    <tr>
+      <td>Buttons</td><td>flat fill, no border</td>
+      <td>standard bordered button (subtle 1px border, stronger bottom edge); primary action uses accent button</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/controls/buttons">Buttons</a></td>
+    </tr>
+    <tr>
+      <td>On/off setting</td><td>CheckBox</td>
+      <td>ToggleSwitch — the Win11 default for binary settings</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/controls/toggleswitch">ToggleSwitch</a></td>
+    </tr>
+    <tr>
+      <td>Refresh interval picker</td><td>pill segmented radios (iOS-leaning)</td>
+      <td>standard radio buttons</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/controls/radio-button">RadioButtons</a></td>
+    </tr>
+    <tr>
+      <td>Tray menu</td><td><code>8px</code> container, padded items</td>
+      <td>MenuFlyout metrics: <code>32px</code> item height, <code>4px</code> item radius, <code>12px</code> horizontal padding</td>
+      <td><a href="https://learn.microsoft.com/en-us/windows/apps/design/controls/menus">Menus &amp; context menus</a></td>
+    </tr>
+  </table>
+</div>
+
+<script>
+  // Theme switch: flip every themed subtree (page + both app columns) at once.
+  var root = document.documentElement;
+  document.getElementById('themeSwitch').addEventListener('click', function (e) {
+    var t = e.target && e.target.getAttribute('data-t');
+    if (!t) return;
+    root.setAttribute('data-theme', t);
+    document.querySelectorAll('.app').forEach(function (n) { n.setAttribute('data-theme', t); });
+    document.querySelectorAll('#themeSwitch button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-t') === t);
+    });
+  });
+</script>
+</body>
+</html>

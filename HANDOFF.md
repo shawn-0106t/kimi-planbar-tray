@@ -2,7 +2,8 @@
 
 > 写给接力设备上的 Kimi Code 会话：读完本文件 + `docs/UI-SPEC.md` 即可无缝开工。
 > 上一份会话日期：2026-08-07。暂停原因：原设备（Windows，无管理员权限）无法安装 MSVC 构建工具，Rust 工具链无法落地。
-> 状态更新（2026-08-08）：**重写已完成并通过验证**（双端含阴影边距修复）；仓库已重组为 `wpf/` + `rust/` 双版本 monorepo，两个版本均继续维护。
+> 状态更新（2026-08-08）：**重写已完成并通过验证**（双端含阴影边距修复）；仓库已重组为 `wpf/` + `rust/` 双版本 monorepo。
+> 状态更新（2026-08-22）：**WPF 版停止维护**（停留在 v1.5.0，代码保留仅供参考）；自 v1.6.0 起新功能（如 Skills 只读窗口，见 UI-SPEC 第 12 章）只进 Rust 版。
 
 ## 1. 目标
 
@@ -88,7 +89,7 @@ Node.js 需要 18+（Tauri CLI 用），若无则 `winget install OpenJS.NodeJS.
 
 ## 7. 注意事项
 
-- 参考源码 = `wpf/` 目录（同 main 分支内容 + 后续修复），两个版本并行维护，勿删。
+- 参考源码 = `wpf/` 目录（已停止维护，勿删，仅作只读参考）；Rust 版为唯一活跃开发线。
 - 图标资产：WPF 版用 `wpf/kimi-logo.png`，Rust 版用 `rust/src-tauri/icons/`（Kimi 官方 logo，版权属 Moonshot AI，README 需保留非官方声明）。
 - **许可证与归属**：保留 `LICENSE`（MIT © Shawn Qi）与 `NOTICE`（portions © baigong-ai / kimi-planbar）——Rust 重写属衍生作品，attribution 不可移除。
 - 代码/注释/提交信息跟随原项目英文风格；对话用中文。
