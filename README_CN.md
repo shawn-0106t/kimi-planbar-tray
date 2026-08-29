@@ -85,9 +85,10 @@ KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退
 ## 技术说明
 
 - Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；WPF 版（已冻结）：.NET 8 / WPF，零第三方 NuGet 依赖
+- UI 设计与布局改编自 [KimiCodeBar](https://github.com/xifandev/KimiCodeBar)（MIT），作者 [@xifandev](https://github.com/xifandev)
 - 额度逻辑移植自 [kimi-planbar](https://github.com/baigong-ai/kimi-planbar)（MIT）——token 来源、接口与缓存/重试策略一致
 - 托盘图标为内嵌的官方 Kimi Code logo（PNG 压缩 ICO）；logo 版权归 **Moonshot AI** 所有——本项目为非官方社区工具，与 Moonshot AI 无隶属关系
 
 ## License
 
-[MIT](LICENSE) © 2026 Shawn Qi (shawn-0106t)，部分内容 © baigong-ai (kimi-planbar)
+[MIT](LICENSE) © 2026 Shawn Qi (shawn-0106t)，部分内容 © baigong-ai (kimi-planbar)，© xifandev (KimiCodeBar)

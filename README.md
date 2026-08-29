@@ -85,9 +85,10 @@ KimiPlanbarTray.exe --test-ui      # construct all 4 windows, print OK lines, ex
 ## Tech notes
 
 - Rust edition: Tauri 2 backend + vanilla HTML/CSS/TS frontend (no framework); WPF edition (frozen): .NET 8 / WPF, zero third-party NuGet dependencies
+- UI design and layout adapted from [KimiCodeBar](https://github.com/xifandev/KimiCodeBar) (MIT) by [@xifandev](https://github.com/xifandev)
 - Quota logic adapted from [kimi-planbar](https://github.com/baigong-ai/kimi-planbar) (MIT) — same token sources, endpoint, and cache/retry strategy
 - Tray icon is the official Kimi Code logo embedded as a PNG-compressed ICO; logo copyright belongs to **Moonshot AI** — this is an unofficial community tool, not affiliated with Moonshot AI
 
 ## License
 
-[MIT](LICENSE) © 2026 Shawn Qi (shawn-0106t), with portions © baigong-ai (kimi-planbar)
+[MIT](LICENSE) © 2026 Shawn Qi (shawn-0106t), with portions © baigong-ai (kimi-planbar), © xifandev (KimiCodeBar)
