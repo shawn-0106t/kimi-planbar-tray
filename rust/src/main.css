@@ -1,6 +1,6 @@
-/* MainWindow layout — 1:1 port of MainWindow.xaml (docs/UI-SPEC.md section 3) */
+/* MainWindow layout — 1:1 port of MainWindow.xaml (docs/SPEC.md section 12) */
 
-/* Show/hide animation (SPEC 6.1/6.2): initial state = faded out, 16px down */
+/* Show/hide animation (SPEC 15.1/15.2): initial state = faded out, 16px down */
 #root {
   border-radius: 14px;
   background: var(--window-bg);
@@ -90,7 +90,7 @@ body.leave #root {
   color: var(--text-primary);
 }
 
-/* Progress bar: 6px high capsule, 3px radius (SPEC 2.2) */
+/* Progress bar: 6px high capsule, 3px radius (SPEC 11.2) */
 .bar {
   height: 6px;
   border-radius: 3px;
@@ -109,7 +109,7 @@ body.leave #root {
   color: var(--text-secondary);
 }
 
-/* Extra Usage card (SPEC 3.4): Margin=0,12,0,0 Padding=16,12 */
+/* Extra Usage card (SPEC 12.4): Margin=0,12,0,0 Padding=16,12 */
 .extra {
   margin-top: 12px;
   padding: 12px 16px;
@@ -133,7 +133,7 @@ body.leave #root {
   color: var(--text-secondary);
 }
 
-/* Version row (SPEC 3.6): Margin=0,12,0,12 Padding=14,10 */
+/* Version row (SPEC 12.6): Margin=0,12,0,12 Padding=14,10 */
 .version {
   display: flex;
   align-items: center;
@@ -163,16 +163,34 @@ body.leave #root {
   color: var(--badge-fg);
 }
 
-/* Bottom buttons (SPEC 3.7): UniformGrid Columns=3, margins 0,0,6,0 / 3,0 / 6,0,0,0
-   (WPF margins don't collapse, so each gap is 6+3 = 9px) */
+/* Bottom buttons (SPEC 12.7): four buttons, icon (16px) on top, label below;
+   margins 0,0,6,0 / 3,0 / 3,0 / 6,0,0,0 (WPF margins don't collapse, so each gap is 6+3 = 9px) */
 .actions {
   display: flex;
 }
 .actions .btn {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 0 6px;
+  font-size: 12px;
+  /* Same bg as the cards so the info area above stays visually dominant */
+  background: var(--card-bg);
+}
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.actions #btn-console {
+  margin-right: 6px;
 }
 .actions #btn-refresh {
-  margin-right: 6px;
+  margin-left: 3px;
+  margin-right: 3px;
 }
 .actions #btn-settings {
   margin-left: 3px;

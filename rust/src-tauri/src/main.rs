@@ -1,9 +1,9 @@
 // Entry point. Self-check args (--test-fetch / --test-update / --test-ui) run
-// BEFORE any GUI or single-instance logic, mirroring App.OnStartup (SPEC 10).
+// BEFORE any GUI or single-instance logic, mirroring App.OnStartup (SPEC 19).
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// Named mutex identical to the WPF reference (SPEC 11): guarantees mutual
+// Named mutex identical to the WPF reference (SPEC 20): guarantees mutual
 // exclusion with a running WPF edition as well. The tauri-plugin-single-instance
 // mutex alone uses a different name and would not cover that case.
 fn acquire_single_instance_mutex() -> bool {

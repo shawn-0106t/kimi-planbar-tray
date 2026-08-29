@@ -33,7 +33,7 @@
 | `KimiPlanbarTray-wpf.exe`（已停维护） | ~260 KB | 已安装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0) | ~69 MB |
 | `KimiPlanbarTray-wpf-selfcontained.exe`（已停维护） | ~65 MB | 无——运行时已打包在内 | ~69 MB |
 
-两个版本 UI/UX 完全一致（见 `docs/UI-SPEC.md`），共用同一份设置文件。
+两个版本 UI/UX 完全一致（见 `docs/SPEC.md`），共用同一份设置文件。
 
 > exe 未做代码签名，首次运行 Windows SmartScreen 可能提示"已保护你的电脑"——点"更多信息 → 仍要运行"即可，这是未签名个人作品的正常提示。
 
@@ -51,11 +51,12 @@
 - **右键托盘图标**——菜单：Open / Refresh / Settings / Skills / Exit
 - **悬停托盘图标**——速览 `5h X% · week Y%`
 - **设置**——主题（System default / Moonlit / Moondark）、刷新间隔、开机自启
+- **Console 按钮**——在浏览器中打开 [Kimi Code 控制台](https://www.kimi.com/code/console)
 - **版本行**——点击打开 Releases 页面
 
 ## 从源码构建
 
-本仓库包含两个版本：`wpf/`（原版 .NET 8 / WPF，**自 v1.6.0 起停止维护**，保留仅供参考）和 `rust/`（Tauri 2 / Rust 重写版，活跃开发中）。共享 UI/UX 规格见 `docs/UI-SPEC.md`。
+本仓库包含两个版本：`wpf/`（原版 .NET 8 / WPF，**自 v1.6.0 起停止维护**，保留仅供参考）和 `rust/`（Tauri 2 / Rust 重写版，活跃开发中）。共享 UI/UX 规格见 `docs/SPEC.md`。
 
 WPF 版（已停维护）——需要 .NET 8 SDK（Windows）：
 
@@ -78,12 +79,12 @@ npx tauri build   # 单文件 exe 产出于 src-tauri/target/release/
 
 ```bash
 KimiPlanbarTray.exe --test-fetch   # 拉取一次额度，打印 JSON 后退出
-KimiPlanbarTray.exe --test-ui      # 构造两个窗口，验证资源与 XAML 加载
+KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退出（约 6 秒）
 ```
 
 ## 技术说明
 
-- .NET 8 / WPF，零第三方 NuGet 依赖
+- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；WPF 版（已冻结）：.NET 8 / WPF，零第三方 NuGet 依赖
 - 额度逻辑移植自 [kimi-planbar](https://github.com/baigong-ai/kimi-planbar)（MIT）——token 来源、接口与缓存/重试策略一致
 - 托盘图标为内嵌的官方 Kimi Code logo（PNG 压缩 ICO）；logo 版权归 **Moonshot AI** 所有——本项目为非官方社区工具，与 Moonshot AI 无隶属关系
 

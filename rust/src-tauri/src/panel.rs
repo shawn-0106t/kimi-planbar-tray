@@ -1,5 +1,5 @@
-// Panel + menu window positioning and focus behavior (UI-SPEC sections 1, 5, 6).
-// The slide/fade animation itself runs in frontend CSS (SPEC 6); the backend
+// Panel + menu window positioning and focus behavior (SPEC sections 10, 14, 15).
+// The slide/fade animation itself runs in frontend CSS (SPEC 15); the backend
 // only emits panel-show / panel-hide and hides the window when told to.
 
 use crate::state::AppState;
@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition};
 // Window sizes include the transparent shadow fade room around the card:
 // main/settings grew by 2*22px (margin 6 -> 28), menu by 2*19px (margin 5 -> 24).
 const PANEL_W: f64 = 424.0;
-const PANEL_H: f64 = 512.0;
+const PANEL_H: f64 = 520.0;
 const MENU_W: f64 = 188.0;
 
 /// Primary-monitor work area in physical px (SPI_GETWORKAREA returns
@@ -55,13 +55,13 @@ fn work_area_dip(app: &AppHandle) -> (f64, f64, f64, f64) {
     (l / s, t / s, r / s, b / s)
 }
 
-/// ShowNearTray: bottom-right of the work area, 12px margin (SPEC 1.1).
+/// ShowNearTray: bottom-right of the work area, 12px margin (SPEC 10.1).
 pub fn show_panel(app: &AppHandle) {
     let Some(w) = app.get_webview_window("main") else {
         return;
     };
     // Size stays LOGICAL (tao re-scales the physical size from the logical
-    // size on WM_DPICHANGED, so 424x512 DIP is correct on any monitor), but
+    // size on WM_DPICHANGED, so 424x520 DIP is correct on any monitor), but
     // the position must be PHYSICAL: the window may currently sit on a
     // different monitor than the primary (Windows places new windows on the
     // launcher window's monitor, e.g. when the exe is started from a File
@@ -97,7 +97,7 @@ pub fn start_hide(app: &AppHandle) {
 }
 
 /// Called by the frontend after the fade-out finished: actually hide + stamp
-/// last_hide for the 300ms tray-click guard (SPEC 5 / 6.2).
+/// last_hide for the 300ms tray-click guard (SPEC 14 / 15.2).
 /// Hard guard: if a panel-show happened after the hide started, the pending
 /// finish_hide is stale and must not hide the freshly shown window.
 pub fn finish_hide(app: &AppHandle) {
@@ -138,7 +138,7 @@ pub fn toggle_panel(app: &AppHandle, from_tray: bool) {
 }
 
 /// Deactivated auto-hide, suppressed while the settings or skills window is
-/// open (SPEC 11 / 12).
+/// open (SPEC 20 / 21).
 pub fn on_main_blur(app: &AppHandle) {
     let st = app.state::<AppState>();
     if st.settings_open.load(Ordering::SeqCst) || st.skills_open.load(Ordering::SeqCst) {
@@ -153,7 +153,7 @@ pub fn on_main_blur(app: &AppHandle) {
     }
 }
 
-/// ShowAtCursor (SPEC 1.3): physical cursor px -> DIP, clamp horizontally,
+/// ShowAtCursor (SPEC 10.3): physical cursor px -> DIP, clamp horizontally,
 /// flip up near the bottom edge, then steal the foreground so the menu
 /// actually receives focus (otherwise Deactivated closes it at once).
 pub fn show_menu(app: &AppHandle, px: f64, py: f64) {

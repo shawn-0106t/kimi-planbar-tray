@@ -1,6 +1,6 @@
 /* Kimi Planbar Tray — shared theme (Moonlit light / Moondark dark)
    1:1 port of Themes/{Light,Dark,Shared}.xaml from the WPF reference.
-   Brush key table: docs/UI-SPEC.md section 2.1 */
+   Brush key table: docs/SPEC.md section 11.1 */
 
 :root[data-theme='light'] {
   --accent: #1a88ff;

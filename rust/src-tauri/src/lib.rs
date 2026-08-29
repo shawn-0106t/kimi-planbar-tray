@@ -1,5 +1,5 @@
 // Kimi Planbar Tray — Tauri 2 (Rust) port of the WPF reference implementation.
-// Startup order mirrors App.OnStartup (UI-SPEC section 11); self-check command
+// Startup order mirrors App.OnStartup (SPEC section 20); self-check command
 // line args are handled in main.rs BEFORE the single-instance check.
 
 pub mod credentials;
@@ -24,6 +24,7 @@ use update::UpdateStatus;
 // on_window_event delivers tauri::Window; commands receive WebviewWindow.
 
 const RELEASES_URL: &str = "https://github.com/MoonshotAI/kimi-code/releases";
+const CONSOLE_URL: &str = "https://www.kimi.com/code/console?from=kfc_overview_topbar";
 
 /// Opt every window out of Windows 11 DWM auto corner rounding. The CSS draws
 /// its own 14px/12px radius on a transparent window; DWM would otherwise clip
@@ -102,7 +103,7 @@ fn get_state(app: AppHandle) -> AppStateDto {
     }
 }
 
-/// Panel "⟳ 刷新" / menu "刷新": SafeRefresh + CheckAsync (SPEC 3.7 / 5).
+/// Panel "Refresh" button / menu "刷新": SafeRefresh + CheckAsync (SPEC 12.7 / 14).
 #[tauri::command]
 fn refresh_now(app: AppHandle) {
     let a1 = app.clone();
@@ -126,7 +127,7 @@ fn open_settings(app: AppHandle) {
         let _ = w.set_focus();
     }
     // The settings window is reused (hidden, never destroyed): tell the
-    // frontend to backfill the current settings every time it opens (SPEC 4.2)
+    // frontend to backfill the current settings every time it opens (SPEC 13.2)
     let _ = app.emit("settings-show", ());
 }
 
@@ -140,7 +141,7 @@ fn close_settings(app: AppHandle) {
     }
 }
 
-/// Skills window: same reuse pattern as settings (SPEC 12). The scan itself
+/// Skills window: same reuse pattern as settings (SPEC 21). The scan itself
 /// is lazy — it only runs when the frontend calls get_skills.
 #[tauri::command]
 fn open_skills(app: AppHandle) {
@@ -166,7 +167,7 @@ fn close_skills(app: AppHandle) {
     }
 }
 
-/// Cached skill list; `refresh` forces a rescan. Read-only (SPEC 12.2).
+/// Cached skill list; `refresh` forces a rescan. Read-only (SPEC 21.2).
 /// Async so the file scan never blocks the main thread / webviews.
 #[tauri::command]
 async fn get_skills(app: AppHandle, refresh: bool) -> Result<Vec<skills::SkillInfo>, ()> {
@@ -183,7 +184,7 @@ async fn get_skills(app: AppHandle, refresh: bool) -> Result<Vec<skills::SkillIn
     Ok(list)
 }
 
-/// Save -> persist -> ApplyAutoStart -> apply theme -> Reschedule -> close (SPEC 4.2).
+/// Save -> persist -> ApplyAutoStart -> apply theme -> Reschedule -> close (SPEC 13.2).
 #[tauri::command]
 fn save_settings(app: AppHandle, settings: SaveSettingsArgs) {
     {
@@ -207,6 +208,12 @@ fn open_releases(app: AppHandle) {
 }
 
 #[tauri::command]
+fn open_console(app: AppHandle) {
+    use tauri_plugin_opener::OpenerExt;
+    let _ = app.opener().open_url(CONSOLE_URL, None::<&str>);
+}
+
+#[tauri::command]
 fn finish_hide_panel(app: AppHandle) {
     panel::finish_hide(&app);
 }
@@ -216,7 +223,7 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
-/// Tray menu items (SPEC 5): 打开/刷新/设置/退出; menu window closes first.
+/// Tray menu items (SPEC 14): 打开/刷新/设置/Skills/退出; menu window closes first.
 #[tauri::command]
 fn menu_action(app: AppHandle, action: String) {
     if let Some(w) = app.get_webview_window("menu") {
@@ -264,7 +271,7 @@ fn build_state() -> AppState {
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     match event {
         // Focus-loss: panel auto-hides (suppressed while settings is open),
-        // menu closes immediately (SPEC 1.1 / 1.3)
+        // menu closes immediately (SPEC 10.1 / 10.3)
         tauri::WindowEvent::Focused(false) => match window.label() {
             "main" => panel::on_main_blur(&window.app_handle()),
             "menu" => {
@@ -298,6 +305,7 @@ fn invoke_handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'sta
         get_skills,
         save_settings,
         open_releases,
+        open_console,
         finish_hide_panel,
         quit_app,
         menu_action,
@@ -309,7 +317,7 @@ fn invoke_handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'sta
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Single instance first: a second launch exits immediately (SPEC 11)
+        // Single instance first: a second launch exits immediately (SPEC 20)
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_opener::init())
         .manage(build_state())
@@ -331,7 +339,7 @@ pub fn run() {
 }
 
 /// --test-ui: apply the current theme and construct all four windows to
-/// validate resource resolution, printing one OK line per window (SPEC 10).
+/// validate resource resolution, printing one OK line per window (SPEC 19).
 /// Runs WITHOUT the single-instance plugin so it works alongside a live GUI.
 pub fn run_ui_test() {
     let result = tauri::Builder::default()

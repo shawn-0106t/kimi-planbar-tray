@@ -1,4 +1,4 @@
-// Refresh scheduling, 1:1 port of QuotaService.SafeRefresh/Reschedule (UI-SPEC 7.5):
+// Refresh scheduling, 1:1 port of QuotaService.SafeRefresh/Reschedule (SPEC 16.5):
 // first refresh 2s after start, period = max(1, RefreshMinutes), failure keeps
 // last-known-good data and retries fast after 30s.
 
@@ -21,7 +21,7 @@ pub async fn safe_refresh(app: &AppHandle) -> QuotaResult {
     let _ = app.emit("quota-updated", &r);
     tray::update_tooltip(app);
     // Every refresh (scheduled, manual, or hover) moves the next scheduled
-    // tick: 30s after a failure, one period after a success (SPEC 7.5 step 3,
+    // tick: 30s after a failure, one period after a success (SPEC 16.5 step 3,
     // mirrors _timer.Change in QuotaService.SafeRefresh)
     let mins = st.settings.read().unwrap().refresh_minutes.max(1) as u64;
     let delay = if r.error.is_some() {

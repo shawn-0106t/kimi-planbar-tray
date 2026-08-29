@@ -9,7 +9,7 @@ function el<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
 }
 
-/** Backfill the current settings into the controls (SPEC 4.2: every open). */
+/** Backfill the current settings into the controls (SPEC 13.2: every open). */
 async function backfill(): Promise<void> {
   try {
     const state = await invoke<AppStateDto>('get_state');
@@ -58,7 +58,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     invoke('close_settings').catch(() => undefined);
   });
 
-  // Custom title bar drag (SPEC 4.1: DragMove on left button down)
+  // Custom title bar drag (SPEC 13.1: DragMove on left button down)
   el('titlebar').addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('.chrome-close')) return;

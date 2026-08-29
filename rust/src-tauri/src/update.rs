@@ -1,4 +1,4 @@
-// CLI version check, 1:1 port of UpdateService (UI-SPEC section 8):
+// CLI version check, 1:1 port of UpdateService (SPEC section 17):
 // local `kimi --version` (5s timeout, kill) -> docs changelog (Range 0-4095)
 // -> GitHub Releases API fallback. All failures degrade silently.
 
@@ -50,7 +50,7 @@ pub async fn check() -> UpdateStatus {
     }
 }
 
-/// x.y.z -> comparable tuple (semantic version compare, UI-SPEC 8.3).
+/// x.y.z -> comparable tuple (semantic version compare, SPEC 17.3).
 fn parse_semver(v: &str) -> Option<(u64, u64, u64)> {
     let mut parts = v.split('.');
     let a = parts.next()?.parse().ok()?;

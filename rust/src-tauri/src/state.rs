@@ -31,7 +31,7 @@ pub struct AppState {
     pub reschedule: Arc<Notify>,
     /// Fired by every safe_refresh (manual, hover, or scheduled) to move the
     /// next scheduled tick to now+delay — mirrors QuotaService's per-call
-    /// _timer.Change(error ? 30s : period, period) (SPEC 7.5 step 3)
+    /// _timer.Change(error ? 30s : period, period) (SPEC 16.5 step 3)
     pub retime: Arc<Notify>,
     pub retime_delay: Mutex<Option<Duration>>,
 }

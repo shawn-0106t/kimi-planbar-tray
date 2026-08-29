@@ -1,4 +1,4 @@
-// System theme follow (UI-SPEC section 11): read HKCU AppsUseLightTheme and emit
+// System theme follow (SPEC section 20): read HKCU AppsUseLightTheme and emit
 // "theme-changed" when the effective theme flips. The WPF reference hooks
 // SystemEvents.UserPreferenceChanged; here we poll the registry every 3s, which
 // is cheap and needs no hidden message window.

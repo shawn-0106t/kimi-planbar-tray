@@ -1,4 +1,4 @@
-// Quota fetch + defensive parsing, 1:1 port of QuotaService (UI-SPEC section 7).
+// Quota fetch + defensive parsing, 1:1 port of QuotaService (SPEC section 16).
 // Traps honored here:
 //  - server JSON numbers are modeled as strings, numeric fallback tolerated
 //  - Extra Usage amountLeft unit is 1e-8 yuan -> cents = (raw + 500000) / 1000000
@@ -61,7 +61,7 @@ impl QuotaResult {
     }
 
     /// On failure keep last-known-good data: fill null fields from `last`
-    /// (UI-SPEC 7.5 step 2; the UI only shows the failure hint in the status line).
+    /// (SPEC 16.5 step 2; the UI only shows the failure hint in the status line).
     pub fn fill_missing_from(&mut self, last: &QuotaResult) {
         if self.five_hour.is_none() {
             self.five_hour = last.five_hour.clone();

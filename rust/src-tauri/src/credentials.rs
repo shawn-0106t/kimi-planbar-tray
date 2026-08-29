@@ -1,4 +1,4 @@
-// Credential chain, 1:1 port of QuotaService.LoadToken (UI-SPEC 7.2):
+// Credential chain, 1:1 port of QuotaService.LoadToken (SPEC 16.2):
 // 1) ~/.kimi-code/credentials/kimi-code.json -> access_token (expires_at > now+30s)
 // 2) ~/.kimi-code/config.toml -> provider whose base_url contains api.kimi.com/coding
 // 3) None -> caller reports "no-token"

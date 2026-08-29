@@ -1,4 +1,4 @@
-// Settings persistence + autostart, 1:1 port of SettingsService (UI-SPEC section 9).
+// Settings persistence + autostart, 1:1 port of SettingsService (SPEC section 18).
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -23,7 +23,7 @@ impl Default for SettingsData {
 }
 
 /// Portable mode: a `portable.dat` next to the exe pins the config dir to the
-/// exe directory; otherwise %APPDATA%\KimiPlanbarTray (UI-SPEC 9.1).
+/// exe directory; otherwise %APPDATA%\KimiPlanbarTray (SPEC 18.1).
 pub fn config_dir() -> PathBuf {
     let exe_dir = std::env::current_exe()
         .ok()

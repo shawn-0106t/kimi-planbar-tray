@@ -64,7 +64,7 @@ function render(skills: SkillInfo[]): void {
   }
 }
 
-/** Load from the backend cache; refresh=true forces a rescan (SPEC 12.2). */
+/** Load from the backend cache; refresh=true forces a rescan (SPEC 21.2). */
 async function load(refresh: boolean): Promise<void> {
   try {
     render(await invoke<SkillInfo[]>('get_skills', { refresh }));
@@ -84,7 +84,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Event-driven only: the window page loads hidden at app start, so the scan
   // must NOT run here — it runs when open_skills emits 'skills-show'
-  // (SPEC 12.2: zero cost until the window is actually opened).
+  // (SPEC 21.2: zero cost until the window is actually opened).
   // NOT awaited: registration must never block the rest of the init.
   listen('skills-show', () => {
     load(false).catch(() => undefined);

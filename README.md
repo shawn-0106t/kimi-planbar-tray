@@ -33,7 +33,7 @@ Get the latest exe from [Releases](../../releases):
 | `KimiPlanbarTray-wpf.exe` (unmaintained) | ~260 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed | ~69 MB |
 | `KimiPlanbarTray-wpf-selfcontained.exe` (unmaintained) | ~65 MB | Nothing — runtime bundled | ~69 MB |
 
-Both editions share the same UI/UX (see `docs/UI-SPEC.md`) and the same settings file.
+Both editions share the same UI/UX (see `docs/SPEC.md`) and the same settings file.
 
 > Windows SmartScreen may warn on first launch because the exe is not code-signed. Click "More info" → "Run anyway" — this is expected for unsigned personal builds.
 
@@ -51,11 +51,12 @@ No credentials are stored or sent anywhere except the official `api.kimi.com/cod
 - **Right-click tray icon** — menu: Open / Refresh / Settings / Skills / Exit
 - **Hover the tray icon** — quick `5h X% · week Y%` tooltip
 - **Settings** — theme (System default / Moonlit / Moondark), refresh interval, launch at login
+- **Console button** — opens the [Kimi Code console](https://www.kimi.com/code/console) in your browser
 - **CLI version row** — click to open the Releases page
 
 ## Build from source
 
-This repo hosts two editions: `wpf/` (original .NET 8 / WPF, **unmaintained since v1.6.0**, kept for reference) and `rust/` (Tauri 2 / Rust rewrite, actively developed). Shared UI/UX spec lives in `docs/UI-SPEC.md`.
+This repo hosts two editions: `wpf/` (original .NET 8 / WPF, **unmaintained since v1.6.0**, kept for reference) and `rust/` (Tauri 2 / Rust rewrite, actively developed). Shared UI/UX spec lives in `docs/SPEC.md`.
 
 WPF edition (unmaintained) — requires .NET 8 SDK (Windows):
 
@@ -78,12 +79,12 @@ Headless self-checks (useful in CI or after changes):
 
 ```bash
 KimiPlanbarTray.exe --test-fetch   # fetch quota once, print JSON, exit
-KimiPlanbarTray.exe --test-ui      # construct both windows, verify resources/XAML
+KimiPlanbarTray.exe --test-ui      # construct all 4 windows, print OK lines, exit (~6 s)
 ```
 
 ## Tech notes
 
-- .NET 8 / WPF, zero third-party NuGet dependencies
+- Rust edition: Tauri 2 backend + vanilla HTML/CSS/TS frontend (no framework); WPF edition (frozen): .NET 8 / WPF, zero third-party NuGet dependencies
 - Quota logic adapted from [kimi-planbar](https://github.com/baigong-ai/kimi-planbar) (MIT) — same token sources, endpoint, and cache/retry strategy
 - Tray icon is the official Kimi Code logo embedded as a PNG-compressed ICO; logo copyright belongs to **Moonshot AI** — this is an unofficial community tool, not affiliated with Moonshot AI
 

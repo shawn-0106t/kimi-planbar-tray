@@ -85,7 +85,7 @@ function renderVersion(u: UpdateStatus): void {
   el('badge').hidden = !u.updateAvailable;
 }
 
-// ---- Show/hide animation (UI-SPEC 6.1 / 6.2) ----
+// ---- Show/hide animation (SPEC 15.1 / 15.2) ----
 
 function playShow(): void {
   document.body.classList.remove('leave');
@@ -123,6 +123,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   await listen('panel-show', () => playShow());
   await listen('panel-hide', () => playHide());
 
+  el('btn-console').addEventListener('click', () => {
+    invoke('open_console').catch(() => undefined);
+  });
   el('btn-refresh').addEventListener('click', () => {
     invoke('refresh_now').catch(() => undefined);
   });

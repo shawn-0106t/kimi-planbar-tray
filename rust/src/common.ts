@@ -60,7 +60,7 @@ export async function initTheme(): Promise<AppStateDto> {
   return state;
 }
 
-// ---- Formatting (UI-SPEC 3.3 / 3.5) ----
+// ---- Formatting (SPEC 12.3 / 12.5) ----
 
 /** FormatReset: span = at - now, English countdown text. */
 export function formatReset(atIso: string): string {

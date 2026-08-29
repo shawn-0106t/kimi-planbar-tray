@@ -1,4 +1,4 @@
-// Tray icon, 1:1 port of TrayManager (UI-SPEC section 5):
+// Tray icon, 1:1 port of TrayManager (SPEC section 14):
 // static icon, left-click toggles the panel, right-click opens the menu window
 // at the cursor, hover (Enter/Move) prefetch-throttled at 10s, tooltip text only.
 
@@ -67,7 +67,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     MouseButton::Right => panel::show_menu(app, position.x, position.y),
                     _ => {}
                 },
-                // Hover-to-refresh, throttled at 10s (SPEC 5)
+                // Hover-to-refresh, throttled at 10s (SPEC 14)
                 TrayIconEvent::Enter { .. } | TrayIconEvent::Move { .. } => on_hover(app),
                 _ => {}
             }
