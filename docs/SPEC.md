@@ -1,5 +1,7 @@
 # Kimi Planbar Tray — 项目技术规格（SPEC）
 
+> English version: [SPEC_EN.md](SPEC_EN.md)（章节编号一致，可交叉对照）
+>
 > 本文档是整个项目的**唯一权威规格**（single source of truth），分两篇：
 > - **第一篇 项目规格**（第 1–9 章）：目标、架构、数据流、安全、构建发布、维护边界
 > - **第二篇 UI 与行为规格**（第 10–21 章）：窗口、配色、布局、动画、API 解析、持久化等全部数值细则（原 `docs/UI-SPEC.md` 并入，已删除独立文件）
@@ -175,6 +177,7 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 |---|---|
 | `README.md` / `README_CN.md` | 面向用户：功能、下载、使用、构建 |
 | `docs/SPEC.md`（本文档） | 唯一权威规格：项目级 + UI/行为细则 |
+| `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
 | `docs/screenshot-*.png` | 视觉基准（由 `make_screenshots.py` 生成） |
 | `docs/archive/HANDOFF.md` | 已归档的 WPF→Rust 重写接力手册（历史，不再更新） |

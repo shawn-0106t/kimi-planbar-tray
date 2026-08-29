@@ -17,7 +17,7 @@ Both editions share the same UI/UX (fully specified in `docs/SPEC.md`) and the s
 
 Other root-level files:
 
-- `docs/SPEC.md` — the single authoritative project spec (in Chinese): Part 1 (chapters 1-9) covers project scope, architecture, data flow, security, build/release; Part 2 (chapters 10-21) is the behavior/UI detail spec (window sizes, colors, animation timings, API parsing rules). Consult it before changing behavior.
+- `docs/SPEC.md` — the single authoritative project spec (in Chinese; English translation at `docs/SPEC_EN.md`, identical chapter numbering): Part 1 (chapters 1-9) covers project scope, architecture, data flow, security, build/release; Part 2 (chapters 10-21) is the behavior/UI detail spec (window sizes, colors, animation timings, API parsing rules). Consult it before changing behavior.
 - `docs/*.png` — reference screenshots for visual comparison (regenerate with `make_screenshots.py`).
 - `docs/archive/HANDOFF.md` — archived history of the WPF→Rust rewrite (in Chinese); frozen, do not update.
 - `make_release_zip.py` — release packaging script (see Release process).
@@ -109,7 +109,7 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 
 ## Code style and conventions
 
-- **Code, comments, and commit messages are in English**; conversation with the user is in Chinese. Repo docs are mixed: README in English, `docs/SPEC.md` and `docs/archive/HANDOFF.md` in Chinese.
+- **Code, comments, and commit messages are in English**; conversation with the user is in Chinese. Repo docs are mixed: README in English, `docs/SPEC.md` in Chinese (English translation: `docs/SPEC_EN.md`), `docs/archive/HANDOFF.md` in Chinese.
 - Rust edition mirrors the WPF reference implementation **1:1** — when behavior is ambiguous, `docs/SPEC.md` is the contract and `wpf/` is the reference source. Comments in the Rust code cite SPEC sections (e.g. `SPEC 16.5`); keep those citations accurate when you change behavior.
 - Error-handling baseline: all IO, registry, process, and HTTP failures are **silently swallowed** and surfaced only via UI text ("Update failed", "Not detected") or state fields. Never pop up error dialogs.
 - Frontend renders external data (skill names/descriptions) with `textContent` only, never `innerHTML`.
