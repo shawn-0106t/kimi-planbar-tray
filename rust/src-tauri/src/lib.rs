@@ -104,8 +104,18 @@ fn get_state(app: AppHandle) -> AppStateDto {
 }
 
 /// Panel "Refresh" button / menu "刷新": SafeRefresh + CheckAsync (SPEC 12.7 / 14).
+/// Debounced: invocations within 2s of the previous one are ignored.
 #[tauri::command]
 fn refresh_now(app: AppHandle) {
+    {
+        let st = app.state::<AppState>();
+        let mut last = st.last_manual_refresh.lock().unwrap();
+        let now = std::time::Instant::now();
+        if last.is_some_and(|t| now.duration_since(t) < std::time::Duration::from_secs(2)) {
+            return;
+        }
+        *last = Some(now);
+    }
     let a1 = app.clone();
     tauri::async_runtime::spawn(async move {
         polling::safe_refresh(&a1).await;
@@ -191,7 +201,8 @@ fn save_settings(app: AppHandle, settings: SaveSettingsArgs) {
         let st = app.state::<AppState>();
         let mut cur = st.settings.write().unwrap();
         cur.theme = settings.theme;
-        cur.refresh_minutes = settings.refresh_minutes;
+        // Clamp at the IPC boundary: polling multiplies this by 60 seconds
+        cur.refresh_minutes = settings.refresh_minutes.clamp(1, 30);
         cur.auto_start = settings.auto_start;
         settings::save(&cur);
         settings::apply_auto_start(&cur);

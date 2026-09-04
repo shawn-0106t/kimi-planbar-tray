@@ -5,15 +5,16 @@ param(
 
 # Sequential benchmark of a tray app: startup proxy, steady-state memory of the
 # whole process tree (WebView2 children included), and idle CPU over 8s.
+# The tree is rooted at the PID this script launched - never matched by process
+# name - so a same-name instance that is already running neither pollutes the
+# measurement nor gets killed at the end.
 $ErrorActionPreference = "SilentlyContinue"
 
 function Get-Tree {
-    param([string]$Name)
-    $roots = Get-CimInstance Win32_Process -Filter "Name='$Name.exe'"
-    if (-not $roots) { return @() }
+    param([int]$RootId)
     $all = Get-CimInstance Win32_Process
     $ids = @{}
-    $queue = @($roots | ForEach-Object { $_.ProcessId })
+    $queue = @($RootId)
     while ($queue.Count -gt 0) {
         $p = $queue[0]
         if ($queue.Count -gt 1) { $queue = @($queue[1..($queue.Count - 1)]) } else { $queue = @() }
@@ -38,7 +39,11 @@ $lastCount = -1
 $stableRounds = 0
 while ($sw.Elapsed.TotalSeconds -lt 30) {
     Start-Sleep -Milliseconds 300
-    $tree = Get-Tree -Name $RootName
+    $tree = Get-Tree -RootId $launched.Id
+    if ($launched.HasExited -and $tree.Count -eq 0) {
+        Write-Output "NOTE: launched process exited immediately (single-instance mutex? another $RootName already running). Nothing to measure."
+        exit 1
+    }
     if ($tree.Count -gt 0 -and $tree.Count -eq $lastCount) {
         $stableRounds++
         if ($stableRounds -ge 3) { break }
@@ -50,11 +55,11 @@ $startupMs = $sw.ElapsedMilliseconds
 # --- let it settle through the initial quota fetch (fires at ~2s)
 Start-Sleep -Seconds 15
 
-$tree = Get-Tree -Name $RootName
+$tree = Get-Tree -RootId $launched.Id
 $cpu0 = @{}
 $tree | ForEach-Object { $cpu0[$_.Id] = $_.CPU }
 Start-Sleep -Seconds 8
-$tree = Get-Tree -Name $RootName
+$tree = Get-Tree -RootId $launched.Id
 $cpuDelta = 0.0
 $tree | ForEach-Object { if ($cpu0.ContainsKey($_.Id)) { $cpuDelta += ($_.CPU - $cpu0[$_.Id]) } }
 $cpuPct = [math]::Round($cpuDelta / 8.0 / [Environment]::ProcessorCount * 100, 2)
@@ -75,5 +80,6 @@ Write-Output "TOTAL workset:   $wsMB MB"
 Write-Output "TOTAL private:   $privMB MB"
 Write-Output "idle CPU (8s):   $cpuPct %"
 
-Stop-Process -Name $RootName -Force
+# Stop only the tree this script launched, children before the root, by PID.
+Get-Tree -RootId $launched.Id | Sort-Object { $_.Id -eq $launched.Id } | Stop-Process -Force
 Start-Sleep -Seconds 2

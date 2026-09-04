@@ -19,7 +19,7 @@
 - **Extra Usage 卡片**——显示 booster 钱包余额（¥）与本月已用/上限；未充值过时优雅显示 "Not activated / No data"
 - **Skills 速览**（Rust 版）——右键菜单 → Skills 打开只读列表：按来源分组展示 `~/.kimi-code/skills`、`~/.agents/skills` 与插件 skills 的名称和描述；只在打开窗口时扫描一次并缓存，无后台轮询
 - **绿色免 UAC**——单 exe，仅操作用户域（自启走 HKCU，不碰 HKLM 和 Program Files）；在 exe 旁放一个空的 `portable.dat` 即切换为配置随身携带的便携模式
-- **占用小**——单文件版 ~260 KB，运行内存 ~80 MB，除刷新定时器外无任何后台轮询
+- **占用小**——单 exe ~5.6 MB（使用系统自带 WebView2，无需额外安装），除刷新定时器外无任何后台轮询
 
 ## 下载
 
@@ -40,7 +40,7 @@
 ## 使用前提
 
 - Windows 10 / 11
-- 已安装并登录 [Kimi Code](https://www.kimi.com/code/) CLI，且为 **Kimi For Coding** 套餐用户（程序从 `~/.kimi-code/credentials/kimi-code.json` 读取 CLI 的本地 OAuth token，兜底读 `~/.kimi-code/config.toml` 里的明文 api_key）
+- 已安装并登录 [Kimi Code](https://www.kimi.com/code/) CLI，且为 **Kimi For Coding** 套餐用户（程序从 `~/.kimi-code/credentials/kimi-code.json` 读取 CLI 的本地 OAuth token，兜底读 `~/.kimi-code/config.toml` 里的明文 api_key；两者均支持 `KIMI_CODE_HOME` 覆盖）
 - 能访问 `api.kimi.com`
 
 凭证不会被存储或发送到官方 `api.kimi.com/coding/v1/usages` 接口以外的任何地方。
@@ -56,7 +56,7 @@
 
 ## 从源码构建
 
-本仓库包含两个版本：`wpf/`（原版 .NET 8 / WPF，**自 v1.6.0 起停止维护**，保留仅供参考）和 `rust/`（Tauri 2 / Rust 重写版，活跃开发中）。共享 UI/UX 规格见 `docs/SPEC.md`。
+本仓库包含两个版本：`wpf/`（原版 .NET 8 / WPF，**冻结于 v1.5.0**，保留仅供参考）和 `rust/`（Tauri 2 / Rust 重写版，活跃开发中）。共享 UI/UX 规格见 `docs/SPEC.md`。
 
 WPF 版（已停维护）——需要 .NET 8 SDK（Windows）：
 

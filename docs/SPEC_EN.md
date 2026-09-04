@@ -148,7 +148,7 @@ Note: a plain `cargo build` debug exe does **not** embed the frontend (its windo
 
 ### 7.2 Testing
 
-There is no unit-test suite. Verification methods (details in chapter 19):
+There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those). Verification methods (details in chapter 19):
 
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
 - Visual verification: `PYTHONUTF8=1 python make_screenshots.py` (headless Chrome renders dist, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
@@ -315,6 +315,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
   - `"Refresh"` `Margin=3,0` → `SafeRefresh()` + `CheckAsync()`
   - `"Settings"` `Margin=3,0` → opens the settings window (focus-loss collapse is suppressed while it is open)
   - `"Exit"` `Margin=6,0,0,0` → `Application.Current.Shutdown()`
+- The Rust edition debounces manual refreshes by **2 seconds**: both the panel Refresh button and the tray menu "Refresh" go through `refresh_now`, and repeated triggers less than 2 s after the last manual refresh are silently ignored.
 
 ---
 
@@ -392,11 +393,12 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 - HTTP timeout **10 seconds**; non-2xx → failure path
 
 ### 16.2 Credential read priority chain (`LoadToken`, aligned with quota-status.py)
-1. **`~/.kimi-code/credentials/kimi-code.json`** (`%USERPROFILE%/.kimi-code/`):
+- `<kimi_home>` defaults to `%USERPROFILE%/.kimi-code/` and can be overridden by the `KIMI_CODE_HOME` environment variable (same convention as 21.2).
+1. **`<kimi_home>/credentials/kimi-code.json`**:
    - Read `access_token` (string)
    - Validate `expires_at` (Unix seconds, number) > current UTC time + **30 seconds** margin; if expired, treat it as invalid and continue to the next step
    - Parse exceptions are silently swallowed
-2. **Fallback `~/.kimi-code/config.toml`** (hand-written line-by-line parsing, not a full TOML parser):
+2. **Fallback `<kimi_home>/config.toml`** (hand-written line-by-line parsing, not a full TOML parser):
    - Split into `[section]`s; extract key-values with the regex `^(base_url|api_key)\s*=\s*"([^"]*)"`
    - Match condition (`MatchProvider`): the section name starts with `"providers."` **and** `base_url` contains `"api.kimi.com/coding"` **and** `api_key` is non-empty → return that `api_key`
    - When a new section starts, settle the previous section first; settle the last section at end of file
@@ -547,14 +549,13 @@ Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com
 - Three root directories: `<kimi_home>/skills` (label "Kimi Code"), `~/.agents/skills` ("Agents"), `<kimi_home>/plugins/managed/<plugin>/skills` ("Plugin: <name>"); `<kimi_home>` can be overridden by `KIMI_CODE_HOME`.
 - For each `<dir>/<id>/SKILL.md`, only the first 4 KiB are read to parse the YAML frontmatter's `name` / `description` (hand-written line parsing, stripping leading/trailing quotes, falling back to the directory name when absent; no YAML dependency). After reading the bytes, decode with `from_utf8_lossy`, tolerating multi-byte characters cut at the 4 KiB boundary and mixed GBK bytes, and strip the UTF-8 BOM before `---`.
 - The frontend is purely event-driven: the skills page does **not** load data at startup (while the window is hidden); scanning is triggered entirely by the `skills-show` event emitted by `open_skills` (the listener is registered before `initTheme` to prevent a race).
-- Disabled set: the `disabled` key of `~/.agents/.skill-lock.json` (read-only, never written back).
+- There is no enabled/disabled state to display: Kimi Code does not persist a per-skill disabled state (nothing related is found in the kimi.exe binary); `~/.agents/.skill-lock.json` is lark-cli's installer lock file (`{version, skills, dismissed}`, no `disabled` key) and is never read.
 - **Zero background cost**: no polling, no file watching; scans once on first window open and caches into `AppState`; `get_skills(refresh=false)` returns the cache directly; the Refresh button on the window passes `refresh=true` to force a rescan.
 
 ### 21.3 Presentation
 
-- Top summary row: `N skills · M enabled` + Refresh button.
+- Top summary row: `N skills` + Refresh button.
 - The list is grouped by source (sorted case-insensitively by name within each group) and scrollable; each item is a card: name (SemiBold, single-line ellipsis) + description (12 px, 2-line clamp, full description in the card tooltip).
-- Disabled items have overall opacity 0.5 and carry a "disabled" badge (reusing the badge colors).
 - All colors come from `theme.css` variables, automatically following Moonlit/Moondark.
 - The frontend renders everything with `textContent` (skill descriptions are external input; no innerHTML).
 - Entry point: a new "Skills" item in the tray right-click menu (between Settings and Exit); the menu height is auto-reported by the frontend content, no change to the positioning logic.

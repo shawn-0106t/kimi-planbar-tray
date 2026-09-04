@@ -2,6 +2,43 @@
 
 > 写给下一位接手的 agent。本文不重复 review 发现的完整细节（见下方"评审结果存档"），只记录上下文、状态与下一步。
 
+## 修复进度（2026-09-05 第三轮 agent 更新：全部收尾完成）
+
+**文档同步已完成**：README.md/README_CN.md（Small footprint 行改为 ~5.6 MB 单 exe；WPF 措辞统一为"frozen at v1.5.0"）、AGENTS.md（版本 1.7.1、capabilities 行改 core:default、skills 无禁用状态注记、单测行）、SPEC.md/SPEC_EN.md 16.2（补 KIMI_CODE_HOME 覆盖 + `<kimi_home>/config.toml` 路径修正）、21.2（禁用集合条目改为"无 per-skill 禁用状态"说明）、21.3（汇总行 `N skills`、删 disabled 徽标）、12.7（补 refresh_now 2s 防抖说明）。
+
+**自检通过**：`cargo build` + `cargo test`（skills.rs 2 个单测过）+ `npm run build` + release exe 的 `--test-fetch` / `--test-ui`（4 窗口 OK）/ `--test-update`。
+
+**两轮独立复审均 SHIP**：explore subagent 证伪复审（2 个 minor 文档问题，已修）+ code-review skill 复审（0 critical；建议 #1/#3/#4/#5 已修——credentials.rs 头注释补 KIMI_CODE_HOME、make_release_zip.py 加 isfile 过滤、measure_run.ps1 em dash 改 ASCII、settings.ts listener 提到 initTheme 前）。
+
+**CSP 端到端验证通过**：release exe 真实启动后点击托盘图标截图，面板在新 CSP 下渲染正常（IPC/图标/主题/数据全部正常）。验证脚本保留为 `csp_visual_check.ps1`。
+
+**版本已 bump 到 1.7.1**（用户确认）：package.json / Cargo.toml / tauri.conf.json / make_release_zip.py / AGENTS.md + Cargo.lock 同步，1.7.1 release exe 已构建（含 msi/nsis bundle）。
+
+**遗留**：改动均未 commit（等用户确认）；release zip 未打（需要时跑 `python make_release_zip.py`）。
+
+### 第二轮存档（代码修复，已完成）
+
+**Q-1 / Q-2 已定性并修复（代码层面）：**
+- Q-1 属实：`credentials.rs` 新增了 `kimi_home()`（honor `KIMI_CODE_HOME`），`load_token` 与 `skills.rs` 共用，与 AGENTS.md 的声明对齐
+- Q-2 根因比预想更明确：`~/.agents/.skill-lock.json` 是 **lark-cli 的安装锁文件**（version 3：`{version, skills, dismissed}`，entries 全是 open.feishu.cn 来源），与 kimi-code 无关且无 `disabled` 键；kimi.exe 二进制中也 grep 不到任何 per-skill 禁用状态持久化 → `skills.rs` 已删除 `disabled_ids()` 与 `SkillInfo.enabled`，`skills.ts`/`skills.css` 同步移除 disabled 徽标与置灰
+
+**P-A ~ P-J + P-K(部分) 代码修复全部完成**，改完 `cargo check` 与 `npm run build` 均通过：
+- P-A `lib.rs` save_settings `clamp(1, 30)` + `polling.rs` 两处 `saturating_mul(60)`
+- P-B `polling.rs` reschedule 分支排空滞留 `retime_delay`（permit 存活但 hint 为空，不再覆盖 2s 首刷）
+- P-C `quota.rs` `saturating_add(500_000)`
+- P-D `main.ts` 四个 listener 移到 `initTheme()` 之前；`skills.ts` 的 `skills-show` listener 同样提前
+- P-E `main.ts` playHide 加 `hideGen` 代际守卫，playShow 也会使旧定时器失效
+- P-F `capabilities/default.json` 删除 `opener:default`（前端未用 opener JS API）；`tauri.conf.json` 补最小 CSP（`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:`，已确认无内联 script/style/字体）
+- P-G `settings.ts` 回填改为 forEach 遍历匹配 + theme 非法值回落 system
+- P-H `quota.rs` percent 非有限值归零；`lib.rs` refresh_now 2s 防抖（`state.rs` 新增 `last_manual_refresh`）；`settings.rs` 加 `#[serde(default)]`
+- P-I `measure_run.ps1` 重写：进程树以 `$launched.Id` 为根（测量与清理都不按进程名），单实例冲突时明确提示退出
+- P-J `make_release_zip.py` 改用 `git ls-files --cached --others --exclude-standard`，git 不可用时回退原过滤 walk
+- P-K 仅完成 `verify_icons.py`（路径改为 argv[1] / `KPT_ICONS_DIR` / 默认 `~/.kimi-code/...`，找不到时 exit 2 跳过）
+
+（原"待办"四项——文档同步、自检、证伪复审、版本 bump——均已在第三轮完成，见上方进度。）
+
+---
+
 ## 当前状态
 
 1. 用户要求将 `https://github.com/shawn-0106t/kimi-planbar-tray` clone 到工作目录下同名文件夹，已完成：

@@ -88,9 +88,6 @@
   padding: 10px 12px;
   margin-bottom: 6px;
 }
-.skill.disabled {
-  opacity: 0.5;
-}
 .skill-head {
   display: flex;
   align-items: center;
@@ -102,15 +99,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.skill-badge {
-  flex: none;
-  margin-left: 8px;
-  padding: 1px 8px;
-  font-size: 11px;
-  border-radius: 8px;
-  background: var(--badge-bg);
-  color: var(--badge-fg);
 }
 .skill-desc {
   margin-top: 4px;

@@ -1,14 +1,19 @@
 // Read-only Kimi Code skill scanner, adapted from kimi-code-dashboard's
-// routes/skills.py: scan */SKILL.md, parse the YAML frontmatter for
-// name/description, and mark entries disabled via ~/.agents/.skill-lock.json.
-// No writes, no watchers, no polling — the caller caches the result.
+// routes/skills.py: scan */SKILL.md and parse the YAML frontmatter for
+// name/description. No writes, no watchers, no polling — the caller caches
+// the result.
+//
+// There is no per-skill enabled/disabled state to display: Kimi Code does not
+// persist one (skills are excluded via frontmatter `disableModelInvocation`
+// or by removal), and ~/.agents/.skill-lock.json is lark-cli's installer lock
+// file ({version, skills, dismissed}) with no `disabled` key — the earlier
+// disabled-badge feature read a key that never exists and was removed.
 
-use crate::credentials::home_dir;
+use crate::credentials::{home_dir, kimi_home};
 use serde::Serialize;
-use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,31 +23,6 @@ pub struct SkillInfo {
     pub description: String,
     /// Group label: "Kimi Code" | "Agents" | "Plugin: <name>"
     pub source: String,
-    pub enabled: bool,
-}
-
-/// ~/.kimi-code, honoring the KIMI_CODE_HOME override (docs: config-files).
-fn kimi_home(home: &Path) -> PathBuf {
-    if let Ok(p) = std::env::var("KIMI_CODE_HOME") {
-        if !p.is_empty() {
-            return PathBuf::from(p);
-        }
-    }
-    home.join(".kimi-code")
-}
-
-/// Disabled skill ids from ~/.agents/.skill-lock.json (read-only).
-fn disabled_ids(home: &Path) -> HashSet<String> {
-    let mut out = HashSet::new();
-    let lock = home.join(".agents").join(".skill-lock.json");
-    if let Ok(text) = fs::read_to_string(&lock) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(obj) = v.get("disabled").and_then(|d| d.as_object()) {
-                out.extend(obj.keys().cloned());
-            }
-        }
-    }
-    out
 }
 
 /// Parse `name:` / `description:` from the YAML frontmatter of a SKILL.md.
@@ -93,7 +73,7 @@ fn parse_frontmatter(path: &Path) -> (Option<String>, Option<String>) {
 }
 
 /// Collect skills from one `<dir>/<id>/SKILL.md` layout.
-fn collect(dir: &Path, source: &str, disabled: &HashSet<String>, out: &mut Vec<SkillInfo>) {
+fn collect(dir: &Path, source: &str, out: &mut Vec<SkillInfo>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -111,7 +91,6 @@ fn collect(dir: &Path, source: &str, disabled: &HashSet<String>, out: &mut Vec<S
         }
         let (name, description) = parse_frontmatter(&skill_md);
         out.push(SkillInfo {
-            enabled: !disabled.contains(&id),
             name: name.unwrap_or_else(|| id.clone()),
             description: description.unwrap_or_default(),
             id,
@@ -127,10 +106,9 @@ pub fn scan() -> Vec<SkillInfo> {
         return out;
     };
     let kimi = kimi_home(&home);
-    let disabled = disabled_ids(&home);
 
-    collect(&kimi.join("skills"), "Kimi Code", &disabled, &mut out);
-    collect(&home.join(".agents").join("skills"), "Agents", &disabled, &mut out);
+    collect(&kimi.join("skills"), "Kimi Code", &mut out);
+    collect(&home.join(".agents").join("skills"), "Agents", &mut out);
 
     // Managed plugins: ~/.kimi-code/plugins/managed/<plugin>/skills/<id>/
     let plugins = kimi.join("plugins").join("managed");
@@ -144,7 +122,7 @@ pub fn scan() -> Vec<SkillInfo> {
                 continue;
             };
             let source = format!("Plugin: {pname}");
-            collect(&pdir.join("skills"), &source, &disabled, &mut out);
+            collect(&pdir.join("skills"), &source, &mut out);
         }
     }
 
@@ -159,6 +137,7 @@ pub fn scan() -> Vec<SkillInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     /// Temp fixture dir under %TEMP%, removed on drop. The atomic suffix
     /// keeps parallel tests from sharing one directory.
@@ -197,13 +176,12 @@ mod tests {
         fs::create_dir_all(fx.0.join("empty-no-skillmd")).unwrap();
 
         let mut out = Vec::new();
-        collect(&fx.0, "Test", &HashSet::new(), &mut out);
+        collect(&fx.0, "Test", &mut out);
         assert_eq!(out.len(), 3);
 
         let a = out.iter().find(|s| s.id == "a").unwrap();
         assert_eq!(a.name, "Alpha");
         assert_eq!(a.description, "Does things");
-        assert!(a.enabled);
 
         let b = out.iter().find(|s| s.id == "b").unwrap();
         assert_eq!(b.name, "b"); // falls back to the directory name
@@ -212,17 +190,6 @@ mod tests {
         let c = out.iter().find(|s| s.id == "c").unwrap();
         assert_eq!(c.name, "c");
         assert_eq!(c.description, "");
-    }
-
-    #[test]
-    fn disabled_ids_are_marked() {
-        let fx = Fixture::new();
-        fx.write_skill("off", "---\nname: Off\n---\n");
-        let mut disabled = HashSet::new();
-        disabled.insert("off".to_string());
-        let mut out = Vec::new();
-        collect(&fx.0, "Test", &disabled, &mut out);
-        assert!(!out[0].enabled);
     }
 
     #[test]
@@ -241,7 +208,7 @@ mod tests {
         fs::write(dir.join("SKILL.md"), bytes).unwrap();
 
         let mut out = Vec::new();
-        collect(&fx.0, "Test", &HashSet::new(), &mut out);
+        collect(&fx.0, "Test", &mut out);
         assert_eq!(out.len(), 2);
         let bom = out.iter().find(|s| s.id == "bom").unwrap();
         assert_eq!(bom.name, "Bom");
@@ -250,4 +217,3 @@ mod tests {
         assert!(gbk.description.contains('\u{fffd}')); // GBK bytes become U+FFFD
     }
 }
-

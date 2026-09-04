@@ -1,12 +1,13 @@
 // Credential chain, 1:1 port of QuotaService.LoadToken (SPEC 16.2):
-// 1) ~/.kimi-code/credentials/kimi-code.json -> access_token (expires_at > now+30s)
-// 2) ~/.kimi-code/config.toml -> provider whose base_url contains api.kimi.com/coding
+// 1) <kimi_home>/credentials/kimi-code.json -> access_token (expires_at > now+30s)
+// 2) <kimi_home>/config.toml -> provider whose base_url contains api.kimi.com/coding
 // 3) None -> caller reports "no-token"
+// <kimi_home> honors the KIMI_CODE_HOME override (see kimi_home below).
 
 use regex::Regex;
 use serde_json::Value;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(crate) fn home_dir() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("USERPROFILE") {
@@ -30,9 +31,19 @@ fn as_f64(v: &Value) -> Option<f64> {
     }
 }
 
+/// ~/.kimi-code, honoring the KIMI_CODE_HOME override (SPEC 16.2 / 21.2).
+pub(crate) fn kimi_home(home: &Path) -> PathBuf {
+    if let Ok(p) = std::env::var("KIMI_CODE_HOME") {
+        if !p.is_empty() {
+            return PathBuf::from(p);
+        }
+    }
+    home.join(".kimi-code")
+}
+
 pub fn load_token() -> Option<String> {
     let home = home_dir()?;
-    let kimi = home.join(".kimi-code");
+    let kimi = kimi_home(&home);
 
     // 1) OAuth access token from the credentials store
     let cred = kimi.join("credentials").join("kimi-code.json");

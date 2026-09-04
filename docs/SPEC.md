@@ -148,7 +148,7 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 
 ### 7.2 测试
 
-无单元测试套件。验证手段（详见第 19 章）：
+除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
 
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
 - 视觉验证：`PYTHONUTF8=1 python make_screenshots.py`（headless Chrome 渲染 dist，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
@@ -316,6 +316,7 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
   - `"Refresh"` `Margin=3,0` → `SafeRefresh()` + `CheckAsync()`
   - `"Settings"` `Margin=3,0` → 打开设置窗（期间抑制失焦收起）
   - `"Exit"` `Margin=6,0,0,0` → `Application.Current.Shutdown()`
+- Rust 版手动刷新带 **2 秒防抖**：面板 Refresh 按钮与托盘菜单 "Refresh" 均走 `refresh_now`，距上次手动刷新不足 2 秒的重复触发被静默忽略。
 
 ---
 
@@ -393,11 +394,12 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 - HTTP 超时 **10 秒**；非 2xx → 进入失败路径
 
 ### 16.2 凭证读取优先级链（`LoadToken`，与 quota-status.py 对齐）
-1. **`~/.kimi-code/credentials/kimi-code.json`**（`%USERPROFILE%/.kimi-code/`）：
+- `<kimi_home>` 默认为 `%USERPROFILE%/.kimi-code/`，支持 `KIMI_CODE_HOME` 环境变量覆盖（与 21.2 同一约定）。
+1. **`<kimi_home>/credentials/kimi-code.json`**：
    - 读取 `access_token`（字符串）
    - 校验 `expires_at`（Unix 秒，数字）> 当前 UTC 时间 + **30 秒**余量，过期则视为无效继续下一步
    - 解析异常静默吞掉
-2. **兜底 `~/.kimi-code/config.toml`**（手写逐行解析，非完整 TOML parser）：
+2. **兜底 `<kimi_home>/config.toml`**（手写逐行解析，非完整 TOML parser）：
    - 按 `[section]` 分节；正则 `^(base_url|api_key)\s*=\s*"([^"]*)"` 提取键值
    - 匹配条件（`MatchProvider`）：节名以 `"providers."` 开头 **且** `base_url` 包含 `"api.kimi.com/coding"` **且** `api_key` 非空 → 返回该 `api_key`
    - 遇到新节时先结算上一节；文件结束再结算最后一节
@@ -548,14 +550,13 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - 三处根目录：`<kimi_home>/skills`（标签 "Kimi Code"）、`~/.agents/skills`（"Agents"）、`<kimi_home>/plugins/managed/<plugin>/skills`（"Plugin: <名>"）；`<kimi_home>` 支持 `KIMI_CODE_HOME` 覆盖。
 - 每个 `<dir>/<id>/SKILL.md` 只读前 4 KiB 解析 YAML frontmatter 的 `name` / `description`（手写行解析、去首尾引号，缺省回退目录名；不引 YAML 依赖）。字节读取后 `from_utf8_lossy` 解码，容忍 4 KiB 截断处切断的多字节字符与 GBK 混杂字节，并剥离 `---` 前的 UTF-8 BOM。
 - 前端纯事件驱动：skills 页面启动时（窗口隐藏）**不**加载数据，扫描完全由 `open_skills` 发出的 `skills-show` 事件触发（listener 在 `initTheme` 前注册防竞态）。
-- 禁用集合：`~/.agents/.skill-lock.json` 的 `disabled` 键（只读，绝不写回）。
+- 无启用/禁用状态可展示：Kimi Code 不持久化 per-skill 禁用状态（kimi.exe 二进制中无任何相关持久化）；`~/.agents/.skill-lock.json` 是 lark-cli 的安装锁文件（`{version, skills, dismissed}`，无 `disabled` 键），一律不读取。
 - **零后台开销**：不轮询、不监视文件；只在窗口首次打开时扫描一次并缓存进 `AppState`，`get_skills(refresh=false)` 直接回缓存；窗口上的 Refresh 按钮传 `refresh=true` 强制重扫。
 
 ### 21.3 呈现
 
-- 顶部汇总行：`N skills · M enabled` + Refresh 按钮。
+- 顶部汇总行：`N skills` + Refresh 按钮。
 - 列表按来源分组（组内按名称不区分大小写排序），可滚动；每项为卡片：名称（SemiBold、单行省略）+ 描述（12px、2 行 clamp，完整描述放卡片 tooltip）。
-- 禁用项整体 opacity 0.5 并带 "disabled" 徽标（复用 badge 配色）。
 - 全部颜色走 `theme.css` 变量，自动跟随 Moonlit/Moondark。
 - 前端渲染一律 `textContent`（skill 描述是外部输入，不用 innerHTML）。
 - 入口：托盘右键菜单新增 "Skills"（位于 Settings 与 Exit 之间），菜单高度由前端内容自适应上报，无需改定位逻辑。

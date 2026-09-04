@@ -27,7 +27,7 @@ pub async fn safe_refresh(app: &AppHandle) -> QuotaResult {
     let delay = if r.error.is_some() {
         Duration::from_secs(30)
     } else {
-        Duration::from_secs(mins * 60)
+        Duration::from_secs(mins.saturating_mul(60))
     };
     *st.retime_delay.lock().unwrap() = Some(delay);
     st.retime.notify_one();
@@ -44,6 +44,10 @@ pub async fn run(app: AppHandle) {
         tokio::select! {
             _ = tokio::time::sleep(next) => {}
             _ = reschedule.notified() => {
+                // Drain any stale retime hint queued before this reschedule:
+                // the notify permit survives `continue`, and a leftover delay
+                // would otherwise overwrite the 2s first-refresh tick.
+                let _ = app.state::<AppState>().retime_delay.lock().unwrap().take();
                 next = Duration::from_secs(2);
                 continue;
             }
@@ -66,7 +70,7 @@ pub async fn run(app: AppHandle) {
                 .unwrap()
                 .refresh_minutes
                 .max(1) as u64;
-            Duration::from_secs(mins * 60)
+            Duration::from_secs(mins.saturating_mul(60))
         };
     }
 }

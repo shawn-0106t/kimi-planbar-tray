@@ -194,8 +194,11 @@ fn parse_segment(v: &Value) -> QuotaSegment {
         .get("resetTime")
         .and_then(|x| x.as_str())
         .and_then(parse_reset_time);
+    // get_f64 can yield inf/NaN from hostile strings ("1e999", "NaN"); keep
+    // percent finite so serialization never emits a non-finite double
+    let percent = used / limit * 100.0;
     QuotaSegment {
-        percent: used / limit * 100.0,
+        percent: if percent.is_finite() { percent } else { 0.0 },
         reset_at,
     }
 }
@@ -232,7 +235,8 @@ fn parse_extra(wallet: Option<&Value>) -> ExtraInfo {
         .and_then(get_i64)
     {
         info.state = ExtraState::Ready;
-        info.balance_cents = Some((raw + 500_000) / 1_000_000); // 1e-8 yuan -> cents, rounded
+        // saturating_add: a pathological amountLeft near i64::MAX must not overflow
+        info.balance_cents = Some(raw.saturating_add(500_000) / 1_000_000); // 1e-8 yuan -> cents, rounded
     } else {
         info.state = ExtraState::NoData;
     }

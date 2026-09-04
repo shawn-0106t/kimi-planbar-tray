@@ -18,6 +18,8 @@ pub struct AppState {
     pub last_hide: Mutex<Option<Instant>>,
     /// Timestamp of the last hover-triggered refresh (10s throttle)
     pub last_hover: Mutex<Option<Instant>>,
+    /// Timestamp of the last manual "Refresh" command (2s debounce)
+    pub last_manual_refresh: Mutex<Option<Instant>>,
     pub panel_hiding: AtomicBool,
     /// While the settings window is open, panel focus-loss hide is suppressed
     pub settings_open: AtomicBool,
@@ -45,6 +47,7 @@ impl AppState {
             effective_theme: RwLock::new(effective_theme),
             last_hide: Mutex::new(None),
             last_hover: Mutex::new(None),
+            last_manual_refresh: Mutex::new(None),
             panel_hiding: AtomicBool::new(false),
             settings_open: AtomicBool::new(false),
             skills_open: AtomicBool::new(false),

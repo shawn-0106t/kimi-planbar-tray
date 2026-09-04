@@ -14,14 +14,23 @@ async function backfill(): Promise<void> {
   try {
     const state = await invoke<AppStateDto>('get_state');
     const s = state.settings;
-    const themeInput = document.querySelector<HTMLInputElement>(
-      `input[name="theme"][value="${s.theme}"]`,
-    );
-    if (themeInput) themeInput.checked = true;
-    const intervalInput = document.querySelector<HTMLInputElement>(
-      `input[name="interval"][value="${s.refreshMinutes}"]`,
-    );
-    if (intervalInput) intervalInput.checked = true;
+    // Iterate instead of interpolating into a CSS selector: a malformed
+    // persisted theme value must not throw and leave every control blank.
+    let themeMatched = false;
+    document.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach((i) => {
+      i.checked = i.value === s.theme;
+      themeMatched ||= i.checked;
+    });
+    if (!themeMatched) {
+      const fallback = document.querySelector<HTMLInputElement>(
+        'input[name="theme"][value="system"]',
+      );
+      if (fallback) fallback.checked = true;
+    }
+    const wanted = String(s.refreshMinutes);
+    document.querySelectorAll<HTMLInputElement>('input[name="interval"]').forEach((i) => {
+      i.checked = i.value === wanted;
+    });
     el<HTMLInputElement>('autostart').checked = s.autoStart;
   } catch {
     /* backend unavailable: keep current control state */
@@ -31,16 +40,19 @@ async function backfill(): Promise<void> {
 window.addEventListener('DOMContentLoaded', async () => {
   el<HTMLImageElement>('logo').src = logoUrl;
 
+  // Register before any await: the window is reused (hidden, not destroyed),
+  // and a settings-show emitted during initTheme must not be missed (same
+  // race as panel-show in main.ts).
+  await listen('settings-show', () => {
+    backfill().catch(() => undefined);
+  });
+
   try {
     await initTheme();
   } catch {
     /* backend unavailable: keep default theme */
   }
   await backfill();
-  // The window is reused (hidden, not destroyed): re-backfill on every open
-  await listen('settings-show', () => {
-    backfill().catch(() => undefined);
-  });
 
   el('btn-save').addEventListener('click', () => {
     const theme =

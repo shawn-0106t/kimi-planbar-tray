@@ -87,7 +87,13 @@ function renderVersion(u: UpdateStatus): void {
 
 // ---- Show/hide animation (SPEC 15.1 / 15.2) ----
 
+// Generation counter: a pending hide timer must not fire after a newer
+// show/hide, or a rapid hide→show→hide sequence would cut the last hide
+// animation short.
+let hideGen = 0;
+
 function playShow(): void {
+  hideGen++; // supersede any pending hide timer
   document.body.classList.remove('leave');
   // Force reflow so the enter transition always restarts from the initial state
   void document.body.offsetWidth;
@@ -95,10 +101,12 @@ function playShow(): void {
 }
 
 function playHide(): void {
+  const gen = ++hideGen;
   document.body.classList.remove('enter');
   document.body.classList.add('leave');
   // Fade-out takes 130ms; tell the backend to actually hide the window afterwards
   window.setTimeout(() => {
+    if (gen !== hideGen) return; // superseded by a newer show/hide
     invoke('finish_hide_panel').catch(() => undefined);
     document.body.classList.remove('leave');
   }, 170);
@@ -109,6 +117,13 @@ function playHide(): void {
 window.addEventListener('DOMContentLoaded', async () => {
   el<HTMLImageElement>('logo').src = logoUrl;
 
+  // Register listeners BEFORE any other await (including initTheme's) so an
+  // early backend event — panel-show, quota-updated — can never be missed.
+  await listen<QuotaResult>('quota-updated', (e) => renderQuota(e.payload));
+  await listen<UpdateStatus>('update-status', (e) => renderVersion(e.payload));
+  await listen('panel-show', () => playShow());
+  await listen('panel-hide', () => playHide());
+
   let state: AppStateDto;
   try {
     state = await initTheme();
@@ -117,11 +132,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
   renderQuota(state.quota);
   renderVersion(state.update);
-
-  await listen<QuotaResult>('quota-updated', (e) => renderQuota(e.payload));
-  await listen<UpdateStatus>('update-status', (e) => renderVersion(e.payload));
-  await listen('panel-show', () => playShow());
-  await listen('panel-hide', () => playHide());
 
   el('btn-console').addEventListener('click', () => {
     invoke('open_console').catch(() => undefined);

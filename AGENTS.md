@@ -6,7 +6,7 @@ Guidance for AI coding agents working in this repository. Read this first; it as
 
 Kimi Planbar Tray is a lightweight **Windows-only system tray app** that shows Kimi Code plan quota (5-hour window + weekly usage, reset countdowns, "Extra Usage" booster wallet) one click away from the tray. It reads the local Kimi Code CLI OAuth token and calls `GET https://api.kimi.com/coding/v1/usages`.
 
-Current version: **1.6.0** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, and `make_release_zip.py`).
+Current version: **1.7.1** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, and `make_release_zip.py`).
 
 This is a **monorepo with two editions**:
 
@@ -24,6 +24,7 @@ Other root-level files:
 - `make_screenshots.py` — regenerates `docs/screenshot-*.png` via headless Chrome (see Testing / self-checks).
 - `verify_icons.py` — byte-compares the inline button SVGs in `rust/index.html` against the source icon library.
 - `analyze_wpf_shadow.py`, `dump_tray_windows.ps1`, `inspect_window_dpi.ps1`, `measure_run.ps1` — one-off diagnostic/measurement scripts kept for reference.
+- `csp_visual_check.ps1` — shows the tray panel via UIAutomation (locale-independent) and screenshots the bottom-right screen region; used to verify the WebView renders under the CSP in `tauri.conf.json` on a release exe.
 
 ## Repository layout (active code)
 
@@ -38,12 +39,12 @@ rust/
 ├── vite.config.ts               # 4-page rollup input; assetsInlineLimit 100 KB inlines the logo
 └── src-tauri/
     ├── Cargo.toml               # tauri 2, reqwest, tokio, serde, windows 0.61, winreg, regex, chrono
-    ├── tauri.conf.json          # 4 frameless/transparent/always-on-top windows: main 424x520, settings 404x464, skills 404x520, menu 188x160
-    ├── capabilities/default.json# permissions: core:default + opener:default, all 4 windows
+    ├── tauri.conf.json          # 4 frameless/transparent/always-on-top windows: main 424x520, settings 404x464, skills 404x520, menu 188x160; minimal CSP (script-src 'self', style-src + 'unsafe-inline', img-src + data:)
+    ├── capabilities/default.json# permissions: core:default only, all 4 windows
     └── src/
         ├── main.rs              # entry; handles --test-* args BEFORE single-instance check; named mutex KimiPlanbarTray.SingleInstance
         ├── lib.rs               # Tauri builder, all #[tauri::command]s, window event routing (focus-loss / hide-on-close), --test-ui
-        ├── credentials.rs       # token chain: ~/.kimi-code/credentials/kimi-code.json -> config.toml fallback
+        ├── credentials.rs       # token chain (KIMI_CODE_HOME-aware kimi_home): credentials/kimi-code.json -> config.toml fallback
         ├── quota.rs             # HTTP fetch + defensive JSON parsing (see traps below)
         ├── polling.rs           # refresh timer, 2 s first refresh, 30 s fast retry on failure, keep-last-good
         ├── tray.rs              # tray icon, left-click toggle, right-click menu window, tooltip text
@@ -52,7 +53,7 @@ rust/
         ├── skills.rs            # read-only scan of local Kimi Code skills (v1.6 feature, SPEC section 21)
         ├── update.rs            # kimi --version + changelog Range request + GitHub API fallback
         ├── theme_watch.rs       # system light/dark watch via registry
-        └── state.rs             # AppState shared state (RwLock fields, skills cache, reschedule notify)
+        └── state.rs             # AppState shared state (RwLock fields, skills cache, reschedule notify, manual-refresh debounce)
 
 wpf/                             # UNMAINTAINED reference (net8.0-windows, WPF, zero third-party NuGet deps)
 ├── MainWindow / SettingsWindow / TrayMenuWindow (.xaml + .xaml.cs)
@@ -87,7 +88,7 @@ Note: Bash on this machine is Git Bash — use POSIX syntax, forward slashes, si
 
 ## Testing / self-checks
 
-There is **no unit-test suite** (`cargo test`/`npm test` have nothing to run). Verification is via headless self-check command-line args, which run **before** the single-instance mutex so they work while a GUI instance is live (SPEC section 19):
+There is **no unit-test suite** beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those; `npm test` runs nothing). Verification is via headless self-check command-line args, which run **before** the single-instance mutex so they work while a GUI instance is live (SPEC section 19):
 
 ```bash
 kimi-planbar-tray.exe --test-fetch    # fetch quota once, print indented JSON, exit
@@ -101,7 +102,7 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 
 ## Release process
 
-1. Bump the version in all four places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `make_release_zip.py` (`VERSION` constant).
+1. Bump the version in all four places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `make_release_zip.py` (`VERSION` constant) — plus the "Current version" line at the top of this file.
 2. Build the Rust release exe (and WPF exes only if the WPF edition was exceptionally touched).
 3. Run `python make_release_zip.py` — it zips the full source tree (excluding build outputs) plus the release binaries at the zip root, and regenerates `SHA256SUMS.txt` for the GitHub Release assets.
 4. Release zips and `SHA256SUMS.txt` are gitignored; they are uploaded to GitHub Releases manually. Do not commit binaries.
@@ -114,7 +115,7 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 - Error-handling baseline: all IO, registry, process, and HTTP failures are **silently swallowed** and surfaced only via UI text ("Update failed", "Not detected") or state fields. Never pop up error dialogs.
 - Frontend renders external data (skill names/descriptions) with `textContent` only, never `innerHTML`.
 - Tauri IPC: all frontend↔backend interaction goes through the `#[tauri::command]`s registered in `lib.rs::invoke_handlers()` plus events (`panel-show`, `settings-show`, `skills-show`, `update-status`). Windows are singletons — hidden, never destroyed; open paths must re-pin the logical size (DPI guard) and emit the `*-show` event.
-- The Skills window is read-only and zero-background-cost: scan once on first open, cache in `AppState`, rescan only when the Refresh button passes `refresh=true`. Never write back to `~/.agents/.skill-lock.json`.
+- The Skills window is read-only and zero-background-cost: scan once on first open, cache in `AppState`, rescan only when the Refresh button passes `refresh=true`. There is no per-skill enabled/disabled state to display — Kimi Code does not persist one, and `~/.agents/.skill-lock.json` is lark-cli's installer lock file (no `disabled` key); it is not read at all.
 
 ## Critical behavioral traps (do not regress)
 

@@ -3,8 +3,10 @@
 
 Snapshot = full source tree (monorepo: wpf/ + rust/ + docs/ + root files)
 plus the three release binaries at the zip root. Mirrors the layout used by
-the v1.3.0-and-earlier archives on Feishu Drive. Build outputs (bin/obj/
-publish/node_modules/target/dist/.git) are excluded.
+the v1.3.0-and-earlier archives on Feishu Drive. The source file set comes
+from `git ls-files` (tracked + untracked-but-not-ignored), so the zip can
+never drift out of sync with .gitignore; a filtered walk is the fallback when
+git metadata is unavailable (e.g. running from an unpacked source zip).
 
 Also writes SHA256SUMS.txt (standard `sha256sum` format, asset names as
 uploaded to the GitHub release) next to the zip, ready to be attached as a
@@ -12,10 +14,11 @@ release asset.
 """
 import hashlib
 import os
+import subprocess
 import zipfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.7.0"
+VERSION = "1.7.1"
 OUT = os.path.join(ROOT, f"KimiPlanbarTray-v{VERSION}.zip")
 
 # (absolute source, arcname in zip)
@@ -27,21 +30,42 @@ BINARIES = [
      "KimiPlanbarTray-rust.exe"),
 ]
 
-EXCLUDE_DIRS = {"bin", "obj", "publish", "publish-sc", "node_modules",
-                "target", "dist", ".git", ".vs"}
+# Never shipped even when present (all are gitignored; belt and braces)
 EXCLUDE_FILES = {"kimi logo.webp", os.path.basename(OUT),
                  "SHA256SUMS.txt", "ref-v1.3.0.zip"}
+# Fallback walk exclusions, only used when git is unavailable
+EXCLUDE_DIRS = {"bin", "obj", "publish", "publish-sc", "node_modules",
+                "target", "dist", ".git", ".vs"}
+
+
+def source_files():
+    """Repo-relative paths of every file belonging in the source snapshot."""
+    files = None
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            cwd=ROOT, capture_output=True, check=True,
+        )
+        files = [n for n in out.stdout.decode("utf-8", errors="replace").split("\0") if n]
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    if files is None:
+        files = []
+        for dirpath, dirnames, filenames in os.walk(ROOT):
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
+            for name in filenames:
+                rel = os.path.relpath(os.path.join(dirpath, name), ROOT)
+                files.append(rel.replace(os.sep, "/"))
+    return [f for f in files
+            if os.path.basename(f) not in EXCLUDE_FILES and not f.endswith(".zip")
+            # --cached can list a path whose worktree file was deleted but not
+            # yet staged; skip it instead of aborting mid-zip.
+            and os.path.isfile(os.path.join(ROOT, f))]
 
 
 def add_tree(zf):
-    for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
-        for name in filenames:
-            if name in EXCLUDE_FILES or name.endswith(".zip"):
-                continue
-            full = os.path.join(dirpath, name)
-            rel = os.path.relpath(full, ROOT).replace(os.sep, "/")
-            zf.write(full, rel)
+    for rel in source_files():
+        zf.write(os.path.join(ROOT, rel), rel)
 
 
 def sha256_of(path):

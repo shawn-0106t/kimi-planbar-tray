@@ -11,7 +11,6 @@ interface SkillInfo {
   name: string;
   description: string;
   source: string; // "Kimi Code" | "Agents" | "Plugin: <name>"
-  enabled: boolean;
 }
 
 function el<T extends HTMLElement>(id: string): T {
@@ -23,10 +22,7 @@ function el<T extends HTMLElement>(id: string): T {
 function render(skills: SkillInfo[]): void {
   const list = el('list');
   list.replaceChildren();
-  const enabledCount = skills.filter((s) => s.enabled).length;
-  el('summary-text').textContent = skills.length
-    ? `${skills.length} skills · ${enabledCount} enabled`
-    : 'No skills found';
+  el('summary-text').textContent = skills.length ? `${skills.length} skills` : 'No skills found';
 
   let lastSource = '';
   for (const s of skills) {
@@ -38,7 +34,7 @@ function render(skills: SkillInfo[]): void {
       list.appendChild(group);
     }
     const item = document.createElement('div');
-    item.className = s.enabled ? 'skill' : 'skill disabled';
+    item.className = 'skill';
 
     const head = document.createElement('div');
     head.className = 'skill-head';
@@ -46,12 +42,6 @@ function render(skills: SkillInfo[]): void {
     name.className = 'skill-name';
     name.textContent = s.name;
     head.appendChild(name);
-    if (!s.enabled) {
-      const badge = document.createElement('span');
-      badge.className = 'skill-badge';
-      badge.textContent = 'disabled';
-      head.appendChild(badge);
-    }
 
     const desc = document.createElement('div');
     desc.className = 'skill-desc';
@@ -76,19 +66,21 @@ async function load(refresh: boolean): Promise<void> {
 window.addEventListener('DOMContentLoaded', async () => {
   el<HTMLImageElement>('logo').src = logoUrl;
 
+  // Event-driven only: the window page loads hidden at app start, so the scan
+  // must NOT run here — it runs when open_skills emits 'skills-show'
+  // (SPEC 21.2: zero cost until the window is actually opened).
+  // Registered BEFORE initTheme's await so an early 'skills-show' (e.g. from
+  // --test-ui or a fast tray-menu open) can never be missed. NOT awaited:
+  // registration must never block the rest of the init.
+  listen('skills-show', () => {
+    load(false).catch(() => undefined);
+  }).catch(() => undefined);
+
   try {
     await initTheme();
   } catch {
     /* backend unavailable: keep default theme */
   }
-
-  // Event-driven only: the window page loads hidden at app start, so the scan
-  // must NOT run here — it runs when open_skills emits 'skills-show'
-  // (SPEC 21.2: zero cost until the window is actually opened).
-  // NOT awaited: registration must never block the rest of the init.
-  listen('skills-show', () => {
-    load(false).catch(() => undefined);
-  }).catch(() => undefined);
 
   el('btn-refresh').addEventListener('click', () => {
     load(true).catch(() => undefined);

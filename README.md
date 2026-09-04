@@ -19,7 +19,7 @@ A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/
 - **Extra Usage card** — shows your booster wallet balance (¥) and monthly charge usage/limit; gracefully shows "not activated / no data" when the wallet has never been topped up
 - **Skills at a glance** (Rust edition) — right-click menu → Skills opens a read-only list of your local Kimi Code skills, grouped by source (`~/.kimi-code/skills`, `~/.agents/skills`, managed plugins); scanned once on open and cached, zero background polling
 - **Portable & UAC-free** — single exe, per-user only (HKCU autostart, no admin rights, nothing written to HKLM or Program Files); drop an empty `portable.dat` next to the exe to store settings beside it instead of `%APPDATA%`
-- **Small footprint** — ~260 KB single-file build, ~80 MB working set at runtime, no background polling beyond the refresh timer
+- **Small footprint** — single ~5.6 MB exe (uses the system WebView2, nothing else to install), no background polling beyond the refresh timer
 
 ## Download
 
@@ -40,7 +40,7 @@ Both editions share the same UI/UX (see `docs/SPEC.md`) and the same settings fi
 ## Requirements
 
 - Windows 10 / 11
-- [Kimi Code](https://www.kimi.com/code/) CLI installed and signed in, with a **Kimi For Coding** plan (the app reads the CLI's local OAuth token from `~/.kimi-code/credentials/kimi-code.json`, falling back to a plain `api_key` in `~/.kimi-code/config.toml`)
+- [Kimi Code](https://www.kimi.com/code/) CLI installed and signed in, with a **Kimi For Coding** plan (the app reads the CLI's local OAuth token from `~/.kimi-code/credentials/kimi-code.json`, falling back to a plain `api_key` in `~/.kimi-code/config.toml`; both honor the `KIMI_CODE_HOME` override)
 - Network access to `api.kimi.com`
 
 No credentials are stored or sent anywhere except the official `api.kimi.com/coding/v1/usages` endpoint.
@@ -56,7 +56,7 @@ No credentials are stored or sent anywhere except the official `api.kimi.com/cod
 
 ## Build from source
 
-This repo hosts two editions: `wpf/` (original .NET 8 / WPF, **unmaintained since v1.6.0**, kept for reference) and `rust/` (Tauri 2 / Rust rewrite, actively developed). Shared UI/UX spec lives in `docs/SPEC.md`.
+This repo hosts two editions: `wpf/` (original .NET 8 / WPF, **frozen at v1.5.0**, kept for reference) and `rust/` (Tauri 2 / Rust rewrite, actively developed). Shared UI/UX spec lives in `docs/SPEC.md`.
 
 WPF edition (unmaintained) — requires .NET 8 SDK (Windows):
 

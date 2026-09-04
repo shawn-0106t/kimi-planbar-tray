@@ -1,7 +1,7 @@
 {
   "name": "kimi-planbar-tray",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.7.1",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
