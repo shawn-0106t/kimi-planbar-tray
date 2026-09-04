@@ -4,6 +4,8 @@
 
 ## 修复进度（2026-09-05 第三轮 agent 更新：全部收尾完成）
 
+**第四轮追加（hover 光晕，v1.7.2）**：用户要求为可点击控件加悬停效果。实现于 `theme.css`：光晕（accent 描边 + 光晕）预绘制在伪元素 `::after` 上，hover 仅过渡其 `opacity`（compositor-only，不动画 box-shadow 本身），背景色切换同步 140ms ease；适用 `.btn` / `.menu-item` / `.version` / `.btn-mini`。SPEC 15.3 双语已更新（原"悬停态瞬时"表述作废）。验证：静止态截图与基准逐像素一致（重拍 docs/*.png 无 diff），强制 hover 渲染截图确认双主题效果。已发布 v1.7.2。
+
 **文档同步已完成**：README.md/README_CN.md（Small footprint 行改为 ~5.6 MB 单 exe；WPF 措辞统一为"frozen at v1.5.0"）、AGENTS.md（版本 1.7.1、capabilities 行改 core:default、skills 无禁用状态注记、单测行）、SPEC.md/SPEC_EN.md 16.2（补 KIMI_CODE_HOME 覆盖 + `<kimi_home>/config.toml` 路径修正）、21.2（禁用集合条目改为"无 per-skill 禁用状态"说明）、21.3（汇总行 `N skills`、删 disabled 徽标）、12.7（补 refresh_now 2s 防抖说明）。
 
 **自检通过**：`cargo build` + `cargo test`（skills.rs 2 个单测过）+ `npm run build` + release exe 的 `--test-fetch` / `--test-ui`（4 窗口 OK）/ `--test-update`。

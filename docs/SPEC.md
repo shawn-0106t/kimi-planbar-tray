@@ -382,7 +382,8 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 - 淡出完成后：`Hide()`、`Opacity = 1`（复位）、通知 `Tray.NotifyPopupHidden()`（记录 `_lastHide` 供 300ms 防重入）
 
 ### 15.3 其他
-- 无其他动画。控件悬停态切换为瞬时。进度条宽度变化无动画（直接设 GridLength）。
+- **悬停光晕**（Rust 版）：可点击控件（ActionButton、托盘菜单项、版本行卡片、Skills 的 Refresh 小按钮）悬停时淡入强调色外发光——1px 35% 透明 accent 描边 + 8px 18% 透明光晕（暗色主题为 45% / 22%、10px），背景色切换同步过渡，均为 **140ms ease**。实现上光晕预绘制在伪元素 `::after` 上、仅过渡其 `opacity`（box-shadow 本身不做动画，compositor-only，无逐帧 repaint）。
+- 其余控件（主题单选、间隔丸、复选框、标题栏 ✕）悬停态切换为瞬时。进度条宽度变化无动画（直接设宽度）。
 
 ---
 

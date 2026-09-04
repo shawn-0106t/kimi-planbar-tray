@@ -212,3 +212,53 @@ body {
 .menu-item:hover {
   background: var(--button-hover);
 }
+
+/* ---- Hover glow (SPEC 15.3) ----
+   The accent ring + halo is painted once on a pseudo-element and only its
+   opacity animates on hover: the box-shadow itself never animates, so the
+   effect stays compositor-only with no per-frame repaint. */
+.btn,
+.menu-item,
+.version,
+.btn-mini {
+  position: relative;
+  transition: background-color 140ms ease;
+}
+.btn::after,
+.menu-item::after,
+.version::after,
+.btn-mini::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    0 0 0 1px rgb(26 136 255 / 0.35),
+    0 0 8px rgb(26 136 255 / 0.18);
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+.btn::after {
+  border-radius: 10px;
+}
+.menu-item::after,
+.btn-mini::after {
+  border-radius: 8px;
+}
+.version::after {
+  border-radius: 12px;
+}
+:root[data-theme='dark'] .btn::after,
+:root[data-theme='dark'] .menu-item::after,
+:root[data-theme='dark'] .version::after,
+:root[data-theme='dark'] .btn-mini::after {
+  box-shadow:
+    0 0 0 1px rgb(26 136 255 / 0.45),
+    0 0 10px rgb(26 136 255 / 0.22);
+}
+.btn:hover::after,
+.menu-item:hover::after,
+.version:hover::after,
+.btn-mini:hover::after {
+  opacity: 1;
+}

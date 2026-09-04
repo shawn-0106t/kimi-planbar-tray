@@ -381,7 +381,8 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 - After the fade-out completes: `Hide()`, `Opacity = 1` (reset), notify `Tray.NotifyPopupHidden()` (records `_lastHide` for the 300 ms re-entry guard)
 
 ### 15.3 Others
-- No other animations. Control hover-state changes are instant. Progress bar width changes are not animated (GridLength is set directly).
+- **Hover glow** (Rust edition): clickable controls (ActionButton, tray menu items, the version-row card, the Skills Refresh mini-button) fade in an accent-colored outer glow on hover — a 1 px accent ring at 35% alpha plus an 8 px halo at 18% alpha (dark theme: 45% / 22%, 10 px), with the background-color change transitioned in sync; all **140 ms ease**. The glow is pre-painted on an `::after` pseudo-element and only its `opacity` is transitioned (the box-shadow itself never animates — compositor-only, no per-frame repaint).
+- All other controls (theme radios, interval pills, the checkbox, the title-bar ✕) switch their hover state instantly. Progress bar width changes are not animated (the width is set directly).
 
 ---
 
