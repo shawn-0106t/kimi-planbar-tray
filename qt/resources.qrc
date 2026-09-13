@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/icon.png</file>
+        <file>assets/kimi-logo.png</file>
+    </qresource>
+</RCC>
