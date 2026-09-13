@@ -45,9 +45,10 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 ## 3. 系统架构
 
-### 3.1 仓库结构（monorepo 双版本）
+### 3.1 仓库结构（monorepo 三版本）
 
-- `rust/` — **唯一活跃开发线**：Tauri 2 + Rust 后端 + vanilla HTML/CSS/TS 前端（Vite 多页构建，无框架）
+- `rust/` — **活跃开发线之一（与 `qt/` 双轨并行）**：Tauri 2 + Rust 后端 + vanilla HTML/CSS/TS 前端（Vite 多页构建，无框架）
+- `qt/` — **活跃开发线之一（已完成，实验性质）**：C++ Qt6 + Qt Widgets，无 WebView 依赖；已达到与 rust/ 1.7.2 的 parity；架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`（已归档）
 - `wpf/` — 原版 .NET 8 / WPF，冻结于 v1.5.0，只读参考，勿删勿改
 - `docs/` — 本规格、截图基准、归档历史
 - 根目录脚本：`make_release_zip.py`（发布打包）、`make_screenshots.py`（README 截图生成）、`verify_icons.py`（图标与库逐字节比对）、若干一次性诊断脚本
@@ -80,7 +81,9 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 | `theme_watch.rs` | 注册表监听系统亮暗主题切换 |
 | `state.rs` | AppState 共享状态（RwLock、缓存、调度通知） |
 
-### 3.4 前后端边界（Tauri IPC）
+> Qt 版（`qt/`）：上述后端模块与 4 个前端页面合并进同一 C++ 进程，无前后端边界与 IPC；模块与文件映射见 `docs/archive/QT-MIGRATION.md` 第 3 节。
+
+### 3.4 前后端边界（Tauri IPC，仅 rust/ 版）
 
 命令（`lib.rs` 注册，前端 `invoke`）：
 
@@ -103,11 +106,15 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 ## 4. 技术栈与关键依赖
 
+**rust/ 版**：
+
 - **Tauri 2**（含 opener / single-instance 插件）— 窗口、托盘、IPC
 - **tokio / reqwest / serde** — 异步运行时、HTTP、JSON
 - **windows 0.61 / winreg** — Win32（工作区、DPI、DWM、互斥锁）与注册表
 - **regex / chrono** — 版本号解析、重置倒计时计算
 - **Vite + TypeScript** — 前端构建；无运行时框架
+
+**qt/ 版**：C++17 + **Qt 6**（仅 Widgets / Network / Svg，无第三方库）；**CMake + MSVC** 构建；windeployqt 动态链接分发（LGPL 合规路线，目录形态，无单 exe）；一键打包 `PYTHONUTF8=1 python qt/package_release.py` → `qt/dist/`。与 Rust 栈的逐项对比见 `docs/archive/QT-MIGRATION.md` 第 2 节。
 
 ## 5. 数据流
 
@@ -146,6 +153,17 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 
 注意：裸 `cargo build` 的 debug exe **不内嵌前端**（窗口指向 Vite devUrl），不起 dev server 直接运行会显示 WebView2 "localhost ERR_CONNECTION_REFUSED" 页，且 debug 构建带控制台窗口。`--test-*` 自检不加载 Web 内容，debug exe 可用。
 
+**qt/ 版**：前提 Windows + MSVC（VS 生成工具 2026）+ Qt 6（MSVC 2022 64-bit kit，推荐 aqtinstall 免管理员安装）+ CMake。
+
+```bash
+cd qt
+cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64
+cmake --build build --config Release
+PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt 到 qt/dist/（目录形态分发）
+```
+
+注意：Qt 版为 GUI 子系统 exe，`--test-*` 自检输出直接 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))`（Git Bash 管道与 cmd 控制台均覆盖），AttachConsole + `CONOUT$` 仅作兜底。构建前需先按 PID/路径结束 qt GUI 进程（exe 文件锁；与 rust 版同名 `kimi-planbar-tray.exe`，勿用 `taskkill /IM`）。
+
 ### 7.2 测试
 
 除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
@@ -156,7 +174,7 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 
 ### 7.3 发布
 
-1. 版本号四处同步：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`make_release_zip.py` 的 `VERSION`
+1. 版本号同步：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)` 与 `qt/src/main.cpp` 的 `setApplicationVersion`（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
 2. `npx tauri build` 出 release exe
 3. `python make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`
 4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**
@@ -170,14 +188,15 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 
 ## 9. 维护边界与文档地图
 
-- 新功能只进 `rust/`；`wpf/` 冻结为只读参考
-- 行为歧义时：第二篇为契约，`wpf/` 为参考实现
+- 新功能进 `rust/` 与 `qt/` 两条活跃线（双轨并行，功能基线以第二篇为准）；`wpf/` 冻结为只读参考
+- 行为歧义时：第二篇为契约，`wpf/` 为参考实现；Qt 版架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`
 
 | 文档 | 定位 |
 |---|---|
 | `README.md` / `README_CN.md` | 面向用户：功能、下载、使用、构建 |
 | `docs/SPEC.md`（本文档） | 唯一权威规格：项目级 + UI/行为细则 |
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
+| `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
 | `docs/screenshot-*.png` | 视觉基准（由 `make_screenshots.py` 生成） |
 | `docs/archive/HANDOFF.md` | 已归档的 WPF→Rust 重写接力手册（历史，不再更新） |
@@ -354,6 +373,7 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 
 - 实现：`System.Windows.Forms.NotifyIcon`；图标静态不变，刷新只更新 tooltip 文字。
 - **悬停（MouseMove）→ hover-to-refresh**：节流 **10 秒**（距上次 hover 刷新 <10s 则跳过），触发 `Quota.SafeRefresh()`（异步，不等待）。
+- **Qt 版偏差**：`QSystemTrayIcon` 无 hover 事件，hover-to-refresh 落地为 500ms 轮询 `QSystemTrayIcon::geometry()`——光标在图标矩形内且自上次 tick 有移动才算一次 hover（与 rust 的 Enter/Move 事件语义一致，停放不重触发），10s 节流不变（方案 A nativeEventFilter 实测抓不到 Qt 内部托盘窗的 WM_MOUSEMOVE，已放弃）。
 - **左键（MouseUp，Left）**：toggle 主面板。防重入：面板刚因失焦自动隐藏后的 **300 毫秒** 内的左键点击被忽略（`_lastHide` 判定，避免同一次点击先触发失焦隐藏又立刻弹回）。面板已可见 → `HideAnimated()`；不可见 → 单例复用 `ShowNearTray()`。
 - **右键（MouseUp，Right）**：关闭旧菜单实例，新建 `TrayMenuWindow` 并 `ShowAtCursor()`。
   - 菜单项："Open" → 关菜单 + `TogglePopup()`；"Refresh" → 关菜单 + `SafeRefresh()` + `CheckAsync()`；"Settings" → 关菜单 + `ShowSettings()`；"Exit" → `Shutdown()`。
@@ -383,6 +403,7 @@ npx tauri build      # release exe → src-tauri/target/release/kimi-planbar-tra
 
 ### 15.3 其他
 - **悬停光晕**（Rust 版）：可点击控件（ActionButton、托盘菜单项、版本行卡片、Skills 的 Refresh 小按钮）悬停时淡入强调色外发光——1px 35% 透明 accent 描边 + 8px 18% 透明光晕（暗色主题为 45% / 22%、10px），背景色切换同步过渡，均为 **140ms ease**。实现上光晕预绘制在伪元素 `::after` 上、仅过渡其 `opacity`（box-shadow 本身不做动画，compositor-only，无逐帧 repaint）。
+- **悬停光晕（Qt 版偏差）**：同等视觉目标用自绘实现（`windows/hoverglow.h`：顶层窗的独立 halo 子 widget，目标控件矩形外扩 8/10px，同心圆角描边 alpha 由内向外递减，140ms OutCubic 渐显渐隐），完全不触碰目标控件自身的 QSS 绘制；`QGraphicsDropShadowEffect` 方案已废弃（blurRadius=0 启用会把整个 widget 渲染消失，且在无边框透明窗里 enable/disable 切换渲染路径会闪烁）。
 - 其余控件（主题单选、间隔丸、复选框、标题栏 ✕）悬停态切换为瞬时。进度条宽度变化无动画（直接设宽度）。
 
 ---
@@ -510,7 +531,8 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 |---|---|---|
 | `--test-fetch` | 拉取一次额度，打印 JSON | `QuotaResult` 的 JSON（缩进格式、不转义非 ASCII） |
 | `--test-update` | 执行一次版本检查 | 单行：`local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust 版另有 `SkillsWindow OK`）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
+| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
+| `--test-skills`（仅 Qt 版） | 解析两个内置 frontmatter 测试夹具（移植 rust 版 `skills.rs` 的两个 cargo 单测） | 通过打印 `PASS`，失败打印差异详情并非零退出 |
 | `--screenshot <path> [--dark] [--mock]`（仅 WPF 版） | 真实（或模拟）额度数据 + 指定主题渲染主面板为 PNG（README 用） | `saved: <path>` |
 
 - `--screenshot`（仅 WPF 版；Rust 版无此参数，截图验证见 7.2）：默认 light 主题，`--dark` 切 dark；`--mock` 注入固定数据（5h=42% 3.5 小时后重置，week=68% 4 天后重置，Extra：余额 1234 分、月度已用 4567/上限 10000 分）；否则真实拉取。渲染为 96 DPI Pbgra32 PNG，自动创建输出目录。
@@ -526,6 +548,14 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - **主题切换实现**：清空应用级资源字典，依次加入 Shared + Light/Dark。所有颜色经动态资源引用，切换即时生效无需重建窗口。Shared 样式字典只加载一次。
 - **DPI**：锁定系统级 DPI 感知（SystemAware）。托盘菜单定位依赖 `Cursor.Position`（物理像素）÷ `GetDpiForWindow/96` 换算 DIP，高 DPI 下缺此换算菜单会偏出屏幕。
 - **DPI 陷阱（Tauri/tao 复刻）**：tao 在 app 启动时就创建全部 HWND（隐藏），位置为 `CW_USEDEFAULT`——Windows 会把新窗口放在**启动者所在屏**（例如从副屏的资源管理器窗口双击 exe，隐藏窗口就挂在副屏，带上副屏的 scale）。之后跨屏定位时若用 `LogicalPosition`/`LogicalSize`，换算用的是窗口当前所在屏的 scale 而非目标屏，多屏异 DPI 下首开必偏。**规则：跨屏落位一律用 `PhysicalPosition`（面板按主屏工作区物理像素、菜单按光标所在屏物理像素）；尺寸保持 `LogicalSize`**——tao 在 `WM_DPICHANGED` 时会用逻辑尺寸 × 新 scale 重算物理尺寸，尺寸给物理值反而会被二次放大。WPF 版无此问题：`Window` 的 HWND 在 `Show()` 时才创建，`Left`/`Top` 已先设好，换算天然用目标屏 DPI。
+- **Qt 版差异注记**（`qt/`，完整方案见 `docs/archive/QT-MIGRATION.md` 第 4 节）：
+  - Qt 6 默认 Per-Monitor DPI Awareness V2，`QCursor::pos()` / `QScreen::availableGeometry()` / `move()` / `resize()` 均为逻辑像素（DIP）——上述 tao 物理/逻辑双轨陷阱在 Qt 下天然不存在，面板与菜单直接用逻辑坐标定位。本机 225% 缩放实测通过（四窗物理尺寸/位置逐一核对精确匹配）；100% 及其他档位未实测，按 PerMonitorV2 逻辑坐标语义属安全；多屏异 DPI 的 `screenAt()` 归属同样未实测（QT-MIGRATION.md 7.2）。
+  - 系统主题监听用 `QStyleHints::colorSchemeChanged`（Qt ≥6.5），Windows 上读的正是 `AppsUseLightTheme`，替代注册表监听 + `WM_SETTINGCHANGE`。
+  - GUI 子系统 exe 无挂载控制台，`--test-*` 输出用 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))`（Git Bash 管道与 cmd 控制台均覆盖），AttachConsole + `CONOUT$` 仅兜底；`--test-ui` 的 6s 退出用 `QThread::sleep + QCoreApplication::exit`（`QTimer::singleShot` 在该路径不触发）。
+  - QSS `border-radius` 只对子容器可靠：顶层窗体圆角 = 窗口透明（`WA_TranslucentBackground`）+ 子容器 QSS 圆角自绘；DWM 圆角禁用（`DWMWA_WINDOW_CORNER_PREFERENCE`）与 rust 版相同。
+  - Qt 采用动态链接分发（windeployqt 随包 DLL，LGPL 合规），不做静态单 exe；托盘图标生命周期内只 `show()` 一次（反复 hide→show 是已知 Qt/Windows 兼容性问题）。
+  - `QSystemTrayIcon` 无 hover（MouseMove）事件：SPEC 14 hover-to-refresh 最终落地为 500ms 轮询 `QSystemTrayIcon::geometry()`（见 14 章偏差注记）；SPEC 15.3 光晕为自绘近似（见 15.3）。
+  - 构建/样式坑：QPushButton 的样式 sizeHint 不看子布局，动作按钮行的 IconButton 需 `setMinimumHeight(45)` + 纵向 Fixed，否则被压塌；header-only 类加 `Q_OBJECT` 必须把头文件列进 CMakeLists 源清单，否则 AUTOMOC 不处理（链接找不到 staticMetaObject）；构建前必须先按 PID/路径结束 qt GUI 进程（exe 文件锁，与 rust 版同名）。
 - **图标资源**：`kimi-logo.png` 嵌入程序集，用于：面板 logo（20x20）、设置窗 logo（18x18）、托盘图标（手工 PNG→ICO 包装，Vista+ 原生支持且保留 alpha）。Tauri 复刻需将同一 PNG 嵌入并提供 ICO（可用 `ico` crate 预生成，或直接内嵌 PNG 进 ICO 容器，同参考实现思路）。
 - **事件订阅生命周期**：主面板构造时订阅 `Quota.Updated`/`Updates.Updated`，关闭时取消订阅（窗口实际只 Hide 不 Close，单例复用）；托盘订阅 `Quota.Updated` 更新 tooltip，退出时退订并销毁托盘图标。
 - **异常处理基调**：所有 IO、注册表、外部进程、HTTP 调用均 try/catch 静默吞掉，失败路径以 UI 文案（"Update failed"/"Not detected"）或状态字段表达，绝不弹窗报错。
@@ -535,7 +565,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 
 ---
 
-## 21. Skills 只读窗口（Rust 版专属，v1.6 新增）
+## 21. Skills 只读窗口（v1.6 新增；Rust 与 Qt 版均实现）
 
 借鉴 [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard) 的 `/api/skills` 思路，裁剪为纯只读展示。
 

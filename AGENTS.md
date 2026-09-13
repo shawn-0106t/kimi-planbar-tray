@@ -6,20 +6,22 @@ Guidance for AI coding agents working in this repository. Read this first; it as
 
 Kimi Planbar Tray is a lightweight **Windows-only system tray app** that shows Kimi Code plan quota (5-hour window + weekly usage, reset countdowns, "Extra Usage" booster wallet) one click away from the tray. It reads the local Kimi Code CLI OAuth token and calls `GET https://api.kimi.com/coding/v1/usages`.
 
-Current version: **1.7.2** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, and `make_release_zip.py`).
+Current version: **1.7.2** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp`).
 
-This is a **monorepo with two editions**:
+This is a **monorepo with three editions**:
 
-- `rust/` — **the only actively developed edition**. Tauri 2 + Rust backend + vanilla HTML/CSS/TypeScript frontend (no framework, no React). New features land here only.
+- `rust/` — **actively developed (dual-track with `qt/`)**. Tauri 2 + Rust backend + vanilla HTML/CSS/TypeScript frontend (no framework, no React).
+- `qt/` — **completed, experimental**. C++ Qt6 + Qt Widgets, no WebView dependency; reached SPEC parity with rust/ 1.7.2. Architecture plan, stack comparison, and module mapping: `docs/archive/QT-MIGRATION.md` (archived).
 - `wpf/` — original .NET 8 / WPF edition, **frozen at v1.5.0, unmaintained**. Kept as read-only reference for behavior/UI parity. Do not delete it; do not add features to it.
 
-Both editions share the same UI/UX (fully specified in `docs/SPEC.md`) and the same `settings.json` schema.
+All editions share the same UI/UX (fully specified in `docs/SPEC.md`) and the same `settings.json` schema.
 
 Other root-level files:
 
 - `docs/SPEC.md` — the single authoritative project spec (in Chinese; English translation at `docs/SPEC_EN.md`, identical chapter numbering): Part 1 (chapters 1-9) covers project scope, architecture, data flow, security, build/release; Part 2 (chapters 10-21) is the behavior/UI detail spec (window sizes, colors, animation timings, API parsing rules). Consult it before changing behavior.
+- `docs/archive/QT-MIGRATION.md` — Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): GitHub case survey, Rust-vs-Qt stack comparison, module mapping, phased roadmap.
 - `docs/*.png` — reference screenshots for visual comparison (regenerate with `make_screenshots.py`).
-- `docs/archive/HANDOFF.md` — archived history of the WPF→Rust rewrite (in Chinese); frozen, do not update.
+- `docs/archive/HANDOFF.md` — archived history of the WPF→Rust rewrite (in Chinese); frozen, do not update. The archive also holds the completed Qt-edition handoffs (`HANDOFF-qt.md`, `QT-MIGRATION.md`, `HANDOFF-code-review.md`, `HANDOFF-docs-update.md`) — historical snapshots, likewise frozen.
 - `make_release_zip.py` — release packaging script (see Release process).
 - `make_screenshots.py` — regenerates `docs/screenshot-*.png` via headless Chrome (see Testing / self-checks).
 - `verify_icons.py` — byte-compares the inline button SVGs in `rust/index.html` against the source icon library.
@@ -55,6 +57,24 @@ rust/
         ├── theme_watch.rs       # system light/dark watch via registry
         └── state.rs             # AppState shared state (RwLock fields, skills cache, reschedule notify, manual-refresh debounce)
 
+qt/                              # COMPLETED (experimental): C++ Qt6 + Widgets (rationale & mapping: docs/archive/QT-MIGRATION.md sections 2-3)
+├── CMakeLists.txt               # find_package(Qt6 COMPONENTS Widgets Network Svg); project(VERSION ...) synced with rust/
+├── package_release.py           # one-shot rebuild + windeployqt into qt/dist/ (28 files / ~36 MB, directory form); KPT_QT_DIR/KPT_CMAKE/KPT_MSVC_REDIST overrides
+└── src/
+    ├── main.cpp                 # entry; --test-* args BEFORE single-instance check; same named mutex; WriteFile(STD_OUTPUT_HANDLE) for test output
+    ├── app.h/.cpp               # window singletons, event routing, DWM corner opt-out, theme watch (QStyleHints::colorSchemeChanged)
+    ├── credentials.h/.cpp       # same token chain as rust/ (credentials/kimi-code.json -> config.toml fallback)
+    ├── quota.h/.cpp             # QNetworkAccessManager fetch + defensive QJsonDocument parsing
+    ├── polling.h/.cpp           # QTimer scheduling: 2 s first refresh, 30 s fast retry on failure, keep-last-good
+    ├── trayicon.h/.cpp          # QSystemTrayIcon: left-click toggle, right-click menu window, tooltip, hover via 500 ms geometry() polling
+    ├── panel.h/.cpp             # panel/menu positioning (logical coords), focus-loss auto-hide, 300 ms re-entry guard
+    ├── settings.h/.cpp          # settings.json (same schema), portable.dat detection, HKCU Run autostart via QSettings
+    ├── skills.h/.cpp            # read-only skills scan (scan once on first open, cache; zero background cost)
+    ├── update.h/.cpp            # kimi --version (QProcess) + changelog Range request + GitHub API fallback
+    ├── state.h/.cpp             # AppState: last-good cache, skills cache, manual-refresh debounce
+    ├── theme.h/.cpp / icons.h / format_util.h / http_util.h / async_util.h
+    └── windows/                 # panel/settings/skills/menu QWidget windows + titlebar.h / clamplabel.h / hoverglow.h (self-drawn halo)
+
 wpf/                             # UNMAINTAINED reference (net8.0-windows, WPF, zero third-party NuGet deps)
 ├── MainWindow / SettingsWindow / TrayMenuWindow (.xaml + .xaml.cs)
 ├── TrayManager.cs, App.xaml.cs
@@ -77,6 +97,17 @@ npx tauri build      # release exe at rust/src-tauri/target/release/kimi-planbar
 
 Warning: a plain `cargo build` debug exe does **not** embed the frontend — its windows point at the Vite `devUrl`, so launching it without `npm run dev` shows a WebView2 "localhost ERR_CONNECTION_REFUSED" page and pops a console window (debug builds are console-subsystem). Only the release exe (and `npx tauri dev`) render the UI. The headless `--test-*` args work on the debug exe because they never load web content.
 
+Qt edition (requires Qt 6 MSVC 2022 64-bit kit + CMake — install Qt via aqtinstall, no admin needed; this machine: kit at `C:/Qt/6.9.3/msvc2022_64`, CMake from VS Build Tools, MSVC 14.50; setup notes: `docs/archive/QT-MIGRATION.md` section 8):
+
+```bash
+cd qt
+cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64
+cmake --build build --config Release
+PYTHONUTF8=1 python package_release.py   # one-shot rebuild + windeployqt into qt/dist/ (directory form, ~36 MB; no single exe)
+```
+
+Before rebuilding, kill any running qt GUI process by PID/path (exe file lock) — never `taskkill /IM kimi-planbar-tray.exe` (the rust edition shares the image name). The Qt exe is GUI-subsystem, so `--test-*` self-check output is printed via `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` (covers both Git Bash pipes and cmd consoles); AttachConsole + CONOUT$ is only the fallback.
+
 WPF edition (reference only):
 
 ```bash
@@ -96,13 +127,15 @@ kimi-planbar-tray.exe --test-update   # one-line: local=... latest=... updateAva
 kimi-planbar-tray.exe --test-ui       # construct all 4 windows, print "MainWindow OK" etc., exit after ~6 s
 ```
 
+The Qt edition implements the same three `--test-*` args with identical output (SPEC section 19), plus a Qt-only `--test-skills` (ports the two rust frontmatter-parser test fixtures), so results can be diffed across editions on the same machine (e.g. run rust and qt `--test-fetch` back to back and compare the JSON field by field).
+
 The Rust edition has **no `--screenshot` arg** (that exists only in the frozen WPF edition); any unrecognized arg falls through to launching the GUI. For visual checks, screenshot the built `rust/dist/index.html` with headless Chrome: strip the `crossorigin` attributes (file:// blocks them), set `data-theme="light|dark"` on `<html>` and `class="enter"` on `<body>` (the panel stays `opacity:0` until the backend emits `panel-show`), and pin `body{width:424px;height:520px;overflow:hidden}` because headless Chrome clamps tiny windows to ~534 px wide.
 
 After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run build` to type-check/bundle the frontend, then run `--test-fetch` and `--test-ui` against the built exe. For visual changes, compare against `docs/*.png` screenshots per `docs/SPEC.md`.
 
 ## Release process
 
-1. Bump the version in all four places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `make_release_zip.py` (`VERSION` constant) — plus the "Current version" line at the top of this file.
+1. Bump the version in all these places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `make_release_zip.py` (`VERSION` constant), `qt/CMakeLists.txt` (`project(VERSION ...)`) and `setApplicationVersion` in `qt/src/main.cpp` — plus the "Current version" line at the top of this file. (The qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision.)
 2. Build the Rust release exe (and WPF exes only if the WPF edition was exceptionally touched).
 3. Run `python make_release_zip.py` — it zips the full source tree (excluding build outputs) plus the release binaries at the zip root, and regenerates `SHA256SUMS.txt` for the GitHub Release assets.
 4. Release zips and `SHA256SUMS.txt` are gitignored; they are uploaded to GitHub Releases manually. Do not commit binaries.
@@ -110,7 +143,7 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 
 ## Code style and conventions
 
-- **Code, comments, and commit messages are in English**; conversation with the user is in Chinese. Repo docs are mixed: README in English, `docs/SPEC.md` in Chinese (English translation: `docs/SPEC_EN.md`), `docs/archive/HANDOFF.md` in Chinese.
+- **Code, comments, and commit messages are in English**; conversation with the user is in Chinese. Repo docs are mixed: README in English, `docs/SPEC.md` in Chinese (English translation: `docs/SPEC_EN.md`), `docs/archive/QT-MIGRATION.md` in Chinese, `docs/archive/HANDOFF.md` in Chinese.
 - Rust edition mirrors the WPF reference implementation **1:1** — when behavior is ambiguous, `docs/SPEC.md` is the contract and `wpf/` is the reference source. Comments in the Rust code cite SPEC sections (e.g. `SPEC 16.5`); keep those citations accurate when you change behavior.
 - Error-handling baseline: all IO, registry, process, and HTTP failures are **silently swallowed** and surfaced only via UI text ("Update failed", "Not detected") or state fields. Never pop up error dialogs.
 - Frontend renders external data (skill names/descriptions) with `textContent` only, never `innerHTML`.
@@ -123,10 +156,11 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 - **`isEnabled=false` trap**: when the booster wallet is not enabled, `amountLeft` is an estimate, not a real balance — the whole card must show "Not activated".
 - **Credential chain**: `~/.kimi-code/credentials/kimi-code.json` `access_token` (valid only if `expires_at` > now + 30 s) → fallback to an `api_key` in `~/.kimi-code/config.toml` whose `[providers.*]` section has `base_url` containing `api.kimi.com/coding`. `KIMI_CODE_HOME` overrides the home dir.
 - **Failure semantics**: on fetch failure keep the last good values on screen and retry after 30 s; on success return to the configured interval (1/5/10/30 min, default 5). First refresh fires 2 s after launch.
-- **Single instance**: named mutex `KimiPlanbarTray.SingleInstance` is created in `main.rs` (in addition to `tauri-plugin-single-instance`) so the Rust and WPF editions are mutually exclusive. Do not rename it.
+- **Single instance**: named mutex `KimiPlanbarTray.SingleInstance` is created in `main.rs` (in addition to `tauri-plugin-single-instance`) so the Rust, Qt, and WPF editions are mutually exclusive. Do not rename it.
 - **DPI rules (Tauri/tao)**: position windows with `PhysicalPosition` (panel against primary work area, menu against the cursor's monitor) but size them with `LogicalSize` — giving physical sizes gets double-scaled on `WM_DPICHANGED`. See SPEC section 20.
 - **Portable mode**: an empty `portable.dat` next to the exe redirects `settings.json` to the exe directory instead of `%APPDATA%\KimiPlanbarTray\`.
 - **Win11 corners**: `lib.rs::disable_dwm_corner_rounding` opts every window out of DWM auto-rounding; the CSS paints its own radius. Keep this when adding windows.
+- **Qt edition specifics** (`qt/`, full detail in `docs/archive/QT-MIGRATION.md` section 4): all coordinates are logical pixels (Qt 6 defaults to PerMonitorV2) — the tao PhysicalPosition/LogicalSize trap does not apply; the tray icon is `show()`n exactly once per lifetime (repeated hide→show is a known Qt/Windows issue); QSS `border-radius` is only reliable on child containers, so window rounding = translucent top-level + QSS-rounded child container; Qt ships dynamically linked via windeployqt (LGPL compliance) — no static single-exe builds; the same mutex name `KimiPlanbarTray.SingleInstance` is shared by all three editions to keep them mutually exclusive; `QSystemTrayIcon` has no hover event, so SPEC 14 hover-to-refresh is implemented as 500 ms polling of `QSystemTrayIcon::geometry()` (cursor inside the icon rect AND moved since last tick = one hover), still 10 s throttled; the SPEC 15.3 hover glow is self-drawn (`windows/hoverglow.h`, a halo child widget of the top-level window) — do NOT use QGraphicsDropShadowEffect (enabling it with blur=0 hides the whole widget); only 225% DPI was tested (100% untested — covered by PerMonitorV2 logical-coordinate semantics).
 
 ## Security considerations
 

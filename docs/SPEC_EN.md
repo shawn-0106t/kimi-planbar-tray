@@ -45,9 +45,10 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 
 ## 3. System Architecture
 
-### 3.1 Repository layout (monorepo, two editions)
+### 3.1 Repository layout (monorepo, three editions)
 
-- `rust/` — **the only actively developed line**: Tauri 2 + Rust backend + vanilla HTML/CSS/TS frontend (Vite multi-page build, no framework)
+- `rust/` — **one of the two actively developed lines (dual-track with `qt/`)**: Tauri 2 + Rust backend + vanilla HTML/CSS/TS frontend (Vite multi-page build, no framework)
+- `qt/` — **the other active line (completed, experimental)**: C++ Qt6 + Qt Widgets, no WebView dependency; reached parity with rust/ 1.7.2; see `docs/archive/QT-MIGRATION.md` (archived) for the architecture plan and module mapping
 - `wpf/` — original .NET 8 / WPF, frozen at v1.5.0, read-only reference, do not delete or modify
 - `docs/` — this spec, screenshot baselines, archived history
 - Root scripts: `make_release_zip.py` (release packaging), `make_screenshots.py` (README screenshot generation), `verify_icons.py` (byte-compares icons against the library), plus several one-off diagnostic scripts
@@ -80,7 +81,9 @@ Single process. All 4 WebView windows are created at startup (hidden) and are al
 | `theme_watch.rs` | Registry watch for system light/dark theme changes |
 | `state.rs` | AppState shared state (RwLock, caches, scheduling notification) |
 
-### 3.4 Frontend/backend boundary (Tauri IPC)
+> Qt edition (`qt/`): the backend modules above and the 4 frontend pages merge into a single C++ process — there is no frontend/backend boundary and no IPC; see the module mapping in `docs/archive/QT-MIGRATION.md` section 3.
+
+### 3.4 Frontend/backend boundary (Tauri IPC, rust/ edition only)
 
 Commands (registered in `lib.rs`, called by the frontend via `invoke`):
 
@@ -103,11 +106,15 @@ All 4 pages share `common.ts` (DTO types + formatting helpers + theme init) and 
 
 ## 4. Tech Stack and Key Dependencies
 
+**rust/ edition**:
+
 - **Tauri 2** (with opener / single-instance plugins) — windows, tray, IPC
 - **tokio / reqwest / serde** — async runtime, HTTP, JSON
 - **windows 0.61 / winreg** — Win32 (work area, DPI, DWM, mutex) and registry
 - **regex / chrono** — version number parsing, reset countdown calculation
 - **Vite + TypeScript** — frontend build; no runtime framework
+
+**qt/ edition**: C++17 + **Qt 6** (Widgets / Network / Svg only, no third-party libraries); built with **CMake + MSVC**; distributed via windeployqt dynamic linking (the LGPL-compliant route, directory form, no single exe); one-shot packaging via `PYTHONUTF8=1 python qt/package_release.py` → `qt/dist/`. A point-by-point comparison with the Rust stack is in `docs/archive/QT-MIGRATION.md` section 2.
 
 ## 5. Data Flow
 
@@ -146,6 +153,17 @@ npx tauri build      # release exe -> src-tauri/target/release/kimi-planbar-tray
 
 Note: a plain `cargo build` debug exe does **not** embed the frontend (its windows point at the Vite devUrl); running it without the dev server shows a WebView2 "localhost ERR_CONNECTION_REFUSED" page, and debug builds come with a console window. The `--test-*` self-checks never load web content, so the debug exe works for them.
 
+**qt/ edition**: prerequisites are Windows + MSVC (Visual Studio Build Tools 2026) + Qt 6 (MSVC 2022 64-bit kit; aqtinstall recommended — no admin needed) + CMake.
+
+```bash
+cd qt
+cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64
+cmake --build build --config Release
+PYTHONUTF8=1 python package_release.py   # one-shot rebuild + windeployqt into qt/dist/ (directory-form distribution)
+```
+
+Note: the Qt edition is a GUI-subsystem exe, so `--test-*` self-check output is printed via `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` (covers both Git Bash pipes and cmd consoles); AttachConsole + `CONOUT$` is only the fallback. Before rebuilding, kill any running qt GUI process by PID/path (exe file lock; the image name `kimi-planbar-tray.exe` is shared with the rust edition — never use `taskkill /IM`).
+
 ### 7.2 Testing
 
 There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those). Verification methods (details in chapter 19):
@@ -156,7 +174,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 
 ### 7.3 Release
 
-1. Bump the version in all four places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, and `VERSION` in `make_release_zip.py`
+1. Bump the version in all these places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `VERSION` in `make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, and `setApplicationVersion` in `qt/src/main.cpp` (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision)
 2. `npx tauri build` produces the release exe
 3. `python make_release_zip.py` packages a zip of the source snapshot + binaries and generates `SHA256SUMS.txt`
 4. The zip and checksums are gitignored; upload them to GitHub Releases manually; **do not commit binaries to the repo**
@@ -170,13 +188,14 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 
 ## 9. Maintenance Boundaries and Documentation Map
 
-- New features go only into `rust/`; `wpf/` is frozen as a read-only reference
-- When behavior is ambiguous: Part 2 is the contract, `wpf/` is the reference implementation
+- New features go into the two active lines `rust/` and `qt/` (dual-track, sharing Part 2 as the functional baseline); `wpf/` is frozen as a read-only reference
+- When behavior is ambiguous: Part 2 is the contract, `wpf/` is the reference implementation; the Qt edition's architecture plan and module mapping live in `docs/archive/QT-MIGRATION.md`
 
 | Document | Role |
 |---|---|
 | `README.md` / `README_CN.md` | User-facing: features, download, usage, build |
 | `docs/SPEC.md` (the Chinese original of this document) | The single authoritative spec: project-level + UI/behavior details |
+| `docs/archive/QT-MIGRATION.md` | Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): case survey, stack comparison, module mapping, phased roadmap |
 | `AGENTS.md` | Onboarding index for AI coding agents (structure, commands, trap summary) |
 | `docs/screenshot-*.png` | Visual baselines (generated by `make_screenshots.py`) |
 | `docs/archive/HANDOFF.md` | Archived WPF→Rust rewrite handoff manual (historical, no longer updated) |
@@ -353,6 +372,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 
 - Implementation: `System.Windows.Forms.NotifyIcon`; the icon is static and never changes, refreshes only update the tooltip text.
 - **Hover (MouseMove) → hover-to-refresh**: throttled to **10 seconds** (skipped if the last hover refresh was <10 s ago), triggers `Quota.SafeRefresh()` (async, not awaited).
+- **Qt edition deviation**: `QSystemTrayIcon` has no hover event, so hover-to-refresh is implemented as 500 ms polling of `QSystemTrayIcon::geometry()` — the cursor being inside the icon rect AND having moved since the last tick counts as one hover (same semantics as the rust Enter/Move events; parking does not retrigger), with the 10 s throttle unchanged (approach A, a nativeEventFilter, was tested and abandoned — it never sees WM_MOUSEMOVE of Qt's internal tray window).
 - **Left click (MouseUp, Left)**: toggles the main panel. Re-entry guard: left clicks within **300 milliseconds** after the panel was auto-hidden by focus loss are ignored (the `_lastHide` check, so the same click does not trigger focus-loss hide and then immediately pop back). Panel already visible → `HideAnimated()`; not visible → singleton reuse `ShowNearTray()`.
 - **Right click (MouseUp, Right)**: closes the old menu instance, creates a new `TrayMenuWindow`, and `ShowAtCursor()`.
   - Menu items: "Open" → close menu + `TogglePopup()`; "Refresh" → close menu + `SafeRefresh()` + `CheckAsync()`; "Settings" → close menu + `ShowSettings()`; "Exit" → `Shutdown()`.
@@ -382,6 +402,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 
 ### 15.3 Others
 - **Hover glow** (Rust edition): clickable controls (ActionButton, tray menu items, the version-row card, the Skills Refresh mini-button) fade in an accent-colored outer glow on hover — a 1 px accent ring at 35% alpha plus an 8 px halo at 18% alpha (dark theme: 45% / 22%, 10 px), with the background-color change transitioned in sync; all **140 ms ease**. The glow is pre-painted on an `::after` pseudo-element and only its `opacity` is transitioned (the box-shadow itself never animates — compositor-only, no per-frame repaint).
+- **Hover glow (Qt edition deviation)**: the same visual target is self-drawn (`windows/hoverglow.h`: an independent halo child widget of the top-level window, expanding 8/10 px beyond the target control's rect, concentric rounded rings with alpha decreasing outward, 140 ms OutCubic fade in/out) and never touches the target control's own QSS painting; the earlier QGraphicsDropShadowEffect approach was abandoned (enabling it with blurRadius=0 renders the whole widget invisible, and toggling enable/disable inside a frameless translucent window flickers).
 - All other controls (theme radios, interval pills, the checkbox, the title-bar ✕) switch their hover state instantly. Progress bar width changes are not animated (the width is set directly).
 
 ---
@@ -509,7 +530,8 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 |---|---|---|
 | `--test-fetch` | Fetch quota once, print JSON | JSON of `QuotaResult` (indented, non-ASCII not escaped) |
 | `--test-update` | Run one version check | Single line: `local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust edition additionally prints `SkillsWindow OK`); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
+| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
+| `--test-skills` (Qt edition only) | Parse two built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests) | Prints `PASS` on success, diff details plus a non-zero exit on failure |
 | `--screenshot <path> [--dark] [--mock]` (WPF edition only) | Render the main panel as PNG with real (or mocked) quota data + the specified theme (for the README) | `saved: <path>` |
 
 - `--screenshot` (WPF edition only; the Rust edition has no such arg — see 7.2 for screenshot verification): light theme by default, `--dark` switches to dark; `--mock` injects fixed data (5h=42% resetting in 3.5 hours, week=68% resetting in 4 days, Extra: balance 1234 cents, monthly used 4567 / limit 10000 cents); otherwise it fetches real data. Renders as a 96 DPI Pbgra32 PNG and auto-creates the output directory.
@@ -525,6 +547,14 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 - **Theme switching implementation**: clear the app-level resource dictionary, then add Shared + Light/Dark in order. All colors go through dynamic resource references, so switching takes effect immediately without rebuilding windows. The Shared style dictionary is loaded only once.
 - **DPI**: locked to system-level DPI awareness (SystemAware). Tray menu positioning relies on `Cursor.Position` (physical pixels) ÷ `GetDpiForWindow/96` converted to DIP; without this conversion the menu would be positioned off-screen on high-DPI displays.
 - **DPI trap (Tauri/tao port)**: tao creates all HWNDs (hidden) at app startup with position `CW_USEDEFAULT` — Windows places new windows on the **launcher's screen** (e.g. double-clicking the exe from an Explorer window on a secondary monitor puts the hidden windows on that monitor, carrying that monitor's scale). If you later use `LogicalPosition`/`LogicalSize` when positioning across screens, the conversion uses the scale of the screen the window is currently on rather than the target screen, so with mixed-DPI multi-monitor setups the first open is guaranteed to be off. **Rule: always use `PhysicalPosition` for cross-screen placement (the panel against the primary screen's work area in physical pixels, the menu against the cursor's screen in physical pixels); keep sizes in `LogicalSize`** — on `WM_DPICHANGED`, tao recomputes the physical size as logical size × the new scale, so physical sizes would be double-scaled. The WPF edition has no such problem: a `Window`'s HWND is created at `Show()` time, after `Left`/`Top` have already been set, so conversion naturally uses the target screen's DPI.
+- **Qt edition differences** (`qt/`; full plan in `docs/archive/QT-MIGRATION.md` section 4):
+  - Qt 6 defaults to Per-Monitor DPI Awareness V2; `QCursor::pos()` / `QScreen::availableGeometry()` / `move()` / `resize()` are all in logical pixels (DIP) — the tao physical/logical double-track trap above does not exist under Qt; the panel and the menu are positioned directly in logical coordinates. Verified on this machine at 225% scaling (all four windows' physical sizes/positions match exactly); 100% and other scales are untested but safe under PerMonitorV2 logical-coordinate semantics; mixed-DPI multi-monitor `screenAt()` attribution is likewise untested (QT-MIGRATION.md 7.2).
+  - System theme watching uses `QStyleHints::colorSchemeChanged` (Qt ≥ 6.5), which on Windows reads exactly `AppsUseLightTheme` — replacing the registry read + `WM_SETTINGCHANGE` listener.
+  - A GUI-subsystem exe has no attached console: `--test-*` output goes through `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` (covers both Git Bash pipes and cmd consoles), with AttachConsole + `CONOUT$` only as a fallback; the `--test-ui` 6 s exit uses `QThread::sleep + QCoreApplication::exit` (`QTimer::singleShot` does not fire on that path).
+  - QSS `border-radius` is only reliable on child containers: top-level window rounding = transparent window (`WA_TranslucentBackground`) + a child container painted with QSS radius; DWM corner-rounding opt-out (`DWMWA_WINDOW_CORNER_PREFERENCE`) is the same as in the Rust edition.
+  - Qt is distributed dynamically linked (windeployqt ships the DLLs alongside, the LGPL-compliant route) — no static single-exe build; the tray icon is `show()`n exactly once per lifetime (repeated hide→show is a known Qt/Windows compatibility issue).
+  - `QSystemTrayIcon` has no hover (MouseMove) event: SPEC 14 hover-to-refresh ultimately landed as 500 ms polling of `QSystemTrayIcon::geometry()` (see the deviation note in chapter 14); the SPEC 15.3 glow is a self-drawn approximation (see 15.3).
+  - Build/style traps: a QPushButton's style sizeHint ignores child layouts, so the action-row IconButton needs `setMinimumHeight(45)` + vertical Fixed policy or the row collapses; header-only classes with `Q_OBJECT` must be listed in the CMakeLists source list or AUTOMOC skips them (link fails on staticMetaObject); kill any running qt GUI process by PID/path before building (exe file lock, image name shared with the rust edition).
 - **Icon resources**: `kimi-logo.png` embedded in the assembly, used for: the panel logo (20x20), the settings window logo (18x18), and the tray icon (manual PNG→ICO wrapping, natively supported on Vista+ and preserves alpha). A Tauri port needs to embed the same PNG and provide an ICO (pregenerate it with the `ico` crate, or embed the PNG directly into an ICO container — the same approach as the reference implementation).
 - **Event subscription lifecycle**: the main panel subscribes to `Quota.Updated`/`Updates.Updated` at construction and unsubscribes on close (the window is actually only hidden, never closed — singleton reuse); the tray subscribes to `Quota.Updated` to update the tooltip, and unsubscribes and destroys the tray icon on exit.
 - **Exception handling baseline**: all IO, registry, external process, and HTTP calls are wrapped in try/catch and silently swallowed; failure paths are expressed via UI text ("Update failed"/"Not detected") or state fields — never pop up an error dialog.
@@ -534,7 +564,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 
 ---
 
-## 21. Skills Read-Only Window (Rust edition only, new in v1.6)
+## 21. Skills Read-Only Window (new in v1.6; implemented in both the Rust and Qt editions)
 
 Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard), trimmed down to purely read-only display.
 

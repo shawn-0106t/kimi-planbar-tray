@@ -17,7 +17,7 @@
 - **CLI 版本检测**——显示本机 `kimi --version`；[kimi-code Releases](https://github.com/MoonshotAI/kimi-code/releases) 有新版时出现橙色徽章（点击版本行直达发布页）。版本信息优先取自官方 changelog（GitHub API 兜底），GitHub 不可达也能正常工作
 - **悬停即新**——鼠标悬停托盘图标时后台预取额度（10 秒节流），tooltip 和悬浮窗永远显示最新数字
 - **Extra Usage 卡片**——显示 booster 钱包余额（¥）与本月已用/上限；未充值过时优雅显示 "Not activated / No data"
-- **Skills 速览**（Rust 版）——右键菜单 → Skills 打开只读列表：按来源分组展示 `~/.kimi-code/skills`、`~/.agents/skills` 与插件 skills 的名称和描述；只在打开窗口时扫描一次并缓存，无后台轮询
+- **Skills 速览**（Rust 与 Qt 版）——右键菜单 → Skills 打开只读列表：按来源分组展示 `~/.kimi-code/skills`、`~/.agents/skills` 与插件 skills 的名称和描述；只在打开窗口时扫描一次并缓存，无后台轮询
 - **绿色免 UAC**——单 exe，仅操作用户域（自启走 HKCU，不碰 HKLM 和 Program Files）；在 exe 旁放一个空的 `portable.dat` 即切换为配置随身携带的便携模式
 - **占用小**——单 exe ~5.6 MB（使用系统自带 WebView2，无需额外安装），除刷新定时器外无任何后台轮询
 
@@ -34,6 +34,8 @@
 | `KimiPlanbarTray-wpf-selfcontained.exe`（已停维护） | ~65 MB | 无——运行时已打包在内 | ~69 MB |
 
 两个版本 UI/UX 完全一致（见 `docs/SPEC.md`），共用同一份设置文件。
+
+> 另有一个**实验性 Qt 版**（`qt/`，C++ Qt6 Widgets，无 WebView2 依赖），功能与 Rust 版对齐。以目录形态分发（`qt/dist/`，约 36 MB——Qt DLL 随 exe 同目录，无单文件版）；与 Rust/WPF 版互斥（共用同名互斥锁，同时只能运行一个）；同样未签名（同样的 SmartScreen 提示）。仅从源码构建（见下文），不随 Releases 分发。
 
 > exe 未做代码签名，首次运行 Windows SmartScreen 可能提示"已保护你的电脑"——点"更多信息 → 仍要运行"即可，这是未签名个人作品的正常提示。
 
@@ -56,7 +58,7 @@
 
 ## 从源码构建
 
-本仓库包含两个版本：`wpf/`（原版 .NET 8 / WPF，**冻结于 v1.5.0**，保留仅供参考）和 `rust/`（Tauri 2 / Rust 重写版，活跃开发中）。共享 UI/UX 规格见 `docs/SPEC.md`。
+本仓库包含三个版本：`wpf/`（原版 .NET 8 / WPF，**冻结于 v1.5.0**，保留仅供参考）、`rust/`（Tauri 2 / Rust 重写版，活跃开发中）和 `qt/`（C++ Qt6 Widgets，实验性质，与 rust/ 功能对齐）。共享 UI/UX 规格见 `docs/SPEC.md`。
 
 WPF 版（已停维护）——需要 .NET 8 SDK（Windows）：
 
@@ -75,6 +77,15 @@ npm install
 npx tauri build   # 单文件 exe 产出于 src-tauri/target/release/
 ```
 
+Qt 版（实验性）——需要 Qt 6（MSVC 2022 64-bit kit，可用 aqtinstall 免管理员安装）、CMake 和 MSVC：
+
+```bash
+cd qt
+cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64
+cmake --build build --config Release
+PYTHONUTF8=1 python package_release.py   # 可分发目录产出于 qt/dist/
+```
+
 无头自检（适合 CI 或改动后验证）：
 
 ```bash
@@ -84,7 +95,7 @@ KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退
 
 ## 技术说明
 
-- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；WPF 版（已冻结）：.NET 8 / WPF，零第三方 NuGet 依赖
+- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；Qt 版（实验性）：C++ Qt6 Widgets 单进程，无 WebView；WPF 版（已冻结）：.NET 8 / WPF，零第三方 NuGet 依赖
 - UI 设计与布局改编自 [KimiCodeBar](https://github.com/xifandev/KimiCodeBar)（MIT），作者 [@xifandev](https://github.com/xifandev)
 - Skill 管理功能参考自 [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard)，作者 [@perinchiang](https://github.com/perinchiang)
 - 额度逻辑移植自 [kimi-planbar](https://github.com/baigong-ai/kimi-planbar)（MIT）——token 来源、接口与缓存/重试策略一致
