@@ -20,6 +20,7 @@ Other root-level files:
 
 - `docs/SPEC.md` — the single authoritative project spec (in Chinese; English translation at `docs/SPEC_EN.md`, identical chapter numbering): Part 1 (chapters 1-9) covers project scope, architecture, data flow, security, build/release; Part 2 (chapters 10-21) is the behavior/UI detail spec (window sizes, colors, animation timings, API parsing rules). Consult it before changing behavior.
 - `docs/archive/QT-MIGRATION.md` — Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): GitHub case survey, Rust-vs-Qt stack comparison, module mapping, phased roadmap.
+- `docs/TUI-PLAN-RUST.md` / `docs/TUI-PLAN-TS-BUN.md` — pure-TUI edition candidate plans. The Rust plan is **implemented** as a standalone repo [kimi-planbar-tui](https://github.com/shawn-0106t/kimi-planbar-tui) (ratatui; backend modules ported 1:1 from `rust/src-tauri/src/`); the TS/Bun plan was not pursued.
 - `docs/*.png` — reference screenshots for visual comparison (regenerate with `make_screenshots.py`).
 - `docs/archive/HANDOFF.md` — archived history of the WPF→Rust rewrite (in Chinese); frozen, do not update. The archive also holds the completed Qt-edition handoffs (`HANDOFF-qt.md`, `QT-MIGRATION.md`, `HANDOFF-code-review.md`, `HANDOFF-docs-update.md`) — historical snapshots, likewise frozen.
 - `make_release_zip.py` — release packaging script (see Release process).
