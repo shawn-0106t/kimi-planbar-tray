@@ -1,8 +1,8 @@
 # HANDOFF — scripts/ 规整与 release 资产一致性
 
 > 状态：**进行中**，未归档。§3 的待办全部落地后，按仓库惯例移入 `docs/archive/` 并冻结。
-> 对应提交：`45a46a7`（脚本规整）、`674543a`（校验和范围修正），均已在 `main` 并推送 GitHub（`origin/main` == HEAD）。
-> 待提交（2026-09-21 核验时仍未入库）：`AGENTS.md` 的未提交改动（active-handoff 指针 1 行 + 版本同步清单 2 处改写，`git diff --stat` = 3 insertions / 2 deletions）+ 本文件本身（untracked）。
+> 对应提交：`45a46a7`（脚本规整）、`674543a`（校验和范围修正）、`22d59ca`（本文件入库 + 版本清单修订为 9 处），均已在 `main` 并推送 GitHub。
+> 入库状态：核验时（2026-09-21）仍为"待提交"的 `AGENTS.md` active-handoff 指针 + 版本清单改写与本文档，已随 `22d59ca` 提交；`origin/main` == 该提交。
 > 编写日期：2026-09-21；最后核验：2026-09-21（结论与证据见 §2.1）。
 
 ## 0. 现状一句话
