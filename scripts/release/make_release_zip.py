@@ -8,9 +8,10 @@ from `git ls-files` (tracked + untracked-but-not-ignored), so the zip can
 never drift out of sync with .gitignore; a filtered walk is the fallback when
 git metadata is unavailable (e.g. running from an unpacked source zip).
 
-Also writes SHA256SUMS.txt (standard `sha256sum` format, asset names as
-uploaded to the GitHub release) next to the zip, ready to be attached as a
-release asset.
+Also writes SHA256SUMS.txt (standard `sha256sum` format) next to the zip,
+covering exactly the assets uploaded to a GitHub release: the zip itself
+plus every binary flagged as a standalone asset. The WPF exes ship inside
+the zip only, so they are not checksummed.
 """
 import hashlib
 import os
@@ -21,13 +22,14 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 VERSION = "1.7.2"
 OUT = os.path.join(ROOT, f"KimiPlanbarTray-v{VERSION}.zip")
 
-# (absolute source, arcname in zip)
+# (absolute source, arcname in zip, uploaded as a standalone release asset)
 BINARIES = [
-    ("wpf/publish/KimiPlanbarTray.exe", "KimiPlanbarTray-wpf.exe"),
+    ("wpf/publish/KimiPlanbarTray.exe",
+     "KimiPlanbarTray-wpf.exe", False),
     ("wpf/publish-sc/KimiPlanbarTray-selfcontained.exe",
-     "KimiPlanbarTray-wpf-selfcontained.exe"),
+     "KimiPlanbarTray-wpf-selfcontained.exe", False),
     ("rust/src-tauri/target/release/kimi-planbar-tray.exe",
-     "KimiPlanbarTray-rust.exe"),
+     "KimiPlanbarTray-rust.exe", True),
 ]
 
 # Never shipped even when present (all are gitignored; belt and braces)
@@ -77,22 +79,24 @@ def sha256_of(path):
 
 
 def write_checksums():
+    """Hashes of the assets uploaded to the GitHub release, the zip included."""
     out = os.path.join(ROOT, "SHA256SUMS.txt")
-    lines = [f"{sha256_of(os.path.join(ROOT, src))}  {arc}"
-             for src, arc in BINARIES]
+    assets = [(arc, os.path.join(ROOT, src)) for src, arc, uploaded in BINARIES if uploaded]
+    assets.append((os.path.basename(OUT), OUT))
+    lines = [f"{sha256_of(path)}  {name}" for name, path in assets]
     with open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
     print(f"written: {out}")
 
 
 def main():
-    for src, _ in BINARIES:
+    for src, _, _ in BINARIES:
         p = os.path.join(ROOT, src)
         if not os.path.isfile(p):
             raise SystemExit(f"missing binary: {src} (build first)")
     with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zf:
         add_tree(zf)
-        for src, arc in BINARIES:
+        for src, arc, _ in BINARIES:
             zf.write(os.path.join(ROOT, src), arc)
     size_mb = os.path.getsize(OUT) / 1024 / 1024
     print(f"written: {OUT} ({size_mb:.1f} MB)")
