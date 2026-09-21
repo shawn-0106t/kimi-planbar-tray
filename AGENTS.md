@@ -6,7 +6,7 @@ Guidance for AI coding agents working in this repository. Read this first; it as
 
 Kimi Planbar Tray is a lightweight **Windows-only system tray app** that shows Kimi Code plan quota (5-hour window + weekly usage, reset countdowns, "Extra Usage" booster wallet) one click away from the tray. It reads the local Kimi Code CLI OAuth token and calls `GET https://api.kimi.com/coding/v1/usages`.
 
-Current version: **1.7.2** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `scripts/release/make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp`).
+Current version: **1.7.2** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `rust/src-tauri/Cargo.lock` (the `kimi-planbar-tray` entry), `rust/package-lock.json` (root version; currently stale at 1.6.0 — `cd rust && npm install` resyncs it), `scripts/release/make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp` + the `FILEVERSION`/`PRODUCTVERSION` tuple and `FileVersion`/`ProductVersion` strings in `qt/resources.rc`).
 
 This is a **monorepo with three editions**:
 
@@ -22,6 +22,7 @@ Other top-level files and directories:
 - `docs/archive/QT-MIGRATION.md` — Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): GitHub case survey, Rust-vs-Qt stack comparison, module mapping, phased roadmap.
 - `docs/*.png` — reference screenshots for visual comparison (regenerate with `scripts/release/make_screenshots.py`).
 - `docs/archive/HANDOFF.md` — archived history of the WPF→Rust rewrite (in Chinese); frozen, do not update. The archive also holds the completed Qt-edition handoffs (`HANDOFF-qt.md`, `QT-MIGRATION.md`, `HANDOFF-code-review.md`, `HANDOFF-docs-update.md`) — historical snapshots, likewise frozen.
+- `docs/HANDOFF-scripts-reorg.md` — **active** handoff for the scripts/ reorganization and the release-artifact follow-ups (what shipped, the release audit result, what remains); move it into `docs/archive/` and freeze it once its to-dos land.
 - `scripts/release/` — maintained tooling: `make_release_zip.py` (release packaging, see Release process), `make_screenshots.py` (regenerates `docs/screenshot-*.png` via headless Chrome, see Testing / self-checks), `verify_icons.py` (byte-compares the inline button SVGs in `rust/index.html` against the source icon library).
 - `scripts/diagnostics/` — one-off diagnostic/measurement scripts kept for reference, all path-argument driven: `csp_visual_check.ps1` (shows the tray panel via UIAutomation, locale-independent, and screenshots the bottom-right screen region; verifies the WebView renders under the CSP in `tauri.conf.json` on a release exe), `dump_tray_windows.ps1`, `measure_run.ps1`, `inspect_window_dpi.ps1` (`-ExePath`), `analyze_wpf_shadow.py` (PNG path as argv[1]).
 
@@ -132,7 +133,7 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 
 ## Release process
 
-1. Bump the version in all these places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `scripts/release/make_release_zip.py` (`VERSION` constant), `qt/CMakeLists.txt` (`project(VERSION ...)`) and `setApplicationVersion` in `qt/src/main.cpp` — plus the "Current version" line at the top of this file. (The qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision.)
+1. Bump the version in all these places (9 files) plus the "Current version" line at the top of this file: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock` (cargo rewrites it alongside `Cargo.toml`; confirm and commit it), `rust/package-lock.json` (root version, twice: top level and `packages[""]`; run `cd rust && npm install` to resync — it is currently stale at 1.6.0), `scripts/release/make_release_zip.py` (`VERSION` constant), and the qt/ edition's three spots: `qt/CMakeLists.txt` (`project(VERSION ...)`), `setApplicationVersion` in `qt/src/main.cpp`, and the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`. Keep the mirrored checklist in `docs/SPEC.md` / `docs/SPEC_EN.md` (section 7.3 step 1) in sync. (Not a bump target: `<Version>` in `wpf/KimiPlanbarTray.csproj` — the frozen WPF edition stays at v1.5.0 by design. The qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision.)
 2. Build the Rust release exe (and WPF exes only if the WPF edition was exceptionally touched).
 3. Run `python scripts/release/make_release_zip.py` — it zips the full source tree (excluding build outputs) plus the release binaries at the zip root, and regenerates `SHA256SUMS.txt` for the GitHub Release assets.
 4. Release zips and `SHA256SUMS.txt` are gitignored; they are uploaded to GitHub Releases manually. Do not commit binaries.

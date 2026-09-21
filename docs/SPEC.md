@@ -174,7 +174,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 
 ### 7.3 发布
 
-1. 版本号同步：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)` 与 `qt/src/main.cpp` 的 `setApplicationVersion`（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
+1. 版本号同步（9 处）：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`rust/src-tauri/Cargo.lock` 的 `kimi-planbar-tray` 条目、`rust/package-lock.json` 的根版本（顶层与 `packages[""]` 两处；`cd rust && npm install` 可让 npm 自行同步）、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)`、`qt/src/main.cpp` 的 `setApplicationVersion`、`qt/resources.rc` 的 `FILEVERSION`/`PRODUCTVERSION` 与 `FileVersion`/`ProductVersion` 字符串；另同步 `AGENTS.md` 顶部 "Current version" 行与本清单（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
 2. `npx tauri build` 出 release exe
 3. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`
 4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**

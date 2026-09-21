@@ -174,7 +174,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 
 ### 7.3 Release
 
-1. Bump the version in all these places: `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, and `setApplicationVersion` in `qt/src/main.cpp` (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision)
+1. Bump the version in all these places (9 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, and the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`; also sync the "Current version" line in `AGENTS.md` and this checklist (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision)
 2. `npx tauri build` produces the release exe
 3. `python scripts/release/make_release_zip.py` packages a zip of the source snapshot + binaries and generates `SHA256SUMS.txt`
 4. The zip and checksums are gitignored; upload them to GitHub Releases manually; **do not commit binaries to the repo**
