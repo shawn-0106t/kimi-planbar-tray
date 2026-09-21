@@ -1,5 +1,5 @@
 // Inline SVG path data for the panel buttons, copied verbatim from
-// rust/index.html (verify_icons.py compares those against the source icon
+// rust/index.html (scripts/release/verify_icons.py compares those against the source icon
 // library; keep these strings byte-identical to the <path d="..."> values).
 // The original SVGs use fill="currentColor"; IconButton substitutes the
 // themed text-primary color at render time.

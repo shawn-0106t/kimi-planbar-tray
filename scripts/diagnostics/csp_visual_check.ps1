@@ -1,6 +1,6 @@
 # Locate the tray icon via Shell_TrayWnd / NotifyIconOverflowWindow HWNDs
 # (UIA root-descendant search misses them), invoke it, screenshot the panel.
-param([string]$Out = "$PSScriptRoot\csp-check.png")
+param([string]$Out = "$env:TEMP\csp-check.png")
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName System.Drawing

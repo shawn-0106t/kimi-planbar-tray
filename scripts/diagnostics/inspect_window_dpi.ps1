@@ -1,6 +1,9 @@
 # One-shot: launch the release exe's --test-ui, then dump every window's
 # rect (physical px) + GetDpiForWindow for exact size/DPI evidence.
-$exe = "C:\Users\rexxa\Documents\trae_projects\github\kimi-planbar-tray\rust\src-tauri\target\release\kimi-planbar-tray.exe"
+# Usage: pwsh -File inspect_window_dpi.ps1 -ExePath <path to the release exe>
+param(
+    [Parameter(Mandatory=$true)][string]$ExePath
+)
 $log = "$env:TEMP\win-dpi-dump.txt"
 Remove-Item $log -ErrorAction SilentlyContinue
 
@@ -35,7 +38,7 @@ public class WinApi {
 }
 "@
 
-$proc = Start-Process -FilePath $exe -ArgumentList "--test-ui" -PassThru
+$proc = Start-Process -FilePath $ExePath -ArgumentList "--test-ui" -PassThru
 Start-Sleep -Milliseconds 1800
 
 [WinApi]::TargetPid = $proc.Id

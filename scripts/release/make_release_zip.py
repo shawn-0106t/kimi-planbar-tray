@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the Feishu backup zip for a kimi-planbar-tray release.
 
-Snapshot = full source tree (monorepo: wpf/ + rust/ + docs/ + root files)
+Snapshot = full source tree (monorepo: wpf/ + rust/ + qt/ + docs/ + scripts/ + root files)
 plus the three release binaries at the zip root. Mirrors the layout used by
 the v1.3.0-and-earlier archives on Feishu Drive. The source file set comes
 from `git ls-files` (tracked + untracked-but-not-ignored), so the zip can
@@ -17,7 +17,7 @@ import os
 import subprocess
 import zipfile
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # repo root (scripts/release/)
 VERSION = "1.7.2"
 OUT = os.path.join(ROOT, f"KimiPlanbarTray-v{VERSION}.zip")
 

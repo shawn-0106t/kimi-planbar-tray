@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]  # repo root (scripts/release/)
 DIST = ROOT / "rust" / "dist" / "index.html"
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 W, H = 424, 520

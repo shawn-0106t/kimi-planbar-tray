@@ -51,7 +51,7 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 - `qt/` — **活跃开发线之一（已完成，实验性质）**：C++ Qt6 + Qt Widgets，无 WebView 依赖；已达到与 rust/ 1.7.2 的 parity；架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`（已归档）
 - `wpf/` — 原版 .NET 8 / WPF，冻结于 v1.5.0，只读参考，勿删勿改
 - `docs/` — 本规格、截图基准、归档历史
-- 根目录脚本：`make_release_zip.py`（发布打包）、`make_screenshots.py`（README 截图生成）、`verify_icons.py`（图标与库逐字节比对）、若干一次性诊断脚本
+- 脚本均在 `scripts/` 下：`scripts/release/`（`make_release_zip.py` 发布打包、`make_screenshots.py` README 截图生成、`verify_icons.py` 图标与库逐字节比对）、`scripts/diagnostics/`（一次性诊断/测量脚本）
 
 ### 3.2 进程与窗口模型
 
@@ -169,14 +169,14 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
 
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
-- 视觉验证：`PYTHONUTF8=1 python make_screenshots.py`（headless Chrome 渲染 dist，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
+- 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome 渲染 dist，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
 
 ### 7.3 发布
 
-1. 版本号同步：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)` 与 `qt/src/main.cpp` 的 `setApplicationVersion`（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
+1. 版本号同步：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)` 与 `qt/src/main.cpp` 的 `setApplicationVersion`（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
 2. `npx tauri build` 出 release exe
-3. `python make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`
+3. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`
 4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**
 5. 若打算发版回原仓库（shawn-0106t/kimi-planbar-tray），先与用户确认提 PR 还是另开仓库
 
@@ -198,7 +198,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
 | `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
-| `docs/screenshot-*.png` | 视觉基准（由 `make_screenshots.py` 生成） |
+| `docs/screenshot-*.png` | 视觉基准（由 `scripts/release/make_screenshots.py` 生成） |
 | `docs/archive/HANDOFF.md` | 已归档的 WPF→Rust 重写接力手册（历史，不再更新） |
 
 ---

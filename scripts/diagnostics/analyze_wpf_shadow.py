@@ -6,7 +6,9 @@ from PIL import Image
 # Verifies the drop shadow fully decays inside the window: all outermost
 # rows/cols must have alpha 0, and the opaque visual card must keep its
 # designed size (MainWindow: 368x456 card inside a 424x512 window).
-path = sys.argv[1] if len(sys.argv) > 1 else r"C:/Users/rexxa/AppData/Local/Temp/wpf-panel-dark.png"
+if len(sys.argv) < 2:
+    sys.exit("usage: python analyze_wpf_shadow.py <png-path>")
+path = sys.argv[1]
 img = Image.open(path).convert("RGBA")
 w, h = img.size
 print("size:", img.size)

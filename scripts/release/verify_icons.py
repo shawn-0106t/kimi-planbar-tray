@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]  # repo root (scripts/release/)
 DEFAULT_ICONS_DIR = Path.home() / ".kimi-code" / "skills" / "rationalism-design" / "assets" / "icons"
 ICONS_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(os.environ.get("KPT_ICONS_DIR") or DEFAULT_ICONS_DIR)
 INDEX = ROOT / "rust" / "index.html"
