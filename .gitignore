@@ -16,7 +16,14 @@ Desktop.ini
 
 ## Local tools / intermediates
 kimi logo.webp
+__pycache__/
+*.pyc
 
 ## Release artifacts (built locally, uploaded to GitHub Releases)
-KimiPlanbarTray-*.zip
-SHA256SUMS.txt
+## `.zip*` / `SHA256SUMS.txt*` also cover the `.part` intermediates written before
+## the atomic renames; the `.exe` names are the GitHub asset names, droppable at
+## the repo root so that `sha256sum -c SHA256SUMS.txt` works in place
+## (make_release_zip.py excludes the same names from the source snapshot).
+KimiPlanbarTray-*.zip*
+KimiPlanbarTray-*.exe
+SHA256SUMS.txt*
