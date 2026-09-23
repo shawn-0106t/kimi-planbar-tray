@@ -134,7 +134,7 @@ PYTHONUTF8=1 python scripts/release/verify_icons.py
 
 用户决定：本轮只做 §3.2 三项修复 + 文档同步 + 归档；**不做版本号 bump**（`VERSION` 与 9 处版本元数据保持 1.7.2，`rust/package-lock.json` 的 1.6.0 也保持原样）。§3.1 因此仍留作"下次发版前"的流程项，live 清单在 `AGENTS.md` Release process 第 1 步与 `docs/SPEC.md` / `docs/SPEC_EN.md` §7.3 第 1 步。
 
-改动面：代码卫生 = `scripts/release/make_release_zip.py` + `.gitignore`；文档 = `AGENTS.md`（归档指针 + Release process 第 3 步）、`docs/SPEC.md` 与 `docs/SPEC_EN.md` §7.3 第 3/4 步、本文件并 `git mv` 入 `docs/archive/`；`publish/SHA256SUMS.txt` 的删除不产生提交（untracked + ignored）。
+改动面：代码卫生 = `scripts/release/make_release_zip.py` + `.gitignore`；文档 = `AGENTS.md`（归档指针 + Release process 第 3 步）、`docs/SPEC.md` 与 `docs/SPEC_EN.md` §7.3 第 3/4 步、本文件并 `git mv` 入 `docs/archive/`；`publish/SHA256SUMS.txt` 的删除不产生提交（untracked + ignored）。收尾提交：`cc21645`（代码卫生）、`9e30cbb`（归档 `git mv`，100% 重命名，故 `git log --follow` 跨移动连通）、`aac70e7`（文档与本文档内容）；本行哈希由紧随其后的一个小提交补记。
 
 验证证据（本机实测，占位二进制驱动，准备与清理命令沿用 §4）；表内每一项都在两轮独立复验所指出的修复之后重跑过：
 
