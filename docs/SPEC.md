@@ -176,8 +176,8 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 
 1. 版本号同步（9 处）：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`rust/src-tauri/Cargo.lock` 的 `kimi-planbar-tray` 条目、`rust/package-lock.json` 的根版本（顶层与 `packages[""]` 两处；`cd rust && npm install` 可让 npm 自行同步）、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)`、`qt/src/main.cpp` 的 `setApplicationVersion`、`qt/resources.rc` 的 `FILEVERSION`/`PRODUCTVERSION` 与 `FileVersion`/`ProductVersion` 字符串；另同步 `AGENTS.md` 顶部 "Current version" 行与本清单（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
 2. `npx tauri build` 出 release exe
-3. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`
-4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**
+3. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`：两者各先写 `<name>.part`，校验和文件先改名、zip 最后改名，zip 改名失败会把旧校验和原样写回，故失败后留下的始终是**上一轮一致的那一对**（只读目标、占位目录或只读的残留 `.part` 会在构建前被指名拒绝；源码集为空则直接报错不产包；残留窗口只有两处——两次改名之间被杀进程、改名瞬间被别的进程独占）
+4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**。本地校验：把二进制按发布名（如 `KimiPlanbarTray-rust.exe`）放在仓库根，直接 `sha256sum -c SHA256SUMS.txt`——该名已被 `.gitignore` 与打包脚本排除，不会被收进 zip（`__pycache__` / `*.pyc` 同理）
 5. 若打算发版回原仓库（shawn-0106t/kimi-planbar-tray），先与用户确认提 PR 还是另开仓库
 
 ## 8. 运行环境要求
