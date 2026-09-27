@@ -169,7 +169,7 @@ Note: the Qt edition is a GUI-subsystem exe, so `--test-*` self-check output is 
 There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those). Verification methods (details in chapter 19):
 
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
-- Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome renders dist, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
+- Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
 
 ### 7.3 Release

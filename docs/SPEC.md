@@ -169,7 +169,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
 
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
-- 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome 渲染 dist，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
+- 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
 
 ### 7.3 发布
