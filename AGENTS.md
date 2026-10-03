@@ -24,6 +24,7 @@ Other top-level files and directories:
 - `docs/archive/HANDOFF.md` — archived history of the WPF→Rust rewrite (in Chinese); frozen, do not update. The archive also holds the completed Qt-edition handoffs (`HANDOFF-qt.md`, `QT-MIGRATION.md`, `HANDOFF-code-review.md`, `HANDOFF-docs-update.md`) and the scripts/ reorganization + release-artifact handoff (`HANDOFF-scripts-reorg.md`) — historical snapshots, likewise frozen.
 - `scripts/release/` — maintained tooling: `make_release_zip.py` (release packaging, see Release process), `make_screenshots.py` (regenerates `docs/screenshot-*.png` via headless Chrome/Edge, `KPT_CHROME` overrides the browser, see Testing / self-checks), `verify_icons.py` (byte-compares the inline button SVGs in `rust/index.html` against the source icon library).
 - `scripts/diagnostics/` — one-off diagnostic/measurement scripts kept for reference, all path-argument driven: `csp_visual_check.ps1` (shows the tray panel via UIAutomation, locale-independent, and screenshots the bottom-right screen region; verifies the WebView renders under the CSP in `tauri.conf.json` on a release exe), `dump_tray_windows.ps1`, `measure_run.ps1`, `inspect_window_dpi.ps1` (`-ExePath`), `analyze_wpf_shadow.py` (PNG path as argv[1]).
+- `.github/workflows/ci.yml` — GitHub Actions build check (the repo's only automation): on every push to `main` and every PR it runs, on a `windows-latest` runner, `npm ci` + `npx tsc --noEmit` + `npm run build` (frontend type-check + bundle) followed by `cargo build --locked` + `cargo test --locked` in `rust/src-tauri/`. It intentionally does NOT run the headless `--test-*` args — `--test-fetch`/`--test-update` need local Kimi Code credentials and `--test-ui` needs an interactive desktop session, none available on hosted runners — nor `verify_icons.py` (the icon library lives outside the repo, so the script would just skip). Docs-only changes (`**.md`, `docs/`) skip CI.
 
 ## Repository layout (active code)
 
@@ -128,7 +129,9 @@ The Qt edition implements the same three `--test-*` args with identical output (
 
 The Rust edition has **no `--screenshot` arg** (that exists only in the frozen WPF edition); any unrecognized arg falls through to launching the GUI. For visual checks, screenshot the built `rust/dist/index.html` with headless Chrome: strip the `crossorigin` attributes (file:// blocks them), set `data-theme="light|dark"` on `<html>` and `class="enter"` on `<body>` (the panel stays `opacity:0` until the backend emits `panel-show`), and pin `body{width:424px;height:520px;overflow:hidden}` because headless Chrome clamps tiny windows to ~534 px wide.
 
-After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run build` to type-check/bundle the frontend, then run `--test-fetch` and `--test-ui` against the built exe. For visual changes, compare against `docs/*.png` screenshots per `docs/SPEC.md`.
+After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run build` to bundle the frontend (`npm run build` is just Vite/esbuild and does no type checking — run `npx tsc --noEmit` for that), then run `--test-fetch` and `--test-ui` against the built exe. For visual changes, compare against `docs/*.png` screenshots per `docs/SPEC.md`.
+
+CI (`.github/workflows/ci.yml`) runs the compile-level checks on every push/PR — frontend `npm ci` + `tsc` type-check + Vite build, then `cargo build`/`cargo test` — but none of the runtime self-checks above: hosted runners have no local Kimi Code credentials (`--test-fetch`/`--test-update`) and no interactive desktop session (`--test-ui`), and `verify_icons.py` needs the out-of-repo icon library. Runtime self-checks remain local-only.
 
 ## Release process
 

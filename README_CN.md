@@ -1,5 +1,7 @@
 # Kimi Planbar Tray
 
+[![CI](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml/badge.svg)](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml)
+
 [English](README.md)
 
 一个轻量的 Windows 托盘程序，让 [Kimi Code](https://www.kimi.com/code/) 套餐额度随手可查——5 小时窗口和每周用量，带重置倒计时，就在系统托盘里。
@@ -86,12 +88,14 @@ cmake --build build --config Release
 PYTHONUTF8=1 python package_release.py   # 可分发目录产出于 qt/dist/
 ```
 
-无头自检（适合 CI 或改动后验证）：
+无头自检（改动后本地验证用——CI 不执行，说明见下文）：
 
 ```bash
 KimiPlanbarTray.exe --test-fetch   # 拉取一次额度，打印 JSON 后退出
 KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退出（约 6 秒）
 ```
+
+推送到 `main` 与 Pull Request 会触发 GitHub Actions 构建检查（[`ci.yml`](.github/workflows/ci.yml)）：前端依赖安装 + TypeScript 类型检查 + Vite 构建，随后 Rust 侧 `cargo build`/`cargo test`。上文的 `--test-*` 无头自检**不**在 CI 中执行——它们依赖本机 Kimi Code 凭据与交互桌面会话——请在改动后于本地运行。
 
 ## 技术说明
 

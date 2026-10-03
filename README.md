@@ -1,5 +1,7 @@
 # Kimi Planbar Tray
 
+[![CI](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml/badge.svg)](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml)
+
 [中文](README_CN.md)
 
 A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/code/) plan quota one click away — 5-hour window and weekly usage, with reset countdowns, right from the system tray.
@@ -86,12 +88,14 @@ cmake --build build --config Release
 PYTHONUTF8=1 python package_release.py   # distributable folder at qt/dist/
 ```
 
-Headless self-checks (useful in CI or after changes):
+Headless self-checks (for verifying changes locally — they are not run in CI, see below):
 
 ```bash
 KimiPlanbarTray.exe --test-fetch   # fetch quota once, print JSON, exit
 KimiPlanbarTray.exe --test-ui      # construct all 4 windows, print OK lines, exit (~6 s)
 ```
+
+Pushes to `main` and pull requests run a GitHub Actions build check ([`ci.yml`](.github/workflows/ci.yml)): frontend dependency install + TypeScript type-check + Vite build, then `cargo build`/`cargo test` for the Rust backend. The headless self-checks above are **not** part of CI — they need local Kimi Code credentials and an interactive desktop — so run them locally after changes.
 
 ## Tech notes
 

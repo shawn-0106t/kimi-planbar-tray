@@ -52,6 +52,7 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 - `wpf/` — 原版 .NET 8 / WPF，冻结于 v1.5.0，只读参考，勿删勿改
 - `docs/` — 本规格、截图基准、归档历史
 - 脚本均在 `scripts/` 下：`scripts/release/`（`make_release_zip.py` 发布打包、`make_screenshots.py` README 截图生成、`verify_icons.py` 图标与库逐字节比对）、`scripts/diagnostics/`（一次性诊断/测量脚本）
+- `.github/` — GitHub Actions 持续集成：`.github/workflows/ci.yml` 在每次 push 到 main 与每个 PR 上做构建检查（内容与边界见 7.2）
 
 ### 3.2 进程与窗口模型
 
@@ -171,6 +172,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
 - 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
+- 持续集成：`.github/workflows/ci.yml`（GitHub Actions，`windows-latest` runner）在每次 push 到 main 与每个 PR 上执行 `npm ci` + `npx tsc --noEmit` + `npm run build`（前端类型检查与打包）及 `cargo build --locked` + `cargo test --locked`（skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；纯文档变更（`**.md`、`docs/`）不触发 CI
 
 ### 7.3 发布
 
@@ -179,6 +181,8 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 3. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`：两者各先写 `<name>.part`，校验和文件先改名、zip 最后改名，zip 改名失败会把旧校验和原样写回，故失败后留下的始终是**上一轮一致的那一对**（只读目标、占位目录或只读的残留 `.part` 会在构建前被指名拒绝；源码集为空则直接报错不产包；残留窗口只有两处——两次改名之间被杀进程、改名瞬间被别的进程独占）
 4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**。本地校验：把二进制按发布名（如 `KimiPlanbarTray-rust.exe`）放在仓库根，直接 `sha256sum -c SHA256SUMS.txt`——该名已被 `.gitignore` 与打包脚本排除，不会被收进 zip（`__pycache__` / `*.pyc` 同理）
 5. 若打算发版回原仓库（shawn-0106t/kimi-planbar-tray），先与用户确认提 PR 还是另开仓库
+
+> 持续集成只做构建检查，不产出、不上传任何发布物——发布仍按本节手工流程执行。
 
 ## 8. 运行环境要求
 
@@ -198,6 +202,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
 | `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
+| `.github/workflows/ci.yml` | GitHub Actions 构建检查（push/PR 触发，见 7.2） |
 | `docs/screenshot-*.png` | 视觉基准（由 `scripts/release/make_screenshots.py` 生成） |
 | `docs/archive/HANDOFF.md` | 已归档的 WPF→Rust 重写接力手册（历史，不再更新） |
 
