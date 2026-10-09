@@ -284,7 +284,7 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         // Focus-loss: panel auto-hides (suppressed while settings is open),
         // menu closes immediately (SPEC 10.1 / 10.3)
         tauri::WindowEvent::Focused(false) => match window.label() {
-            "main" => panel::on_main_blur(&window.app_handle()),
+            "main" => panel::on_main_blur(window.app_handle()),
             "menu" => {
                 let _ = window.hide();
             }

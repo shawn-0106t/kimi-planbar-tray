@@ -8,7 +8,7 @@ use std::path::PathBuf;
 #[serde(rename_all = "PascalCase")]
 #[serde(default)] // tolerate a partial settings.json: missing fields take defaults
 pub struct SettingsData {
-    pub theme: String, // system | light | dark
+    pub theme: String,        // system | light | dark
     pub refresh_minutes: i64, // 1 | 5 | 10 | 30
     pub auto_start: bool,
 }

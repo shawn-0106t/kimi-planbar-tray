@@ -18,7 +18,7 @@ const MENU_W: f64 = 188.0;
 fn work_area_phys() -> (f64, f64, f64, f64) {
     use windows::Win32::Foundation::RECT;
     use windows::Win32::UI::WindowsAndMessaging::{
-        SystemParametersInfoW, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SPI_GETWORKAREA,
+        SystemParametersInfoW, SPI_GETWORKAREA, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
     };
     let mut rect = RECT::default();
     unsafe {
@@ -45,7 +45,11 @@ fn primary_scale(app: &AppHandle) -> f64 {
         .flatten()
         .map(|m| m.scale_factor())
         .unwrap_or(1.0);
-    if scale > 0.0 { scale } else { 1.0 }
+    if scale > 0.0 {
+        scale
+    } else {
+        1.0
+    }
 }
 
 /// Primary-monitor work area in DIP (matches WPF SystemParameters.WorkArea).
@@ -165,10 +169,7 @@ pub fn show_menu(app: &AppHandle, px: f64, py: f64) {
     let Some(w) = app.get_webview_window("menu") else {
         return;
     };
-    let hwnd: Option<HWND> = w
-        .hwnd()
-        .ok()
-        .map(|h| HWND(h.0 as *mut core::ffi::c_void));
+    let hwnd: Option<HWND> = w.hwnd().ok().map(|h| HWND(h.0));
     // Mixed-DPI multi-monitor: the px->DIP conversion must use the scale of
     // the monitor UNDER THE CURSOR, not the menu window's (hidden windows sit
     // on the primary monitor, so GetDpiForWindow would use the wrong scale).

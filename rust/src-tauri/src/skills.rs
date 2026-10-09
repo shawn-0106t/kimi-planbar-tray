@@ -45,7 +45,12 @@ fn parse_frontmatter(path: &Path) -> (Option<String>, Option<String>) {
     }
     let head = String::from_utf8_lossy(&buf);
     let mut lines = head.lines();
-    if lines.next().map(str::trim).map(|l| l.trim_start_matches('\u{feff}')) != Some("---") {
+    if lines
+        .next()
+        .map(str::trim)
+        .map(|l| l.trim_start_matches('\u{feff}'))
+        != Some("---")
+    {
         return (None, None);
     }
     let mut name = None;
@@ -170,7 +175,10 @@ mod tests {
     #[test]
     fn frontmatter_name_description_and_quotes() {
         let fx = Fixture::new();
-        fx.write_skill("a", "---\nname: Alpha\ndescription: \"Does things\"\n---\nbody");
+        fx.write_skill(
+            "a",
+            "---\nname: Alpha\ndescription: \"Does things\"\n---\nbody",
+        );
         fx.write_skill("b", "---\ndescription: 'Only desc'\n---\n");
         fx.write_skill("c", "no frontmatter at all");
         fs::create_dir_all(fx.0.join("empty-no-skillmd")).unwrap();
@@ -198,7 +206,11 @@ mod tests {
         // UTF-8 BOM before the --- fence
         let dir = fx.0.join("bom");
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("SKILL.md"), "\u{feff}---\nname: Bom\ndescription: x\n---\n").unwrap();
+        fs::write(
+            dir.join("SKILL.md"),
+            "\u{feff}---\nname: Bom\ndescription: x\n---\n",
+        )
+        .unwrap();
         // GBK-encoded bytes (中文 Windows 常见) inside the description
         let dir = fx.0.join("gbk");
         fs::create_dir_all(&dir).unwrap();

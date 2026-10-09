@@ -24,7 +24,12 @@ pub struct UpdateStatus {
 fn http_client() -> Option<&'static Client> {
     static CLIENT: OnceLock<Option<Client>> = OnceLock::new();
     CLIENT
-        .get_or_init(|| Client::builder().timeout(Duration::from_secs(10)).build().ok())
+        .get_or_init(|| {
+            Client::builder()
+                .timeout(Duration::from_secs(10))
+                .build()
+                .ok()
+        })
         .as_ref()
 }
 

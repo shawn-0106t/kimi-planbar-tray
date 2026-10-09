@@ -70,7 +70,9 @@ pub fn load_token() -> Option<String> {
         let line = raw.trim();
         if line.starts_with('[') {
             // Settle the previous section before starting a new one
-            if let Some(found) = match_provider(section.as_deref(), base_url.as_deref(), api_key.as_deref()) {
+            if let Some(found) =
+                match_provider(section.as_deref(), base_url.as_deref(), api_key.as_deref())
+            {
                 return Some(found);
             }
             section = Some(line.trim_matches(|c| c == '[' || c == ']').to_string());
@@ -89,10 +91,16 @@ pub fn load_token() -> Option<String> {
     match_provider(section.as_deref(), base_url.as_deref(), api_key.as_deref())
 }
 
-fn match_provider(section: Option<&str>, base_url: Option<&str>, api_key: Option<&str>) -> Option<String> {
+fn match_provider(
+    section: Option<&str>,
+    base_url: Option<&str>,
+    api_key: Option<&str>,
+) -> Option<String> {
     match (section, base_url, api_key) {
         (Some(s), Some(b), Some(k))
-            if s.starts_with("providers.") && b.contains("api.kimi.com/coding") && !k.is_empty() =>
+            if s.starts_with("providers.")
+                && b.contains("api.kimi.com/coding")
+                && !k.is_empty() =>
         {
             Some(k.to_string())
         }
