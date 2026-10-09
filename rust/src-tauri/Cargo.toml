@@ -22,7 +22,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "proce
 reqwest = { version = "0.13", features = ["json"] }
 regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
-winreg = "0.52"
+winreg = "0.55"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",
