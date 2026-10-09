@@ -52,7 +52,7 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 - `wpf/` — 原版 .NET 8 / WPF，冻结于 v1.5.0，只读参考，勿删勿改
 - `docs/` — 本规格、截图基准、归档历史
 - 脚本均在 `scripts/` 下：`scripts/release/`（`make_release_zip.py` 发布打包、`make_screenshots.py` README 截图生成、`verify_icons.py` 图标与库逐字节比对）、`scripts/diagnostics/`（一次性诊断/测量脚本）
-- `.github/` — GitHub Actions 持续集成：`.github/workflows/ci.yml` 在每次 push 到 main 与每个 PR 上做构建检查（内容与边界见 7.2）
+- `.github/` — GitHub Actions 持续集成与依赖更新：`.github/workflows/ci.yml` 在每次 push 到 main 与每个 PR 上跑 `gitleaks` 全历史密钥扫描 job 与 windows-latest 构建门禁 job（内容与边界见 7.2）；`.github/dependabot.yml` 为 cargo/npm/github-actions 三生态开 weekly 依赖更新（见 7.2）
 
 ### 3.2 进程与窗口模型
 
@@ -172,7 +172,8 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
 - 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
-- 持续集成：`.github/workflows/ci.yml`（GitHub Actions，`windows-latest` runner）在每次 push 到 main 与每个 PR 上执行 `npm ci` + `npx tsc --noEmit` + `npm run build`（前端类型检查与打包）及 `cargo build --locked` + `cargo test --locked`（skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；纯文档变更（`**.md`、`docs/`）不触发 CI
+- 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；纯文档变更（`**.md`、`docs/`）不触发 CI；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
+- 依赖更新：`.github/dependabot.yml` 为 cargo（`/rust/src-tauri`）、npm（`/rust`）、github-actions 三生态开 weekly Dependabot（minor+patch 按生态合组单 PR、major 单开）；repo 已开 Dependabot alerts 与 security updates
 
 ### 7.3 发布
 
@@ -182,7 +183,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 4. zip 与校验和已 gitignore，手动上传 GitHub Releases；**不要把二进制提交进仓库**。本地校验：把二进制按发布名（如 `KimiPlanbarTray-rust.exe`）放在仓库根，直接 `sha256sum -c SHA256SUMS.txt`——该名已被 `.gitignore` 与打包脚本排除，不会被收进 zip（`__pycache__` / `*.pyc` 同理）
 5. 若打算发版回原仓库（shawn-0106t/kimi-planbar-tray），先与用户确认提 PR 还是另开仓库
 
-> 持续集成只做构建检查，不产出、不上传任何发布物——发布仍按本节手工流程执行。
+> 持续集成只做检查（构建、静态 lint、密钥扫描），不产出、不上传任何发布物——发布仍按本节手工流程执行。
 
 ## 8. 运行环境要求
 
@@ -202,7 +203,8 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
 | `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
-| `.github/workflows/ci.yml` | GitHub Actions 构建检查（push/PR 触发，见 7.2） |
+| `.github/workflows/ci.yml` | GitHub Actions 检查：gitleaks 全历史密钥扫描 + 构建门禁（push/PR 触发，见 7.2） |
+| `.github/dependabot.yml` | Dependabot weekly 依赖更新：cargo/npm/github-actions（见 7.2） |
 | `docs/screenshot-*.png` | 视觉基准（由 `scripts/release/make_screenshots.py` 生成） |
 | `docs/archive/HANDOFF.md` | 已归档的 WPF→Rust 重写接力手册（历史，不再更新） |
 

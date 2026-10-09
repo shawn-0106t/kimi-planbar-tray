@@ -52,7 +52,7 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 - `wpf/` — original .NET 8 / WPF, frozen at v1.5.0, read-only reference, do not delete or modify
 - `docs/` — this spec, screenshot baselines, archived history
 - Scripts live under `scripts/`: `scripts/release/` (`make_release_zip.py` release packaging, `make_screenshots.py` README screenshot generation, `verify_icons.py` byte-compares icons against the library) and `scripts/diagnostics/` (one-off diagnostic/measurement scripts)
-- `.github/` — GitHub Actions continuous integration: `.github/workflows/ci.yml` runs a build check on every push to main and every pull request (scope and boundaries in 7.2)
+- `.github/` — GitHub Actions continuous integration and dependency updates: `.github/workflows/ci.yml` runs a `gitleaks` full-history secret-scan job and a windows-latest build-gate job on every push to main and every pull request (scope and boundaries in 7.2); `.github/dependabot.yml` enables weekly Dependabot updates for cargo/npm/github-actions (see 7.2)
 
 ### 3.2 Process and window model
 
@@ -172,7 +172,8 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
 - Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
-- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions, `windows-latest` runner) runs `npm ci` + `npx tsc --noEmit` + `npm run build` (frontend type-check and bundle) plus `cargo build --locked` + `cargo test --locked` (the skills parser unit tests) on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only changes (`**.md`, `docs/`) do not trigger CI
+- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only changes (`**.md`, `docs/`) do not trigger CI; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
+- Dependency updates: `.github/dependabot.yml` enables weekly Dependabot updates for cargo (`/rust/src-tauri`), npm (`/rust`), and github-actions (minor+patch grouped into one PR per ecosystem, majors open individual PRs); Dependabot alerts and security updates are enabled on the repo
 
 ### 7.3 Release
 
@@ -182,7 +183,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 4. The zip and checksums are gitignored; upload them to GitHub Releases manually; **do not commit binaries to the repo**. To verify locally, drop the binary under its release name (e.g. `KimiPlanbarTray-rust.exe`) at the repo root and run `sha256sum -c SHA256SUMS.txt` — that name is gitignored and excluded by the packaging script, so it never enters the zip (`__pycache__` / `*.pyc` likewise)
 5. If you plan to release back to the upstream repo (shawn-0106t/kimi-planbar-tray), confirm with the user first whether to open a PR or fork a separate repo
 
-> Continuous integration only performs build checks — it produces and uploads no release artifacts; releases still follow the manual steps in this section.
+> Continuous integration only performs checks (build, static lint, secret scanning) — it produces and uploads no release artifacts; releases still follow the manual steps in this section.
 
 ## 8. Runtime Requirements
 
@@ -201,7 +202,8 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 | `docs/SPEC.md` (the Chinese original of this document) | The single authoritative spec: project-level + UI/behavior details |
 | `docs/archive/QT-MIGRATION.md` | Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): case survey, stack comparison, module mapping, phased roadmap |
 | `AGENTS.md` | Onboarding index for AI coding agents (structure, commands, trap summary) |
-| `.github/workflows/ci.yml` | GitHub Actions build check (push/PR triggered, see 7.2) |
+| `.github/workflows/ci.yml` | GitHub Actions checks: gitleaks full-history secret scan + build gate (push/PR triggered, see 7.2) |
+| `.github/dependabot.yml` | Dependabot weekly dependency updates: cargo/npm/github-actions (see 7.2) |
 | `docs/screenshot-*.png` | Visual baselines (generated by `scripts/release/make_screenshots.py`) |
 | `docs/archive/HANDOFF.md` | Archived WPF→Rust rewrite handoff manual (historical, no longer updated) |
 
