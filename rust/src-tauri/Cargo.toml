@@ -23,7 +23,7 @@ reqwest = { version = "0.13", features = ["json"] }
 regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
 winreg = "0.55"
-windows = { version = "0.61", features = [
+windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_System_Threading",
