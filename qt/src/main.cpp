@@ -378,7 +378,7 @@ int main(int argc, char *argv[])
     // GUI path: tray icon + hidden panel + polling (SPEC section 20 startup)
     QApplication app(argc, argv);
     QApplication::setApplicationName("kimi-planbar-tray");
-    QApplication::setApplicationVersion("1.7.2"); // unified with rust/ since Phase-4 parity
+    QApplication::setApplicationVersion("1.7.3"); // unified with rust/ since Phase-4 parity
     applySystemFont();
     // Tray-only app: do not quit when the (singleton, hidden) windows close
     QApplication::setQuitOnLastWindowClosed(false);

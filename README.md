@@ -95,7 +95,7 @@ KimiPlanbarTray.exe --test-fetch   # fetch quota once, print JSON, exit
 KimiPlanbarTray.exe --test-ui      # construct all 4 windows, print OK lines, exit (~6 s)
 ```
 
-Pushes to `main` and pull requests run a GitHub Actions build check ([`ci.yml`](.github/workflows/ci.yml)): frontend dependency install + TypeScript type-check + Vite build, then `cargo build`/`cargo test` for the Rust backend. The headless self-checks above are **not** part of CI — they need local Kimi Code credentials and an interactive desktop — so run them locally after changes.
+Pushes to `main` (except docs-only changes) and every pull request run two GitHub Actions jobs ([`ci.yml`](.github/workflows/ci.yml)): `gitleaks` (full-history secret scan) and a windows-latest build gate (`cargo fmt`/`cargo clippy`, frontend install + TypeScript type-check + Vite build, then `cargo build`/`cargo test`). The headless self-checks above are **not** part of CI — they need local Kimi Code credentials and an interactive desktop — so run them locally after changes.
 
 ## Tech notes
 

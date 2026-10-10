@@ -6,12 +6,12 @@ Guidance for AI coding agents working in this repository. Read this first; it as
 
 Kimi Planbar Tray is a lightweight **Windows-only system tray app** that shows Kimi Code plan quota (5-hour window + weekly usage, reset countdowns, "Extra Usage" booster wallet) one click away from the tray. It reads the local Kimi Code CLI OAuth token and calls `GET https://api.kimi.com/coding/v1/usages`.
 
-Current version: **1.7.2** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `rust/src-tauri/Cargo.lock` (the `kimi-planbar-tray` entry), `rust/package-lock.json` (root version; resync with `cd rust && npm install` if it drifts), `scripts/release/make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp` + the `FILEVERSION`/`PRODUCTVERSION` tuple and `FileVersion`/`ProductVersion` strings in `qt/resources.rc`).
+Current version: **1.7.3** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `rust/src-tauri/Cargo.lock` (the `kimi-planbar-tray` entry), `rust/package-lock.json` (root version; resync with `cd rust && npm install` if it drifts), `scripts/release/make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp` + the `FILEVERSION`/`PRODUCTVERSION` tuple and `FileVersion`/`ProductVersion` strings in `qt/resources.rc`).
 
 This is a **monorepo with three editions**:
 
 - `rust/` — **actively developed (dual-track with `qt/`)**. Tauri 2 + Rust backend + vanilla HTML/CSS/TypeScript frontend (no framework, no React).
-- `qt/` — **completed, experimental**. C++ Qt6 + Qt Widgets, no WebView dependency; reached SPEC parity with rust/ 1.7.2. Architecture plan, stack comparison, and module mapping: `docs/archive/QT-MIGRATION.md` (archived).
+- `qt/` — **completed, experimental**. C++ Qt6 + Qt Widgets, no WebView dependency; reached SPEC parity with rust/ 1.7.3. Architecture plan, stack comparison, and module mapping: `docs/archive/QT-MIGRATION.md` (archived).
 - `wpf/` — original .NET 8 / WPF edition, **frozen at v1.5.0, unmaintained**. Kept as read-only reference for behavior/UI parity. Do not delete it; do not add features to it.
 
 All editions share the same UI/UX (fully specified in `docs/SPEC.md`) and the same `settings.json` schema.

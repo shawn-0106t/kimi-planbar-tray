@@ -48,7 +48,7 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 ### 3.1 Repository layout (monorepo, three editions)
 
 - `rust/` — **one of the two actively developed lines (dual-track with `qt/`)**: Tauri 2 + Rust backend + vanilla HTML/CSS/TS frontend (Vite multi-page build, no framework)
-- `qt/` — **the other active line (completed, experimental)**: C++ Qt6 + Qt Widgets, no WebView dependency; reached parity with rust/ 1.7.2; see `docs/archive/QT-MIGRATION.md` (archived) for the architecture plan and module mapping
+- `qt/` — **the other active line (completed, experimental)**: C++ Qt6 + Qt Widgets, no WebView dependency; reached parity with rust/ 1.7.3; see `docs/archive/QT-MIGRATION.md` (archived) for the architecture plan and module mapping
 - `wpf/` — original .NET 8 / WPF, frozen at v1.5.0, read-only reference, do not delete or modify
 - `docs/` — this spec, screenshot baselines, archived history
 - Scripts live under `scripts/`: `scripts/release/` (`make_release_zip.py` release packaging, `make_screenshots.py` README screenshot generation, `verify_icons.py` byte-compares icons against the library) and `scripts/diagnostics/` (one-off diagnostic/measurement scripts)
