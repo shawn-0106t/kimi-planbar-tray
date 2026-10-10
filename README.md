@@ -25,17 +25,13 @@ A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/
 
 ## Download
 
-> **The WPF edition is no longer maintained** (frozen at v1.5.0) — new features land in the Rust edition only. The `wpf/` source is kept for reference.
+> **The WPF edition is no longer maintained** (frozen at v1.5.0) — new features land in the Rust edition only. The `wpf/` source is kept for reference (same UI/UX spec and settings file); its last binaries remain downloadable from the [v1.5.0 release](../../releases/tag/v1.5.0).
 
 Get the latest exe from [Releases](../../releases):
 
 | Build | Size | Requirement | Working set (measured) |
 |---|---|---|---|
 | `KimiPlanbarTray-rust.exe` | ~5.6 MB | Nothing — uses the system WebView2 | ~317 MB |
-| `KimiPlanbarTray-wpf.exe` (unmaintained) | ~260 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed | ~69 MB |
-| `KimiPlanbarTray-wpf-selfcontained.exe` (unmaintained) | ~65 MB | Nothing — runtime bundled | ~69 MB |
-
-Both editions share the same UI/UX (see `docs/SPEC.md`) and the same settings file.
 
 > There is also an **experimental Qt edition** (`qt/`, C++ Qt6 Widgets, no WebView2 dependency) at feature parity with the Rust build. It ships as a folder (`qt/dist/`, ~36 MB — Qt DLLs alongside the exe, no single-file build), is mutually exclusive with the Rust/WPF editions (same named mutex, only one instance runs at a time), and is likewise unsigned (same SmartScreen prompt). Build from source only (see below) — it is not distributed via Releases.
 
