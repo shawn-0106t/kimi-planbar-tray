@@ -6,15 +6,19 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+  # No paths-ignore on pull_request: both CI jobs are required checks with
+  # enforce_admins, so a docs-only PR that skips CI could never merge
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
 
 concurrency:
   group: ci-${{ github.ref }}
   # keep in-progress runs on main alive for bisect integrity; cancel superseded PR runs
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Least privilege for both jobs (CodeQL actions/missing-workflow-permissions);
+# npm/rust caches use the Actions Runtime Token, unaffected by GITHUB_TOKEN scope
+permissions:
+  contents: read
 
 jobs:
   # Second line of defense for secrets: the local pre-commit gitleaks scan can
@@ -23,8 +27,6 @@ jobs:
   gitleaks:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read # least privilege; gitleaks-action@v3 needs no license on personal public repos
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -34,6 +36,7 @@ jobs:
       - name: gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
+          # gitleaks-action@v3 needs no license secret on personal public repos
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Pin below 8.30.x: that line has a detection regression (gitleaks
           # #2170: rules load but never match). Drop the pin once verified fixed.

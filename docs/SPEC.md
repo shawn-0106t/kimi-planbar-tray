@@ -111,7 +111,7 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 - **Tauri 2**（含 opener / single-instance 插件）— 窗口、托盘、IPC
 - **tokio / reqwest / serde** — 异步运行时、HTTP、JSON
-- **windows 0.61 / winreg** — Win32（工作区、DPI、DWM、互斥锁）与注册表
+- **windows 0.62 / winreg** — Win32（工作区、DPI、DWM、互斥锁）与注册表
 - **regex / chrono** — 版本号解析、重置倒计时计算
 - **Vite + TypeScript** — 前端构建；无运行时框架
 
@@ -172,7 +172,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
 - 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
-- 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；纯文档变更（`**.md`、`docs/`）不触发 CI；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
+- 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；push 到 main 的纯文档变更（`**.md`、`docs/`）不触发 CI（`paths-ignore` 仅挂在 `push` 触发器上），PR 一律触发以保证 required check 回报；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
 - 依赖更新：`.github/dependabot.yml` 为 cargo（`/rust/src-tauri`）、npm（`/rust`）、github-actions 三生态开 weekly Dependabot（minor+patch 按生态合组单 PR、major 单开）；repo 已开 Dependabot alerts 与 security updates
 
 ### 7.3 发布
