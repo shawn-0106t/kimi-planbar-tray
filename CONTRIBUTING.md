@@ -57,3 +57,4 @@ For visual changes, compare against the `docs/*.png` baselines (`docs/SPEC.md` c
 
 - Bugs and feature requests: open an issue with your Windows version, the edition you run (rust/qt), and steps to reproduce.
 - Security: use GitHub's private vulnerability reporting — see [SECURITY.md](SECURITY.md). Do not open public issues for security matters.
+- Be kind: this project follows the Contributor Covenant — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Feishu backup zip for a kimi-planbar-tray release.
+"""Build the source-snapshot zip for a kimi-planbar-tray release.
 
 Snapshot = full source tree (monorepo: wpf/ + rust/ + qt/ + docs/ + scripts/ + root files)
 plus the Rust release exe at the zip root. Mirrors the layout used by
