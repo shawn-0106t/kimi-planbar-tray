@@ -111,7 +111,7 @@ All 4 pages share `common.ts` (DTO types + formatting helpers + theme init) and 
 
 - **Tauri 2** (with opener / single-instance plugins) — windows, tray, IPC
 - **tokio / reqwest / serde** — async runtime, HTTP, JSON
-- **windows 0.61 / winreg** — Win32 (work area, DPI, DWM, mutex) and registry
+- **windows 0.62 / winreg** — Win32 (work area, DPI, DWM, mutex) and registry
 - **regex / chrono** — version number parsing, reset countdown calculation
 - **Vite + TypeScript** — frontend build; no runtime framework
 
@@ -172,7 +172,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
 - Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
-- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only changes (`**.md`, `docs/`) do not trigger CI; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
+- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
 - Dependency updates: `.github/dependabot.yml` enables weekly Dependabot updates for cargo (`/rust/src-tauri`), npm (`/rust`), and github-actions (minor+patch grouped into one PR per ecosystem, majors open individual PRs); Dependabot alerts and security updates are enabled on the repo
 
 ### 7.3 Release
