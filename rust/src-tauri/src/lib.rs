@@ -103,7 +103,7 @@ fn get_state(app: AppHandle) -> AppStateDto {
     }
 }
 
-/// Panel "Refresh" button / menu "刷新": SafeRefresh + CheckAsync (SPEC 12.7 / 14).
+/// Panel "Refresh" button / tray-menu "Refresh": SafeRefresh + CheckAsync (SPEC 12.7 / 14).
 /// Debounced: invocations within 2s of the previous one are ignored.
 #[tauri::command]
 fn refresh_now(app: AppHandle) {
@@ -234,7 +234,7 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
-/// Tray menu items (SPEC 14): 打开/刷新/设置/Skills/退出; menu window closes first.
+/// Tray menu items (SPEC 14): Open/Refresh/Settings/Skills/Exit; menu window closes first.
 #[tauri::command]
 fn menu_action(app: AppHandle, action: String) {
     if let Some(w) = app.get_webview_window("menu") {
