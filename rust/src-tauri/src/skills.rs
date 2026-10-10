@@ -211,7 +211,7 @@ mod tests {
             "\u{feff}---\nname: Bom\ndescription: x\n---\n",
         )
         .unwrap();
-        // GBK-encoded bytes (中文 Windows 常见) inside the description
+        // GBK-encoded bytes (common on Chinese Windows) inside the description
         let dir = fx.0.join("gbk");
         fs::create_dir_all(&dir).unwrap();
         let mut bytes = b"---\nname: Gbk\ndescription: ".to_vec();
