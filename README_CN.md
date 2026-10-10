@@ -25,17 +25,13 @@
 
 ## 下载
 
-> **WPF 版已停止维护**（停留在 v1.5.0）——新功能只进 Rust 版，`wpf/` 源码保留仅供参考。
+> **WPF 版已停止维护**（停留在 v1.5.0）——新功能只进 Rust 版，`wpf/` 源码保留仅供参考（UI/UX 规格与设置文件同 Rust 版）；其最后的二进制仍在 [v1.5.0 Release](../../releases/tag/v1.5.0) 提供下载。
 
 从 [Releases](../../releases) 获取最新 exe：
 
 | 版本 | 体积 | 前提 | 内存占用（实测） |
 |---|---|---|---|
 | `KimiPlanbarTray-rust.exe` | ~5.6 MB | 无——使用系统自带 WebView2 | ~317 MB |
-| `KimiPlanbarTray-wpf.exe`（已停维护） | ~260 KB | 已安装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0) | ~69 MB |
-| `KimiPlanbarTray-wpf-selfcontained.exe`（已停维护） | ~65 MB | 无——运行时已打包在内 | ~69 MB |
-
-两个版本 UI/UX 完全一致（见 `docs/SPEC.md`），共用同一份设置文件。
 
 > 另有一个**实验性 Qt 版**（`qt/`，C++ Qt6 Widgets，无 WebView2 依赖），功能与 Rust 版对齐。以目录形态分发（`qt/dist/`，约 36 MB——Qt DLL 随 exe 同目录，无单文件版）；与 Rust/WPF 版互斥（共用同名互斥锁，同时只能运行一个）；同样未签名（同样的 SmartScreen 提示）。仅从源码构建（见下文），不随 Releases 分发。
 

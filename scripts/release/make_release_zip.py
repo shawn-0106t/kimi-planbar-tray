@@ -2,7 +2,7 @@
 """Build the Feishu backup zip for a kimi-planbar-tray release.
 
 Snapshot = full source tree (monorepo: wpf/ + rust/ + qt/ + docs/ + scripts/ + root files)
-plus the three release binaries at the zip root. Mirrors the layout used by
+plus the Rust release exe at the zip root. Mirrors the layout used by
 the v1.3.0-and-earlier archives on Feishu Drive. The source file set comes
 from `git ls-files` (tracked + untracked-but-not-ignored), so the zip can
 never drift out of sync with .gitignore; a filtered walk is the fallback when
@@ -11,8 +11,7 @@ git metadata is unavailable (e.g. running from an unpacked source zip) or when
 
 Also writes SHA256SUMS.txt (standard `sha256sum` format) next to the zip,
 covering exactly the assets uploaded to a GitHub release: the zip itself
-plus every binary flagged as a standalone asset. The WPF exes ship inside
-the zip only, so they are not checksummed.
+plus every binary flagged as a standalone asset.
 
 Both outputs are staged as `<name>.part` and only renamed once complete: the
 small checksum file first, the zip last, so a failed zip rename can restore
@@ -36,11 +35,10 @@ SUMS = os.path.join(ROOT, "SHA256SUMS.txt")
 SUMS_PART = SUMS + ".part"  # written first, renamed onto SUMS before the zip
 
 # (absolute source, arcname in zip, uploaded as a standalone release asset)
+# The frozen WPF edition stopped shipping in v1.7.3 (zero CI coverage, ~zero
+# downloads); its last binaries live on the v1.5.0 release, and the wpf/ source
+# stays in-tree as the behavior/UI reference.
 BINARIES = [
-    ("wpf/publish/KimiPlanbarTray.exe",
-     "KimiPlanbarTray-wpf.exe", False),
-    ("wpf/publish-sc/KimiPlanbarTray-selfcontained.exe",
-     "KimiPlanbarTray-wpf-selfcontained.exe", False),
     ("rust/src-tauri/target/release/kimi-planbar-tray.exe",
      "KimiPlanbarTray-rust.exe", True),
 ]
