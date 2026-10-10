@@ -28,6 +28,8 @@ Desktop.ini
 kimi logo.webp
 __pycache__/
 *.pyc
+# ZCode agent's local ignore config — never commit, never pack into release zips
+.zcodeignore
 
 ## Release artifacts (built locally, uploaded to GitHub Releases)
 ## `.zip*` / `SHA256SUMS.txt*` also cover the `.part` intermediates written before
