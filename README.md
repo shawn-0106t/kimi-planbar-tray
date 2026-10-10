@@ -101,6 +101,10 @@ Pushes to `main` (except docs-only changes) and every pull request run two GitHu
 - Quota logic adapted from [kimi-planbar](https://github.com/baigong-ai/kimi-planbar) (MIT) — same token sources, endpoint, and cache/retry strategy
 - Tray icon is the official Kimi Code logo embedded as a PNG-compressed ICO; logo copyright belongs to **Moonshot AI** — this is an unofficial community tool, not affiliated with Moonshot AI
 
+## Contributing & changelog
+
+PRs land on `rust/` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the dev setup, CI gates and conventions. Notable changes per release are tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 Shawn Qi (shawn-0106t), with portions © baigong-ai (kimi-planbar), © xifandev (KimiCodeBar)
