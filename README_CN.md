@@ -101,6 +101,10 @@ KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退
 - 额度逻辑移植自 [kimi-planbar](https://github.com/baigong-ai/kimi-planbar)（MIT）——token 来源、接口与缓存/重试策略一致
 - 托盘图标为内嵌的官方 Kimi Code logo（PNG 压缩 ICO）；logo 版权归 **Moonshot AI** 所有——本项目为非官方社区工具，与 Moonshot AI 无隶属关系
 
+## 参与贡献与更新日志
+
+PR 请指向 `rust/`——开发环境、CI 门禁与代码约定见 [CONTRIBUTING.md](CONTRIBUTING.md)（英文）。各版本的重要变更记录在 [CHANGELOG.md](CHANGELOG.md)。
+
 ## License
 
 [MIT](LICENSE) © 2026 Shawn Qi (shawn-0106t)，部分内容 © baigong-ai (kimi-planbar)，© xifandev (KimiCodeBar)
