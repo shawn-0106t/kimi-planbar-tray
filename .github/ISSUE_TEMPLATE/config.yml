@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Security policy
+  - name: Security policy / 安全策略
     url: https://github.com/shawn-0106t/kimi-planbar-tray/security/advisories/new
-    about: Report security vulnerabilities privately — do not open public issues for security matters (see SECURITY.md)
+    about: Report security vulnerabilities privately — do not open public issues for security matters (see SECURITY.md) / 私密报告安全漏洞——请勿为安全问题开公开 issue（见 SECURITY.md）
