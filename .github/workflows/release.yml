@@ -1,0 +1,106 @@
+name: Release (draft)
+
+# Pushing a v* tag builds the release artifacts on a runner and opens a DRAFT
+# release with all three assets attached; publishing stays a manual decision
+# (review the title/notes against CHANGELOG.md, then hit Publish).
+on:
+  push:
+    tags: ['v*']
+
+# contents:write is required to create the draft release and upload its assets;
+# the build steps themselves only need the Actions Runtime Token (caches).
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Tag pushes bypass ci.yml (its push trigger is branches: [main] only), so
+  # scan here too before anything gets a release attached to its name
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # least privilege for this job; the release job keeps write
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          # gitleaks-action@v3 needs no license secret on personal public repos
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pin below 8.30.x: that line has a detection regression (gitleaks
+          # #2170: rules load but never match). Drop the pin once verified fixed.
+          GITLEAKS_VERSION: 8.29.1
+
+  draft-release:
+    name: Build & draft release (windows-latest)
+    needs: gitleaks
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (tag)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: rust/package-lock.json
+
+      - name: Setup Rust (stable)
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e5429144811ad706f # v2.0.0
+        with:
+          # the action denies cargo warnings by default; this is a build, not a lint gate
+          build-warnings: warn
+          cache: false
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust/src-tauri
+
+      # The packager is stdlib-only; windows-latest ships a suitable python
+      - name: Install frontend dependencies
+        working-directory: rust
+        run: npm ci
+
+      # beforeBuildCommand (npm run build) runs as part of tauri build; --no-bundle
+      # skips the msi/nsis bundlers, we only ship the raw exe
+      - name: Build release exe
+        working-directory: rust
+        run: npx tauri build --no-bundle
+
+      - name: Package source snapshot + checksums
+        run: python scripts/release/make_release_zip.py
+
+      # The packager embeds the exe in the zip but never copies it to the root
+      # under its release-asset name; stage it so gh can attach all three files.
+      # Exact zip name, no glob: a tag / script VERSION mismatch fails loudly here.
+      - name: Stage assets under release names
+        shell: bash
+        run: |
+          cp rust/src-tauri/target/release/kimi-planbar-tray.exe KimiPlanbarTray-rust.exe
+          test -f "KimiPlanbarTray-v${GITHUB_REF_NAME#v}.zip"
+
+      - name: Create draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # gh release create is not idempotent: a failed earlier run may leave
+          # a draft behind. Clean only DRAFTS — never touch a published release.
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --yes
+          fi
+          printf 'Auto-generated draft from tag push %s.\n\n- Curated changes: the matching version section in CHANGELOG.md\n- Review the three assets, adjust title/notes, then publish.\n' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --draft --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
+            KimiPlanbarTray-rust.exe "KimiPlanbarTray-v${GITHUB_REF_NAME#v}.zip" SHA256SUMS.txt
