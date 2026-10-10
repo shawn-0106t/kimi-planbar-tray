@@ -29,7 +29,7 @@ import zipfile
 from fnmatch import fnmatchcase
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # repo root (scripts/release/)
-VERSION = "1.7.2"
+VERSION = "1.7.3"
 OUT = os.path.join(ROOT, f"KimiPlanbarTray-v{VERSION}.zip")
 PART = OUT + ".part"  # written first, renamed onto OUT last
 SUMS = os.path.join(ROOT, "SHA256SUMS.txt")

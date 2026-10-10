@@ -3,7 +3,7 @@
 # since SPEC parity was reached (Phase 4).
 cmake_minimum_required(VERSION 3.21)
 
-project(kimi-planbar-tray VERSION 1.7.2 LANGUAGES CXX)
+project(kimi-planbar-tray VERSION 1.7.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -2002,7 +2002,7 @@ dependencies = [
 
 [[package]]
 name = "kimi-planbar-tray"
-version = "1.7.2"
+version = "1.7.3"
 dependencies = [
  "chrono",
  "regex",

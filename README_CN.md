@@ -95,7 +95,7 @@ KimiPlanbarTray.exe --test-fetch   # 拉取一次额度，打印 JSON 后退出
 KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退出（约 6 秒）
 ```
 
-推送到 `main` 与 Pull Request 会触发 GitHub Actions 构建检查（[`ci.yml`](.github/workflows/ci.yml)）：前端依赖安装 + TypeScript 类型检查 + Vite 构建，随后 Rust 侧 `cargo build`/`cargo test`。上文的 `--test-*` 无头自检**不**在 CI 中执行——它们依赖本机 Kimi Code 凭据与交互桌面会话——请在改动后于本地运行。
+推送到 `main`（纯文档变更除外）与每个 Pull Request 会触发两个 GitHub Actions job（[`ci.yml`](.github/workflows/ci.yml)）：`gitleaks`（全历史密钥扫描）与 windows-latest 构建门禁（`cargo fmt`/`cargo clippy`、前端依赖安装 + TypeScript 类型检查 + Vite 构建、随后 `cargo build`/`cargo test`）。上文的 `--test-*` 无头自检**不**在 CI 中执行——它们依赖本机 Kimi Code 凭据与交互桌面会话——请在改动后于本地运行。
 
 ## 技术说明
 
