@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Tag-triggered release automation: pushing a `v*` tag now builds the release exe on CI, runs the packager, and opens a draft GitHub Release with all three assets attached — publishing stays a manual decision.
+
 ## [1.7.3] - 2026-10-10
 
 Maintenance release — no feature or UI changes to the Rust edition.
@@ -119,6 +122,9 @@ Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly
 > 以下为上方英文各版本的中文对照（发版时双语同步维护）；版本链接见英文区。
 
 ## [Unreleased]
+
+### 新增
+- tag 触发的发版自动化：push `v*` tag 后在 CI 上构建 release exe、运行打包脚本并创建挂好三件资产的 draft GitHub Release——发布仍为手动决策。
 
 ## [1.7.3] - 2026-10-10
 
