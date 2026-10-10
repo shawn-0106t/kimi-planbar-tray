@@ -56,7 +56,7 @@ jobs:
           cache-dependency-path: rust/package-lock.json
 
       - name: Setup Rust (stable)
-        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e5429144811ad706f # v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           # the action denies cargo warnings by default; this is a build, not a lint gate
           build-warnings: warn
