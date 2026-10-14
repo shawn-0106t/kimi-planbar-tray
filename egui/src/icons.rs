@@ -1,8 +1,7 @@
-// Embedded images: the Kimi logo (rust/src-tauri/icons/icon.png copy) for the
-// panel header + tray icon, and the four bottom-button icons pre-rasterized
-// from assets/icons/*.svg (96x96, white fill — tinted with the theme text
-// color at draw time, which is exactly the SVGs' fill="currentColor" intent).
-
+/// Embedded images: the Kimi logo (rust/src-tauri/icons/icon.png copy) for the
+/// panel header + tray icon, and the four bottom-button icons pre-rasterized
+/// from assets/icons/*.svg (96x96, white fill — tinted with the theme text
+/// color at draw time, which is exactly the SVGs' fill="currentColor" intent).
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 
 pub const LOGO_PNG: &[u8] = include_bytes!("assets/icon.png");
@@ -11,6 +10,9 @@ pub const ICON_REFRESH_PNG: &[u8] = include_bytes!("assets/icons/refresh.png");
 pub const ICON_SETTINGS_PNG: &[u8] = include_bytes!("assets/icons/settings.png");
 pub const ICON_EXIT_PNG: &[u8] = include_bytes!("assets/icons/exit.png");
 
+/// Cloneable: the texture handles are refcounted, and the secondary windows
+/// reach the set through the shared WinBus (their passes cannot touch App).
+#[derive(Clone)]
 pub struct Icons {
     pub logo: TextureHandle,
     pub console: TextureHandle,

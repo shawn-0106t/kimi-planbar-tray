@@ -9,7 +9,7 @@
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use kimi_planbar_tray_egui::app::{App, UiCmd, UiShared};
+use kimi_planbar_tray_egui::app::{App, UiCmd, UiShared, WinBus};
 use kimi_planbar_tray_egui::ctx::{AppCtx, AppEvent};
 use kimi_planbar_tray_egui::{app, panel_pos, quota, theme_watch, tray, update, windows};
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -177,6 +177,7 @@ fn run_app(test_ui: bool) {
     };
 
     let ui_for_app = ui_shared.clone();
+    let win_bus = Arc::new(WinBus::new());
     let result = eframe::run_native(
         app::MAIN_WINDOW_TITLE,
         options,
@@ -185,6 +186,7 @@ fn run_app(test_ui: bool) {
                 cc,
                 biz,
                 ui_for_app,
+                win_bus,
                 runtime_slot,
                 Some(tray),
                 visibility,
@@ -227,8 +229,9 @@ fn main() {
     }
 
     // Headless UI self-check (SPEC 19): real window construction + theme,
-    // prints "MainWindow OK" (settings/skills/menu OK lines are Phase 3),
-    // auto-exits after ~6s. Runs WITHOUT the single-instance mutex.
+    // prints all four OK lines (MainWindow / SettingsWindow / SkillsWindow /
+    // TrayMenuWindow), auto-exits after ~6s. Runs WITHOUT the single-instance
+    // mutex.
     if args.iter().any(|a| a == "--test-ui") {
         run_app(true);
         return;

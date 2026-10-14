@@ -184,7 +184,7 @@ Note: debug builds are console-subsystem (with a console window) and release bui
 There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those). Verification methods (details in chapter 19):
 
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
-- The egui/ edition implements the same `--test-*` args with field-identical output to the rust/ edition (directly diffable on the same machine); the skills frontmatter-parser tests run via `cd egui && cargo test` (`--test-ui` lands in Phase 2 and currently prints `UI-FAIL: NotImplementedError: Phase 2`)
+- The egui/ edition implements the same `--test-*` args with field-identical output to the rust/ edition (directly diffable on the same machine); the skills frontmatter-parser tests run via `cd egui && cargo test` (`--test-ui` is fully implemented: it constructs and shows all four windows, prints `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`, and auto-exits after ~6 s)
 - Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
 - Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
@@ -260,7 +260,7 @@ All three windows are: **frameless** (`WindowStyle=None`), **transparent backgro
 - Behavior: does not auto-close on focus loss; only the ✕ button or "Save" closes it. Singleton, reused.
 
 ### 10.3 Tray right-click menu (TrayMenuWindow)
-- Size: `Width=150`, height `SizeToContent=Height` (auto-fits 4 items)
+- Size: `Width=150`, height `SizeToContent=Height` (auto-fits 5 items; the menu carries the Skills item since v1.6, see 21.3)
 - Root Border: `CornerRadius=12`, `Margin=5`, `Padding=4`, background `WindowBgBrush`
 - Shadow: `DropShadowEffect BlurRadius=20, ShadowDepth=2, Opacity=0.3, Color=#000000`
 - Positioning (`ShowAtCursor`):
@@ -555,7 +555,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 |---|---|---|
 | `--test-fetch` | Fetch quota once, print JSON | JSON of `QuotaResult` (indented, non-ASCII not escaped) |
 | `--test-update` | Run one version check | Single line: `local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`; the egui edition currently prints `MainWindow OK` only — the settings/skills/menu lines land in Phase 3); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
+| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`; the egui edition prints the same four lines — settings/skills/menu landed in Phase 3, with the menu placed at the current cursor position); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
 | `--test-skills` (Qt edition only) | Parse two built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests) | Prints `PASS` on success, diff details plus a non-zero exit on failure |
 | `--screenshot <path> [--dark] [--mock]` (WPF edition only) | Render the main panel as PNG with real (or mocked) quota data + the specified theme (for the README) | `saved: <path>` |
 

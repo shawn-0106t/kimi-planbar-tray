@@ -184,7 +184,7 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
 
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
-- egui/ 版实现同名 `--test-*` 参数，输出与 rust/ 版逐字段一致（同一台机器可直接 diff）；skills frontmatter 解析单测随 `cd egui && cargo test` 运行（`--test-ui` 在 Phase 2 实装，当前输出 `UI-FAIL: NotImplementedError: Phase 2`）
+- egui/ 版实现同名 `--test-*` 参数，输出与 rust/ 版逐字段一致（同一台机器可直接 diff）；skills frontmatter 解析单测随 `cd egui && cargo test` 运行（`--test-ui` 已实装：构造并显示全部四窗后输出 `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK` 四行，约 6s 自动退出）
 - 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
 - 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；push 到 main 的纯文档变更（`**.md`、`docs/`）不触发 CI（`paths-ignore` 仅挂在 `push` 触发器上），PR 一律触发以保证 required check 回报；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
@@ -261,7 +261,7 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 - 行为：失焦不自动关闭；仅 ✕ 按钮或 "Save" 关闭。单例复用。
 
 ### 10.3 托盘右键菜单（TrayMenuWindow）
-- 尺寸：`Width=150`，高度 `SizeToContent=Height`（4 项自适应）
+- 尺寸：`Width=150`，高度 `SizeToContent=Height`（5 项自适应；v1.6 起菜单含 Skills 项，见 21.3）
 - 根 Border：`CornerRadius=12`，`Margin=5`，`Padding=4`，背景 `WindowBgBrush`
 - 阴影：`DropShadowEffect BlurRadius=20, ShadowDepth=2, Opacity=0.3, Color=#000000`
 - 定位（`ShowAtCursor`）：
@@ -556,7 +556,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 |---|---|---|
 | `--test-fetch` | 拉取一次额度，打印 JSON | `QuotaResult` 的 JSON（缩进格式、不转义非 ASCII） |
 | `--test-update` | 执行一次版本检查 | 单行：`local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`；egui 版现仅输出 `MainWindow OK`，settings/skills/menu 三行 Phase 3 补齐）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
+| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`；egui 版输出相同四行——settings/skills/menu 三窗 Phase 3 起实装，并以当前光标位置落菜单窗）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
 | `--test-skills`（仅 Qt 版） | 解析两个内置 frontmatter 测试夹具（移植 rust 版 `skills.rs` 的两个 cargo 单测） | 通过打印 `PASS`，失败打印差异详情并非零退出 |
 | `--screenshot <path> [--dark] [--mock]`（仅 WPF 版） | 真实（或模拟）额度数据 + 指定主题渲染主面板为 PNG（README 用） | `saved: <path>` |
 

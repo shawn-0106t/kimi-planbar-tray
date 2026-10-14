@@ -189,3 +189,29 @@ egui/
 4. 托盘点击后单独的 `ViewportCommand::Focus` 在 Win11 不可靠（实测面板 `focused=false`）→ `spawn_focus_steal` 在 shell 前台授权窗口内重试 `SetForegroundWindow`（托盘点击手势给了授权窗口）。
 5. egui 对"已显示但从未获焦"的窗口报告 `focused == Some(false)`：失焦自动收起必须加 `panel_was_focused` 闩（真实获焦过才启用），否则程序化 show（`--test-ui`）立即被收起——tauri 侧对应的是 Focused(true)→Focused(false) 事件对，语义不同。
 6. 测试基建：Win11 托盘折叠区 flyout 在面板获焦后仍存活，可对固定图标坐标裸 `mouse_event` 连击驱动 toggle / 防抖测试；UIAutomation 单次查询约 200-500ms，无法用于 300ms 防抖窗口内的定时点击（须预取坐标）；chevron 点击是 toggle 语义，测试脚本不得盲点（会翻转 flyout 开合状态）。
+
+### Phase 3 — settings / skills / menu 三窗（已完成，2026-10-14）
+
+**落地内容**（`egui/src/`，SPEC 10.2 / 10.3 / 13 / 14 / 18 / 21）：
+
+- `ui/settings_win.rs`：设置窗 404x464（卡片 348x408 = 阴影留白 28），SPEC 13 全布局 painter 自绘——标题栏（logo 18 + 15px SemiBold + ✕ 28px `ChromeCloseButton`，整行 `Sense::drag` → `StartDrag`，拖动区排除 ✕）、ThemeRadio x3（18px 圆 1.5px 次级描边 + 选中 8px accent 圆点 + 悬停文字变 accent）、PillRadio x4（padding 12,6 / radius 9 / 选中 accent 白字 / 悬停 ButtonHover，选中+悬停保持 accent）、ThemeCheckBox（18px 圆角 5 方块 1.5px 边框，选中 accent + 白色对勾）、全宽 ActionButton Save（含 15.3 glow）。每次打开按持久化设置回填 draft（越界值回落默认，同 rust/ 前端语义）；✕ 只隐藏不保存（s4/s5 截图对照验证：未保存的 Moondark 选择重开后回到 Moonlit）；Save 走 rust save_settings 同链路：写 settings.json（PascalCase + 2 空格缩进）→ `apply_auto_start`（HKCU Run 增删，实测往返一致）→ `theme_watch::apply_now`（system 跟随重估）→ `reschedule.notify_one` → 关窗。
+- `ui/skills_win.rs`：Skills 窗 404x520，同款标题栏 + 汇总行（"N skills" / "No skills found" / 扫描中 "Loading…"）+ `btn-mini` Refresh（手绘 ⟳ 弧线箭头 glyph，不依赖 U+27F3 字体覆盖）+ ScrollArea 分组列表（非浮动 8px 滚动条，thumb = progress_track、track 透明、圆角 4，经 scoped `WidgetVisuals` 上色）；卡片 radius 10 padding 10x12，名称 13 SemiBold 单行省略号（二分前缀 + U+2026），描述 12px 两行 clamp（`clamp_rows`：按字符二分使 galley 行数 ≤ 2），完整描述挂卡片 hover tooltip（等价 qt clamplabel / CSS line-clamp）；首次打开懒扫描一次入缓存（tokio `spawn_blocking`），Refresh 强制重扫（旧缓存渲染到新列表落地）。
+- `ui/menu_win.rs` + `panel_pos::show_menu_at`：托盘右键菜单 188 逻辑宽、高度 = 内容 + 2x24 阴影留白（`menu_window_height` 直接量 egui 字型——rust/ 前端回报高度的黑科技变本机直测）；5 个 `MenuItemButton`（padding 14,9 / radius 8 / 悬停 ButtonHover + glow）；定位 = rust panel.rs `show_menu` 逐行移植（光标物理 px → MonitorFromPoint/GetDpiForMonitor → 水平钳制 + 底边上翻 + 旧布局 -19px 补偿），数学抽成纯函数 `menu_position` 并单测 5 例（其中两例复算 Phase 0 spike 记录的 (2870,1690)→(1103.0,602.1) 与 (200,200)→(69.9,77.9)）；失焦关闭带 `menu_was_focused` 闩（同 Phase 2 gotcha 5），`Visible(false)` 走命令队列 = SPEC 10.3 延迟安全语义。
+- `tray.rs` 右键接通：`UiCmd::ShowMenu { px, py }` 携带 tray-icon 物理光标坐标，root pass 执行定位 + show + `spawn_focus_steal`；菜单项点击 = 关菜单（回调内 `Visible(false)`）+ `WinAction` 入队 + `request_repaint_of(ROOT)` 唤醒 root pass 执行（Open=toggle_panel(false) 无 300ms 防抖、Refresh=2s 防抖手动刷新、Settings/Skills=开窗、Exit=退出），与 rust menu_action 语义一一对应。
+- `app.rs`：`WinBus`（draft / 菜单开合闩 / 动作队列 / 三窗各自 GlowTracker / icons 句柄）+ `register_viewports`（三个 deferred viewport 每帧注册——不注册即销毁原生窗，singleton 复用必须常驻；可见性一律命令通道）；设置/技能窗打开时回填 draft + 居中（work area 中心）+ 尺寸钉死；`settings_open` / `skills_open` 抑制面板失焦收起（实测开关两侧行为正确）。
+- `--test-ui`：依次 show 面板 + 三窗（不抢前台，同 rust run_ui_test 的 show-only 语义；菜单落当前光标位置），输出四行 OK 后 ~6s 退出。
+
+**验证**：
+
+- 静态链：`cargo fmt --check` 干净；`cargo clippy --all-targets -- -D warnings` 零告警；`cargo build --release` 通过；`cargo test` 9 通过（2 frontmatter + 2 css_ease + 5 菜单定位数学）。
+- 自检：`--test-fetch` 与 rust 版逐字段一致（仅 `fetchedAt` 为运行时刻）；`--test-update` 单行逐字节一致（`local=2.1.1 latest=2.1.1 updateAvailable=False checkFailed=False`）；`--test-ui` 四行 OK、退出码 0。
+- GUI 门禁（release/debug exe + PowerShell 真实点击，脚本与截图在 `egui/target/phase3-shots/`，gitignore 内）：菜单落光标数学与 `GetWindowRect` 实测零偏差——托盘右键（光标 1812,1518 → DIP 805.3,674.7，底边上翻分支）期望物理 (1769,1019) == 实测 (1769,1019)；右缘钳制以 `--test-ui` 菜单落点验证（光标 2850,700 → 期望 (2482,675) == 实测 (2482,675)，min(cx, wa_right-150-8)-19 精确命中）；`Open` 菜单项两次验证 toggle 生效；设置窗居中实测 (986,324)+909x1044 == 工区中心 DIP (1440.5,376)；主题 Save 实时切换像素级核验（同面板实例 dark #17191E/#23262D → light #F3F4F6/#FFFFFF 精确，settings/skills/menu 窗同步跟随，其中 skills 窗为开启状态下被 Save 直接换色）；设置互操作全链路实测：`1 min`→`5 min` 丸选择、autostart 复选往返（HKCU Run 值增删 + 引号完整路径格式）、✕ 不保存（重开回填持久值）；portable.dat 重定向实测（Save 落 exe 目录、%APPDATA% 不动、清理后无残留）；skills 列表 112 项与文件系统 SKILL.md 计数一致，CJK（将飞书电子表格的全部可见 sheet 复刻为本地 Excel）渲染无豆腐块，滚轮滚动前后截图逐点比对 1425 采样点变化，Refresh 重扫计数不变。
+- 空闲（面板隐藏）10s x2 采样：CPU 0.0% / 0.5% 单核，RSS ~213 MB（glow + 4 常驻 viewport；Phase 2 单窗 ~183 MB，+3 隐藏窗的 glow surface 增量 ~30 MB）。
+
+**踩坑（Phase 3 新增）**：
+
+1. **eframe 每视口独立 pass**：`run_ui_and_paint` 只跑"收到事件的那个窗口"的 pass——子视口回调执行时 `App::ui` 不运行（`EpiIntegration::update` 里二者是 if/else）。子窗交互必须写入共享队列（WinBus.actions）并 `request_repaint_of(ViewportId::ROOT)` 唤醒 root pass 执行；`Context::request_repaint()` 只重绘"当前 pass 的视口"，跨窗唤醒一律用 `request_repaint_of`。
+2. **`ViewportInfo.visible` 无人写入**：egui-winit 0.36 的 `Visible` 命令只调 `window.set_visible`，`update_viewport_info` 也不写 `info.visible`——它恒为 `None` → eframe `show_ui = is_visible().unwrap_or(true)` 恒真 → root 隐藏时 `App::ui` 仍随 RedrawRequested 执行（Phase 2 的托盘 toggle 正是依赖这一点；升级 egui 时若此行为修复，隐藏态命令处理需要换成 `App::logic` 或显式 `set_visible`）。反之这也是"3 个隐藏常驻 viewport 零空闲成本"的前提：隐藏窗不 paint 但 pass 不跑。
+3. **菜单右键重开 = 原窗重定位**：rust 版"先关旧实例再 new"在 egui 单例窗上等价于重新 InnerSize/OuterPosition/Visible（命令按入队序执行，先定位后显示顺序可靠）。
+4. **✕/✓/⟳ 画原语不用字形**：Segoe UI / msyh 不保证覆盖 U+2715/U+2713/U+27F3，直接两段线/折线/弧线+三角绘制，跨机像素一致（与 CSS 字形视觉等价，记为微小偏差）。
+5. **子窗 pass 里不能碰 App**：deferred viewport 回调是 `Fn + Send + Sync + 'static`，捕获 `Arc<AppCtx>` + `Arc<WinBus>`；App 持有的 tray（Rc）不可跨线程——图标纹理经 `WinBus.icons: OnceLock<Icons>` 下发（`Icons` 派生 Clone，TextureHandle 本就是引用计数）。

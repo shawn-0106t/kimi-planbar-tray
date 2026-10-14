@@ -41,11 +41,14 @@ pub fn spawn_focus_steal(title: &'static str, delays_ms: &[u64]) {
 
 use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 
-/// Unique window titles double as FindWindowW keys. Phase 2 registers the
-/// main panel only; Phase 3 appends settings/skills/menu.
+/// Unique window titles double as FindWindowW keys. All four viewports are
+/// registered (the panel is the root; Phase 3 adds settings/skills/menu).
 pub const MAIN_TITLE: &str = "Kimi Planbar Tray Main Panel";
+pub const SETTINGS_TITLE: &str = "Kimi Planbar Tray Settings";
+pub const SKILLS_TITLE: &str = "Kimi Skills";
+pub const MENU_TITLE: &str = "Kimi Planbar Tray Menu";
 
-pub const WINDOW_TITLES: &[&str] = &[MAIN_TITLE];
+pub const WINDOW_TITLES: &[&str] = &[MAIN_TITLE, SETTINGS_TITLE, SKILLS_TITLE, MENU_TITLE];
 
 /// Shared visibility flags, one per entry of WINDOW_TITLES, maintained by the
 /// panel state machine in app.rs.

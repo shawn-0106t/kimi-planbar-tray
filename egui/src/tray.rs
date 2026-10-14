@@ -1,7 +1,7 @@
 // Tray icon, 1:1 port of rust/src-tauri/src/tray.rs (SPEC section 14):
 // static icon, left-click toggles the panel, hover (Enter/Move) refresh
-// throttled at 10s, tooltip text only. The right-click context menu window is
-// Phase 3 (TODO below).
+// throttled at 10s, tooltip text only. Right-click forwards the cursor
+// position to the root pass, which positions + shows the menu viewport.
 //
 // tray_icon::TrayIcon is not Send (Rc inside) and must be built on the main
 // thread — the same thread that runs the eframe event loop, which is what
@@ -86,13 +86,17 @@ fn event_thread(ctx: AppCtx, ui: Arc<UiShared>, rt: Arc<OnceLock<tokio::runtime:
             TrayIconEvent::Click {
                 button,
                 button_state: MouseButtonState::Up,
+                position,
                 ..
             } => match button {
                 MouseButton::Left => ui.push(UiCmd::TogglePanel),
-                // TODO(Phase 3): right-click opens the tray menu window at
-                // the cursor (SPEC 10.3 / 13 / 14 menu items). The menu
-                // viewport does not exist yet; keep the click a no-op.
-                MouseButton::Right => {}
+                // Right-click opens the tray menu window at the cursor
+                // (SPEC 10.3 / 14): position + show happen in the root pass
+                // (the tray thread only carries physical cursor coordinates).
+                MouseButton::Right => {
+                    let (px, py) = (position.x, position.y);
+                    ui.push(UiCmd::ShowMenu { px, py });
+                }
                 _ => {}
             },
             // Hover-to-refresh, throttled at 10s (SPEC 14).

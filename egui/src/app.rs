@@ -1,20 +1,32 @@
-// The eframe application (Phase 2): owns the panel state machine, consumes
-// the AppEvent bus and cross-thread UI commands, and drives the SPEC 15
-// animations. Business data is read from the shared AppState each frame (the
-// Phase 1 core keeps it current); the tray icon lives here because
-// tray_icon::TrayIcon is not Send and must stay on the main thread.
+// The eframe application: owns the panel state machine, consumes the AppEvent
+// bus and cross-thread UI commands, and drives the SPEC 15 animations. The
+// root viewport is the main panel; the settings / skills / tray-menu windows
+// (Phase 3) are deferred viewports registered every pass.
+//
+// Two execution realms have to be kept apart (eframe runs one egui pass per
+// viewport):
+//   * the ROOT pass runs App::ui — the panel state machine, the UiCmd /
+//     WinAction queues, theme sync, viewport (re-)registration;
+//   * each child viewport runs only its registered callback — app.rs does NOT
+//     run. Child interactions therefore push WinAction values onto the shared
+//     WinBus queue and wake the root with request_repaint_of(ROOT).
+//
+// Business data is read from the shared AppState each frame (the Phase 1 core
+// keeps it current); the tray icon lives here because tray_icon::TrayIcon is
+// not Send and must stay on the main thread.
 
 use std::collections::VecDeque;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use eframe::egui;
-use egui::viewport::ViewportCommand;
+use egui::viewport::{ViewportBuilder, ViewportCommand, ViewportId};
 
 use crate::ctx::AppCtx;
 use crate::icons::Icons;
 use crate::ui::panel::{self, PanelState};
+use crate::ui::settings_win::SettingsDraft;
 use crate::ui::theme::{FontProbe, Theme};
 use crate::ui::widgets::GlowTracker;
 
@@ -25,7 +37,35 @@ pub const MAIN_WINDOW_TITLE: &str = crate::windows::MAIN_TITLE;
 pub enum UiCmd {
     TogglePanel,
     UpdateTooltip,
+    /// Tray right-click (SPEC 10.3): position the menu at this physical
+    /// cursor point. Executed in the root pass (viewport commands issued from
+    /// a thread have no pass to ride on).
+    ShowMenu {
+        px: f64,
+        py: f64,
+    },
     Quit,
+}
+
+/// Actions collected inside the secondary viewports (settings / skills /
+/// menu). Their passes cannot touch App state, so they queue here and the
+/// root pass executes (same split as the rust/ edition's invoke commands).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum WinAction {
+    /// Settings Save (SPEC 13.2): persist -> autostart -> theme -> reschedule
+    /// -> close. Carries the draft as edited in the window.
+    SettingsSave(SettingsDraft),
+    SettingsClose,
+    SkillsClose,
+    /// Skills window Refresh button: force rescan (SPEC 21.2).
+    SkillsRefresh,
+    /// Tray menu items (SPEC 14): the menu window is already hidden by the
+    /// time these run (menu_action semantics in rust/lib.rs).
+    MenuOpen,
+    MenuRefresh,
+    MenuSettings,
+    MenuSkills,
+    MenuQuit,
 }
 
 /// Shared handle for other threads to talk to the UI thread. The egui Context
@@ -40,6 +80,8 @@ impl UiShared {
     pub fn push(&self, cmd: UiCmd) {
         self.cmds.lock().unwrap().push_back(cmd);
         if let Some(ctx) = self.egui_ctx.get() {
+            // Outside a pass this targets the root viewport, which is what
+            // drains the queues.
             ctx.request_repaint();
         }
     }
@@ -49,10 +91,71 @@ impl UiShared {
     }
 }
 
+/// Cross-pass state for the secondary windows. Everything here is
+/// Send+Sync because the deferred-viewport callbacks (which run without
+/// app.rs) capture an Arc of it.
+pub struct WinBus {
+    /// Installed on the first root frame (textures are context-global).
+    pub icons: OnceLock<Icons>,
+    /// Settings draft: written on open (backfill) by the root pass, mutated
+    /// by radio/pill/checkbox clicks in the settings pass.
+    pub draft: Mutex<SettingsDraft>,
+    /// Menu window open flag (mirrors the Visible state; also read by the
+    /// --test-ui harness scripts via kpt-windows.json).
+    pub menu_open: AtomicBool,
+    /// Real-focus latch for the menu (same never-focused trap as the panel,
+    /// Phase 2 gotcha 5).
+    pub menu_was_focused: AtomicBool,
+    /// Actions queued by the child viewports, executed by the root pass.
+    pub actions: Mutex<VecDeque<WinAction>>,
+    /// Per-viewport hover-glow state (SPEC 15.3); one each so glow progress
+    /// bookkeeping stays inside the pass that owns the widgets.
+    pub settings_glow: Mutex<GlowTracker>,
+    pub skills_glow: Mutex<GlowTracker>,
+    pub menu_glow: Mutex<GlowTracker>,
+}
+
+impl Default for WinBus {
+    fn default() -> WinBus {
+        WinBus {
+            icons: OnceLock::new(),
+            draft: Mutex::new(SettingsDraft {
+                theme: crate::ui::settings_win::ThemeChoice::System,
+                minutes: 5,
+                auto_start: false,
+            }),
+            menu_open: AtomicBool::new(false),
+            menu_was_focused: AtomicBool::new(false),
+            actions: Mutex::new(VecDeque::new()),
+            settings_glow: Mutex::new(GlowTracker::default()),
+            skills_glow: Mutex::new(GlowTracker::default()),
+            menu_glow: Mutex::new(GlowTracker::default()),
+        }
+    }
+}
+
+impl WinBus {
+    pub fn new() -> WinBus {
+        WinBus::default()
+    }
+
+    /// Queue an action from a child viewport and wake the root pass (each
+    /// viewport repaints independently — the root would stay asleep).
+    pub fn push_action(&self, ctx: &egui::Context, action: WinAction) {
+        self.actions.lock().unwrap().push_back(action);
+        ctx.request_repaint_of(ViewportId::ROOT);
+    }
+
+    fn drain(&self) -> VecDeque<WinAction> {
+        std::mem::take(&mut self.actions.lock().unwrap())
+    }
+}
+
 pub struct App {
     pub biz: AppCtx,
     pub ui: Arc<UiShared>,
-    /// Tokio handle for UI-triggered async work (manual refresh).
+    pub win: Arc<WinBus>,
+    /// Tokio handle for UI-triggered async work (manual refresh, skills scan).
     pub runtime: Arc<OnceLock<tokio::runtime::Handle>>,
     /// Main-thread-only tray handle (Rc inside tray-icon).
     pub tray: Option<crate::tray::Tray>,
@@ -68,8 +171,9 @@ pub struct App {
     /// `focused == Some(false)` for a shown-but-never-focused window, while
     /// tauri's Focused(false) event only follows a Focused(true) (SPEC 15).
     pub panel_was_focused: bool,
-    /// --test-ui mode: show the panel headless-style and suppress the
-    /// focus-loss auto-hide (programmatic shows never get focus, SPEC 20).
+    /// --test-ui mode: show all four windows headless-style, print the SPEC 19
+    /// OK lines, and suppress the focus-loss auto-hide (programmatic shows
+    /// never get focus, SPEC 20).
     pub test_ui: bool,
 }
 
@@ -79,6 +183,7 @@ impl App {
         cc: &eframe::CreationContext<'_>,
         biz: AppCtx,
         ui: Arc<UiShared>,
+        win: Arc<WinBus>,
         runtime: Arc<OnceLock<tokio::runtime::Handle>>,
         tray: Option<crate::tray::Tray>,
         visibility: crate::windows::VisibilityFlags,
@@ -92,6 +197,7 @@ impl App {
         App {
             biz,
             ui,
+            win,
             runtime,
             tray,
             icons: None,
@@ -106,10 +212,14 @@ impl App {
         }
     }
 
+    fn ctx(&self) -> egui::Context {
+        self.ui.egui_ctx.get().expect("egui ctx").clone()
+    }
+
     // ---- Panel transitions (port of rust/src-tauri/src/panel.rs) ----------
 
     fn show_panel(&mut self) {
-        let ctx = self.ui.egui_ctx.get().expect("egui ctx").clone();
+        let ctx = self.ctx();
         #[cfg(debug_assertions)]
         eprintln!("[ui] show_panel");
         crate::panel_pos::show_panel(&ctx);
@@ -153,12 +263,16 @@ impl App {
     }
 
     /// TogglePopup (SPEC 14): tray left-clicks within 300ms of an auto-hide
-    /// are ignored (same click caused the focus-loss hide first).
-    fn toggle_panel(&mut self) {
-        let last_hide = *self.biz.state.last_hide.lock().unwrap();
-        if let Some(t) = last_hide {
-            if t.elapsed() < Duration::from_millis(300) {
-                return;
+    /// are ignored (same click caused the focus-loss hide first). `from_tray`
+    /// selects the guard — the tray-menu "Open" item calls with false, exactly
+    /// like rust menu_action("open") -> toggle_panel(from_tray=false).
+    fn toggle_panel(&mut self, from_tray: bool) {
+        if from_tray {
+            let last_hide = *self.biz.state.last_hide.lock().unwrap();
+            if let Some(t) = last_hide {
+                if t.elapsed() < Duration::from_millis(300) {
+                    return;
+                }
             }
         }
         if self.panel_state.is_visible() {
@@ -177,8 +291,8 @@ impl App {
         }
     }
 
-    /// Panel Refresh button: SafeRefresh + CheckAsync with the 2s manual
-    /// refresh debounce (SPEC 12.7).
+    /// Panel Refresh button / tray-menu "Refresh": SafeRefresh + CheckAsync
+    /// with the 2s manual refresh debounce (SPEC 12.7 / 14).
     fn refresh_now(&mut self) {
         {
             let mut last = self.biz.state.last_manual_refresh.lock().unwrap();
@@ -201,6 +315,162 @@ impl App {
         });
     }
 
+    // ---- Secondary windows (SPEC 10.2 / 10.3 / 13 / 21) --------------------
+
+    /// ShowSettings: flag up, backfill the draft, center + show + focus. The
+    /// window itself is a persistent hidden viewport (singleton reuse).
+    fn open_settings(&mut self, focus: bool) {
+        self.biz.state.settings_open.store(true, Ordering::SeqCst);
+        *self.win.draft.lock().unwrap() =
+            SettingsDraft::from_settings(&self.biz.state.settings.read().unwrap());
+        let ctx = self.ctx();
+        crate::panel_pos::show_centered(
+            &ctx,
+            crate::panel_pos::vp_settings(),
+            crate::panel_pos::SETTINGS_W,
+            crate::panel_pos::SETTINGS_H,
+            focus,
+        );
+        if focus {
+            // A user gesture (panel button / tray menu click) granted our
+            // process foreground rights; back the queued Focus up with the
+            // delayed steal (Phase 2 gotcha 4).
+            crate::windows::spawn_focus_steal(crate::windows::SETTINGS_TITLE, &[60, 200, 450]);
+        }
+        ctx.request_repaint();
+    }
+
+    fn close_settings(&mut self) {
+        self.biz.state.settings_open.store(false, Ordering::SeqCst);
+        let ctx = self.ctx();
+        ctx.send_viewport_cmd_to(
+            crate::panel_pos::vp_settings(),
+            ViewportCommand::Visible(false),
+        );
+        ctx.request_repaint();
+    }
+
+    /// ShowSkills (SPEC 21): same reuse pattern as settings; the scan is lazy
+    /// — first open kicks off one blocking scan, later opens just reuse the
+    /// cache (zero background cost, SPEC 21.2).
+    fn open_skills(&mut self, focus: bool) {
+        self.biz.state.skills_open.store(true, Ordering::SeqCst);
+        self.scan_skills_if_needed();
+        let ctx = self.ctx();
+        crate::panel_pos::show_centered(
+            &ctx,
+            crate::panel_pos::vp_skills(),
+            crate::panel_pos::SKILLS_W,
+            crate::panel_pos::SKILLS_H,
+            focus,
+        );
+        if focus {
+            crate::windows::spawn_focus_steal(crate::windows::SKILLS_TITLE, &[60, 200, 450]);
+        }
+        ctx.request_repaint();
+    }
+
+    fn close_skills(&mut self) {
+        self.biz.state.skills_open.store(false, Ordering::SeqCst);
+        let ctx = self.ctx();
+        ctx.send_viewport_cmd_to(
+            crate::panel_pos::vp_skills(),
+            ViewportCommand::Visible(false),
+        );
+        ctx.request_repaint();
+    }
+
+    /// One-shot scan into the cache (first open; SPEC 21.2 "scan once on
+    /// first open, cache"). Runs on the shared tokio runtime; the skills pass
+    /// shows "Loading..." until the cache fills, then repaints that viewport.
+    fn scan_skills_if_needed(&mut self) {
+        if !self.biz.state.skills_cache.read().unwrap().is_none() {
+            return;
+        }
+        let Some(handle) = self.runtime.get() else {
+            // No runtime (should not happen): fall back to a synchronous scan.
+            let list = crate::skills::scan();
+            *self.biz.state.skills_cache.write().unwrap() = Some(list);
+            return;
+        };
+        let state = self.biz.state.clone();
+        let ctx = self.ctx();
+        handle.spawn_blocking(move || {
+            let list = crate::skills::scan();
+            *state.skills_cache.write().unwrap() = Some(list);
+            ctx.request_repaint_of(crate::panel_pos::vp_skills());
+        });
+    }
+
+    /// Force rescan (Skills window Refresh button, SPEC 21.2): the old cache
+    /// keeps rendering until the fresh list lands (rust/ get_skills(refresh)
+    /// re-renders when the invoke resolves).
+    fn refresh_skills(&mut self) {
+        let Some(handle) = self.runtime.get() else {
+            return;
+        };
+        let state = self.biz.state.clone();
+        let ctx = self.ctx();
+        handle.spawn_blocking(move || {
+            let list = crate::skills::scan();
+            *state.skills_cache.write().unwrap() = Some(list);
+            ctx.request_repaint_of(crate::panel_pos::vp_skills());
+        });
+    }
+
+    /// Tray right-click (SPEC 10.3): reposition the menu at the cursor and
+    /// show it (the rust edition closes the old instance and creates a new
+    /// one; our singleton just moves). `focus` skips the foreground steal for
+    /// --test-ui (run_ui_test never activates windows).
+    fn open_menu_at(&mut self, px: f64, py: f64, focus: bool) {
+        let ctx = self.ctx();
+        self.win.menu_was_focused.store(false, Ordering::SeqCst);
+        self.win.menu_open.store(true, Ordering::SeqCst);
+        let h = crate::panel_pos::menu_window_height(&ctx);
+        *self.biz.state.menu_height.lock().unwrap() = h as f64;
+        crate::panel_pos::show_menu_at(&ctx, px, py, h);
+        if focus {
+            // panel.rs: steal the foreground AFTER show, else the menu never
+            // gets focus and would never close on focus loss.
+            crate::windows::spawn_focus_steal(crate::windows::MENU_TITLE, &[60, 200, 450]);
+        }
+        ctx.request_repaint();
+    }
+
+    fn hide_menu(&mut self) {
+        self.win.menu_open.store(false, Ordering::SeqCst);
+        self.win.menu_was_focused.store(false, Ordering::SeqCst);
+        let ctx = self.ctx();
+        ctx.send_viewport_cmd_to(crate::panel_pos::vp_menu(), ViewportCommand::Visible(false));
+    }
+
+    /// SPEC 13.2 save chain: persist -> ApplyAutoStart -> Theme.Apply ->
+    /// Quota.Reschedule -> Close.
+    fn save_settings(&mut self, draft: SettingsDraft) {
+        {
+            let mut cur = self.biz.state.settings.write().unwrap();
+            cur.theme = draft.theme.as_str().to_string();
+            // Clamp at the boundary like rust save_settings (IPC clamp).
+            cur.refresh_minutes = draft.minutes.clamp(1, 30);
+            cur.auto_start = draft.auto_start;
+            crate::settings::save(&cur);
+            crate::settings::apply_auto_start(&cur);
+        }
+        // Live theme apply (incl. the "system" re-evaluation path)...
+        crate::theme_watch::apply_now(&self.biz);
+        // ...and wake the root pass so every window picks the new theme up at
+        // once (apply_now only emits; the repaint happens here).
+        {
+            let ctx = self.ctx();
+            ctx.request_repaint();
+            ctx.request_repaint_of(crate::panel_pos::vp_settings());
+            ctx.request_repaint_of(crate::panel_pos::vp_skills());
+            ctx.request_repaint_of(crate::panel_pos::vp_menu());
+        }
+        self.biz.state.reschedule.notify_one();
+        self.close_settings();
+    }
+
     fn handle_actions(&mut self, actions: Vec<panel::PanelAction>) {
         for action in actions {
             match action {
@@ -211,10 +481,10 @@ impl App {
                     crate::windows::open_url(crate::CONSOLE_URL);
                 }
                 panel::PanelAction::Refresh => self.refresh_now(),
-                // TODO(Phase 3): open the settings window (SPEC 17) and the
-                // skills window (SPEC 21); both suppress the panel's
-                // focus-loss auto-hide while open.
-                panel::PanelAction::OpenSettings | panel::PanelAction::OpenSkills => {}
+                // Settings/Skills buttons (SPEC 12.7): the panel suppresses
+                // its focus-loss auto-hide while either window is open.
+                panel::PanelAction::OpenSettings => self.open_settings(true),
+                panel::PanelAction::OpenSkills => self.open_skills(true),
                 panel::PanelAction::Quit => {
                     if let Some(ctx) = self.ui.egui_ctx.get() {
                         ctx.send_viewport_cmd(ViewportCommand::Close);
@@ -222,6 +492,93 @@ impl App {
                 }
             }
         }
+    }
+
+    fn execute_win_action(&mut self, action: WinAction) {
+        #[cfg(debug_assertions)]
+        eprintln!("[ui] win action {action:?}");
+        match action {
+            WinAction::SettingsSave(draft) => self.save_settings(draft),
+            WinAction::SettingsClose => self.close_settings(),
+            WinAction::SkillsClose => self.close_skills(),
+            WinAction::SkillsRefresh => self.refresh_skills(),
+            WinAction::MenuOpen => {
+                self.hide_menu();
+                self.toggle_panel(false);
+            }
+            WinAction::MenuRefresh => self.refresh_now(),
+            WinAction::MenuSettings => {
+                self.hide_menu();
+                self.open_settings(true);
+            }
+            WinAction::MenuSkills => {
+                self.hide_menu();
+                self.open_skills(true);
+            }
+            WinAction::MenuQuit => {
+                self.hide_menu();
+                if let Some(ctx) = self.ui.egui_ctx.get() {
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
+                }
+            }
+        }
+    }
+
+    fn secondary_viewport_builder(title: &str, size: egui::Vec2) -> ViewportBuilder {
+        // Same SPEC 10 chrome as the panel: frameless, transparent, topmost,
+        // no taskbar, fixed size, created hidden (visibility is command-driven
+        // so "position before show" ordering is deterministic).
+        ViewportBuilder::default()
+            .with_title(title)
+            .with_decorations(false)
+            .with_transparent(true)
+            .with_always_on_top()
+            .with_resizable(false)
+            .with_visible(false)
+            .with_taskbar(false)
+            .with_inner_size(size)
+    }
+
+    /// Register the three deferred viewports (every root pass — unregistering
+    /// would destroy the native windows and break singleton reuse; hiding is
+    /// done with Visible commands).
+    fn register_viewports(&mut self, ctx: &egui::Context) {
+        let biz = self.biz.clone();
+        let win = self.win.clone();
+        ctx.show_viewport_deferred(
+            crate::panel_pos::vp_settings(),
+            Self::secondary_viewport_builder(
+                crate::windows::SETTINGS_TITLE,
+                egui::vec2(crate::panel_pos::SETTINGS_W, crate::panel_pos::SETTINGS_H),
+            ),
+            move |ui, _class| {
+                crate::ui::settings_win::paint(ui, &biz, &win);
+            },
+        );
+        let biz = self.biz.clone();
+        let win = self.win.clone();
+        ctx.show_viewport_deferred(
+            crate::panel_pos::vp_skills(),
+            Self::secondary_viewport_builder(
+                crate::windows::SKILLS_TITLE,
+                egui::vec2(crate::panel_pos::SKILLS_W, crate::panel_pos::SKILLS_H),
+            ),
+            move |ui, _class| {
+                crate::ui::skills_win::paint(ui, &biz, &win);
+            },
+        );
+        let biz = self.biz.clone();
+        let win = self.win.clone();
+        ctx.show_viewport_deferred(
+            crate::panel_pos::vp_menu(),
+            Self::secondary_viewport_builder(
+                crate::windows::MENU_TITLE,
+                egui::vec2(crate::panel_pos::MENU_W, crate::panel_pos::MENU_H_INIT),
+            ),
+            move |ui, _class| {
+                crate::ui::menu_win::paint(ui, &biz, &win);
+            },
+        );
     }
 }
 
@@ -243,12 +600,23 @@ impl eframe::App for App {
                                                      // (anti-flash); re-hide immediately — the first frame is fully
                                                      // transparent, so there is no visible flash.
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
-            self.icons = Some(Icons::load(&ctx));
+            let icons = Icons::load(&ctx);
+            let _ = self.win.icons.set(icons.clone());
+            self.icons = Some(icons);
             if self.test_ui {
-                // Headless-style UI self-check: construct + show the panel and
-                // report; main.rs schedules the ~6s auto-exit.
+                // SPEC 19: construct + show all four windows and report, then
+                // exit (~6s timer in main.rs). Matches rust run_ui_test: show
+                // only, no focus stealing; settings_open suppresses the panel
+                // auto-hide; the skills list is loaded so it renders too.
                 self.show_panel();
                 crate::print_stdout("MainWindow OK\n");
+                self.open_settings(false);
+                crate::print_stdout("SettingsWindow OK\n");
+                self.open_skills(false);
+                crate::print_stdout("SkillsWindow OK\n");
+                let (px, py) = crate::panel_pos::cursor_pos_phys();
+                self.open_menu_at(px, py, false);
+                crate::print_stdout("TrayMenuWindow OK\n");
             }
         }
 
@@ -266,10 +634,17 @@ impl eframe::App for App {
                 eprintln!("[ui] drain TogglePanel, state={:?}", self.panel_state);
             }
             match cmd {
-                UiCmd::TogglePanel => self.toggle_panel(),
+                UiCmd::TogglePanel => self.toggle_panel(true),
                 UiCmd::UpdateTooltip => self.update_tooltip(),
+                UiCmd::ShowMenu { px, py } => self.open_menu_at(px, py, true),
                 UiCmd::Quit => ctx.send_viewport_cmd(ViewportCommand::Close),
             }
+        }
+
+        // Actions queued by the secondary viewports (their passes cannot touch
+        // App state — see the module comment).
+        for action in self.win.drain() {
+            self.execute_win_action(action);
         }
 
         // Theme sync: ThemeChanged events already wake us; pick up the value.
@@ -319,12 +694,18 @@ impl eframe::App for App {
         if let Some(remaining) = self.panel_state.animating_for(now) {
             ctx.request_repaint_after(remaining.min(Duration::from_millis(16)));
         }
-        // HWND styling watcher tracks panel visibility.
+        // HWND styling watcher tracks all four windows.
         if let Ok(mut flags) = self.visibility.lock() {
-            if let Some(f) = flags.first_mut() {
-                *f = self.panel_state.is_visible();
+            if flags.len() == 4 {
+                flags[0] = self.panel_state.is_visible();
+                flags[1] = self.biz.state.settings_open.load(Ordering::SeqCst);
+                flags[2] = self.biz.state.skills_open.load(Ordering::SeqCst);
+                flags[3] = self.win.menu_open.load(Ordering::SeqCst);
             }
         }
+
+        // Deferred viewports: registered every pass (singleton windows).
+        self.register_viewports(&ctx);
 
         // Paint (skipped entirely while hidden: zero cost when idle).
         if self.panel_state != PanelState::Hidden {
