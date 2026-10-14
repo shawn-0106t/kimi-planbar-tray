@@ -5,16 +5,18 @@
 // bottom flip for the tray menu.
 //
 // egui gotcha (Phase 0 spike): ViewportCommand::OuterPosition takes LOGICAL
-// points — egui-winit multiplies by the window's pixels_per_point (the primary
-// scale on a single-monitor setup). The targets are computed in PHYSICAL
-// pixels (SPI_GETWORKAREA / GetDpiForMonitor) and divided back down; see
-// docs/EGUI-MIGRATION.md section 2.
+// points — egui-winit multiplies by the window's pixels_per_point. On a
+// single-scale setup that is the primary scale, so dividing the physical
+// target by the primary scale used to be exact; on mixed-DPI multi-monitor
+// the window's scale follows the monitor the WINDOW sits on (see
+// window_dpi_scale) and every positioning entry point now converts through
+// GetDpiForWindow of its own native window — the same physical landing as
+// rust/'s PhysicalPosition calls. See docs/EGUI-MIGRATION.md section 2.
 
 use egui::viewport::{ViewportCommand, ViewportId};
 use egui::{Context, Vec2};
 
 use std::sync::{LazyLock, Mutex};
-
 /// Logical window sizes; the panel/settings/skills include the 28px shadow
 /// fade room on every side (visible cards 368x464 / 348x408 / 348x464, SPEC
 /// 10.1 / 10.2 / 21.1). The menu keeps the rust/ 188px width and 24px inset.
@@ -157,6 +159,35 @@ pub fn primary_scale() -> f64 {
     dpi_scale_at(0.0, 0.0)
 }
 
+/// Current DPI scale of the viewport's native window (GetDpiForWindow).
+///
+/// `ViewportCommand::OuterPosition` takes LOGICAL points and egui-winit
+/// multiplies them by the window's own pixels_per_point — the scale of the
+/// monitor the window is currently on, NOT the monitor being positioned for.
+/// Mixed-DPI multi-monitor therefore needs the physical target divided by the
+/// WINDOW's scale (the SPEC 20 launcher-monitor trap family; rust/ sidesteps
+/// it with `PhysicalPosition`). `def` covers the window not existing yet
+/// (first pass: winit creates hidden viewports at CW_USEDEFAULT on the
+/// primary, so the primary scale is the right guess).
+fn window_dpi_scale(title: &str, def: f64) -> f64 {
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
+    let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+    let Ok(hwnd) = (unsafe { FindWindowW(PCWSTR::null(), PCWSTR::from_raw(wide.as_ptr())) }) else {
+        return def;
+    };
+    if hwnd.is_invalid() {
+        return def;
+    }
+    let dpi = unsafe { GetDpiForWindow(hwnd) };
+    if dpi == 0 {
+        def
+    } else {
+        dpi as f64 / 96.0
+    }
+}
+
 /// ShowNearTray: pin the logical size (DPI guard, SPEC 20), place the window
 /// bottom-right, then show and focus — in that command order (viewport
 /// commands execute in enqueue order).
@@ -167,10 +198,11 @@ pub fn show_panel(ctx: &Context) {
     // window shifts 22px left/up so the visible card position is unchanged.
     let phys_x = right - (PANEL_W as f64 + 12.0 - 22.0) * s;
     let phys_y = bottom - (PANEL_H as f64 + 12.0 - 22.0) * s;
+    let win_s = window_dpi_scale(crate::app::MAIN_WINDOW_TITLE, s);
     ctx.send_viewport_cmd(ViewportCommand::InnerSize(egui::vec2(PANEL_W, PANEL_H)));
     ctx.send_viewport_cmd(ViewportCommand::OuterPosition(egui::pos2(
-        (phys_x / s) as f32,
-        (phys_y / s) as f32,
+        (phys_x / win_s) as f32,
+        (phys_y / win_s) as f32,
     )));
     ctx.send_viewport_cmd(ViewportCommand::Visible(true));
     ctx.send_viewport_cmd(ViewportCommand::Focus);
@@ -198,10 +230,21 @@ pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool)
     let (left, top, right, bottom) = work_area_phys();
     let phys_x = (left + right) / 2.0 - w as f64 * s / 2.0;
     let phys_y = (top + bottom) / 2.0 - h as f64 * s / 2.0;
+    // The window may have been dragged to another monitor (its DPI follows);
+    // divide by the window's own scale so the physical landing is exact.
+    let title = if vp == vp_settings() {
+        crate::windows::SETTINGS_TITLE
+    } else {
+        crate::windows::SKILLS_TITLE
+    };
+    let win_s = window_dpi_scale(title, s);
     ctx.send_viewport_cmd_to(vp, ViewportCommand::InnerSize(egui::vec2(w, h)));
     ctx.send_viewport_cmd_to(
         vp,
-        ViewportCommand::OuterPosition(egui::pos2((phys_x / s) as f32, (phys_y / s) as f32)),
+        ViewportCommand::OuterPosition(egui::pos2(
+            (phys_x / win_s) as f32,
+            (phys_y / win_s) as f32,
+        )),
     );
     ctx.send_viewport_cmd_to(vp, ViewportCommand::Visible(true));
     if focus {
@@ -288,6 +331,14 @@ pub fn show_menu_at(ctx: &Context, px: f64, py: f64, h: f32) {
     let wa_bottom_dip = wa_bottom / s_prim;
     let scale = dpi_scale_at(px, py);
     let (left, top) = menu_position(px, py, scale, wa_right_dip, wa_bottom_dip, h);
+    // rust/ lands the menu at PHYSICAL (left*scale, top*scale)
+    // (set_position(PhysicalPosition)); convert to the logical points
+    // OuterPosition expects with the MENU WINDOW's own scale (mixed-DPI:
+    // the window may still sit on the primary while the cursor is on a
+    // 125% secondary — the raw DIP would land scaled by the wrong monitor).
+    let phys_x = left * scale;
+    let phys_y = top * scale;
+    let win_s = window_dpi_scale(crate::windows::MENU_TITLE, s_prim);
     // SizeToContent equivalent: apply the measured height so the card never
     // overflows the window edge. Commands run in enqueue order: size,
     // position, then show (the builder stays visible(false)).
@@ -295,14 +346,17 @@ pub fn show_menu_at(ctx: &Context, px: f64, py: f64, h: f32) {
     ctx.send_viewport_cmd_to(vp, ViewportCommand::InnerSize(Vec2::new(MENU_W, h)));
     ctx.send_viewport_cmd_to(
         vp,
-        ViewportCommand::OuterPosition(egui::pos2(left as f32, top as f32)),
+        ViewportCommand::OuterPosition(egui::pos2(
+            (phys_x / win_s) as f32,
+            (phys_y / win_s) as f32,
+        )),
     );
     ctx.send_viewport_cmd_to(vp, ViewportCommand::Visible(true));
     record_rect(
         "menu",
         WinRect {
-            x: left * s_prim,
-            y: top * s_prim,
+            x: phys_x,
+            y: phys_y,
             w: MENU_W as f64 * s_prim,
             h: h as f64 * s_prim,
         },

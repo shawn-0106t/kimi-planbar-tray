@@ -206,7 +206,11 @@ pub fn action_button(
         eprintln!("[btn] {id:?} hovered={} p={p:.2}", response.hovered());
     }
 
-    let bg = theme::mix(theme.button_bg, theme.button_hover, p);
+    // SPEC 12.7: the panel action buttons rest at CardBgBrush (same color as
+    // the cards, to keep the info area dominant) and hover to ButtonHoverBrush
+    // — NOT the ActionButton ButtonBg rest color (that is the settings Save
+    // button, controls::action_button).
+    let bg = theme::mix(theme.card_bg, theme.button_hover, p);
     ui.painter()
         .rect_filled(rect, CornerRadius::same(10), bg.gamma_multiply(alpha));
     hover_glow(ui.painter(), rect, 10, theme, p * alpha);
