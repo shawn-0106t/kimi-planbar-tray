@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Tag-triggered release automation: pushing a `v*` tag now builds the release exe on CI, runs the packager, and opens a draft GitHub Release with all three assets attached — publishing stays a manual decision.
+- Experimental egui edition (Phase 1): the headless core ported from rust/ (credentials, quota, polling, settings, skills, update, theme_watch, state) with the Tauri dependencies removed, plus `--test-fetch`/`--test-update` output parity with the Rust edition. No GUI yet — UI phases tracked in `docs/EGUI-MIGRATION.md`.
 
 ## [1.7.3] - 2026-10-10
 
@@ -125,6 +126,7 @@ Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly
 
 ### 新增
 - tag 触发的发版自动化：push `v*` tag 后在 CI 上构建 release exe、运行打包脚本并创建挂好三件资产的 draft GitHub Release——发布仍为手动决策。
+- 实验性 egui 版（Phase 1）：从 rust/ 移植无头业务核心（credentials、quota、polling、settings、skills、update、theme_watch、state）并去除 Tauri 依赖，`--test-fetch`/`--test-update` 输出与 Rust 版逐字段一致。暂无 GUI——UI 各 Phase 见 `docs/EGUI-MIGRATION.md`。
 
 ## [1.7.3] - 2026-10-10
 

@@ -75,9 +75,9 @@ egui/
 | `docs/SPEC.md` / `docs/SPEC_EN.md`（7.3 版本清单 + egui 版说明） | | x | x | x | x |
 | `AGENTS.md`（目录结构 / 构建命令 / 测试 / 版本清单） | x | x | | x | x |
 | `README.md` / `README_CN.md`（第四版本说明） | | | | | x |
-| `CHANGELOG.md`（双语条目） | | | | | x |
+| `CHANGELOG.md`（双语条目，Phase 1 起 Unreleased 首记） | x | x | x | x | x |
 | `CONTRIBUTING.md`（egui 构建前置 + CI gate） | | | | x | x |
-| `.github/workflows/ci.yml`（egui cargo check/test job） | x | | | x | |
+| `.github/workflows/ci.yml`（egui cargo check/test job） | 暂不纳入（qt 先例；待用户裁决后再定 Phase） | | | | |
 | `docs/EGUI-MIGRATION.md`（实施状态节，每 Phase 收尾更新） | x | x | x | x | x |
 
 ---
@@ -145,3 +145,17 @@ egui/
 7. 测试驱动基建：Git Bash 的 FIFO 对子进程 stdin 不可靠，`tail -f 文件 | exe` 可靠；Windows 侧真实输入用 PowerShell `SetProcessDpiAwareness(2)` + UIAutomation（Win11 托盘折叠区图标名 = tooltip 文本，chevron 名为"显示隐藏的图标"）+ `mouse_event`。脚本在 `egui/target/spike-shots/`（gitignore 内，作参考不发布）。
 
 **产物**：`egui/`（Cargo.toml、.gitignore、src/bin/spike.rs、Cargo.lock）；截图与日志在 `egui/target/spike-shots/`。spike 代码按裁决保留作 Phase 1 参考。`rust/` `qt/` `wpf/` `scripts/` `.github/` 与既有文件零改动；未做任何 git 提交。
+
+### Phase 1 — 无头核心移植（已完成，2026-10-14）
+
+**落地内容**（`egui/src/`，全部从 `rust/src-tauri/src/` 逐行拷贝后去 tauri 化）：
+
+- 业务模块 8 个：`credentials.rs` / `quota.rs` / `settings.rs` / `skills.rs`（含 frontmatter 单测两例）/ `update.rs` / `state.rs` 六个零 tauri 依赖模块逐字节原样拷贝；`polling.rs` / `theme_watch.rs` 改签名为接收 `AppCtx`。
+- 去 tauri 映射：`AppHandle` → `AppCtx`（`ctx.rs`：`Arc<AppState>` + `tokio::sync::mpsc::UnboundedSender<AppEvent>`，Clone 句柄）；`app.emit("quota-updated"/"update-status"/"theme-changed")` → `AppEvent::QuotaUpdated/UpdateStatus/ThemeChanged` 事件总线（`lib.rs::build_state()` 返回 receiver 供 Phase 2 GUI 消费）；`tray::update_tooltip` 调用点由 `QuotaUpdated` 事件承载（Phase 2 托盘接手）；`tauri::async_runtime` → 调用方自建 tokio runtime（`--test-*` 走 rust 版 main.rs 同款 `block_on` 短生命周期 runtime；GUI 待 Phase 2 在后台线程建常驻 runtime）。
+- `main.rs` 新入口：`--test-fetch` / `--test-update` / `--test-ui` 先于单实例互斥锁（与 rust 版同序）；`--test-ui` 为 Phase 2 占位，输出 `UI-FAIL: NotImplementedError: Phase 2`（沿用 rust 版 `UI-FAIL: {type}: {message}` 格式）；单实例 `CreateMutexW` 锁名 `KimiPlanbarTray.SingleInstance` 与其余三版互斥（照搬 rust 版实现）；GUI 路径暂打印 stderr 占位后退出；`#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`（debug 带控制台、release 为 GUI 子系统）。
+- `--test-*` 输出移植 qt/ 版 `printStdout` 模式：`WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` 为主（Git Bash 管道 / cmd 控制台均覆盖），AttachConsole + `CONOUT$` 兜底，`println!` 末级回退。
+- `Cargo.toml`：业务依赖按 rust/ 版同版本加入（tokio 1 [rt-multi-thread, macros, time, process, sync]、reqwest 0.13 [json]、serde derive、serde_json、regex、chrono 0.4 [serde]、winreg 0.55）；windows 0.62 在原 features 上加 `Win32_System_Console` / `Win32_Storage_FileSystem` / `Win32_Security`；eframe `=0.36.2` / tray-icon `=0.26.1` 原锁定不动，`src/bin/spike.rs` 未动。
+
+**验证**：`cargo build` 与 `cargo test`（skills 单测两例通过）零 warning；`cargo clippy -D warnings` 对 lib 与 main bin 全干净——`--all-targets` 下仅 `src/bin/spike.rs` 存在 2 处 Phase 0 遗留 lint（该文件按裁决不动，egui 包尚无 CI job 约束它）；`rustfmt --check` 对 Phase 1 新增文件全干净（spike.rs 的格式漂移为 Phase 0 原状，未动）。本机 `--test-fetch` / `--test-update` 与 rust 版 exe 同机对照：`--test-update` 单行输出逐字节一致（`local=2.1.1 latest=2.1.1 updateAvailable=False checkFailed=False`）；`--test-fetch` JSON 逐字段一致（仅 `fetchedAt` 时间戳随运行时刻变动）。debug（控制台子系统）与 release（GUI 子系统）两个 exe 均验证——release 经 Git Bash 管道输出正常，即 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` 模式生效。`--test-fetch` 当前返回 `error: "no-token"` 为本机真实状态（OAuth access_token 已过期且 config.toml 的 `managed:kimi-code` provider api_key 为空），与 rust 版行为一致，属正确的凭证链回退。单实例互斥实测：本机有 rust 版实例（`KimiPlanbarTray-rust.exe`）持锁运行时，egui 无参启动静默退出（同锁名跨版本互斥按设计生效）；GUI 占位 stderr 文案在该锁释放后才可见（Phase 2 移除该占位）。
+
+**文档**（本 Phase 按第 4 节矩阵触达）：`SPEC.md` / `SPEC_EN.md`（3.1 / 3.3 / 4 / 7.1 / 7.2 / 7.3 / 9）、`AGENTS.md`（版本清单 / 概览 / 目录结构 / 构建命令 / 测试）、`CHANGELOG.md`（双语 Unreleased 条目）、本文档本节。矩阵中的 `.github/workflows/ci.yml`（egui cargo check/test job）按 Phase 1 标记，但本期约束不动 `.github/`，留待后续 Phase / 用户裁决。

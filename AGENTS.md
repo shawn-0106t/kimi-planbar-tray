@@ -6,12 +6,13 @@ Guidance for AI coding agents working in this repository. Read this first; it as
 
 Kimi Planbar Tray is a lightweight **Windows-only system tray app** that shows Kimi Code plan quota (5-hour window + weekly usage, reset countdowns, "Extra Usage" booster wallet) one click away from the tray. It reads the local Kimi Code CLI OAuth token and calls `GET https://api.kimi.com/coding/v1/usages`.
 
-Current version: **1.7.3** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `rust/src-tauri/Cargo.lock` (the `kimi-planbar-tray` entry), `rust/package-lock.json` (root version; resync with `cd rust && npm install` if it drifts), `scripts/release/make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp` + the `FILEVERSION`/`PRODUCTVERSION` tuple and `FileVersion`/`ProductVersion` strings in `qt/resources.rc`).
+Current version: **1.7.3** (kept in sync across `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, `rust/src-tauri/Cargo.lock` (the `kimi-planbar-tray` entry), `rust/package-lock.json` (root version; resync with `cd rust && npm install` if it drifts), `scripts/release/make_release_zip.py`, and the qt/ edition: `project(VERSION ...)` in `qt/CMakeLists.txt` + `setApplicationVersion` in `qt/src/main.cpp` + the `FILEVERSION`/`PRODUCTVERSION` tuple and `FileVersion`/`ProductVersion` strings in `qt/resources.rc`). The `egui/` edition carries an independent version (currently **0.1.0**) and is NOT a bump target for this sync list.
 
-This is a **monorepo with three editions**:
+This is a **monorepo with four editions**:
 
 - `rust/` — **actively developed (dual-track with `qt/`)**. Tauri 2 + Rust backend + vanilla HTML/CSS/TypeScript frontend (no framework, no React).
 - `qt/` — **completed, experimental**. C++ Qt6 + Qt Widgets, no WebView dependency; reached SPEC parity with rust/ 1.7.3. Architecture plan, stack comparison, and module mapping: `docs/archive/QT-MIGRATION.md` (archived).
+- `egui/` — **experimental 4th edition, under development**. Pure-Rust UI: egui (eframe, pinned 0.36.2) + tray-icon — no WebView, no Node toolchain. Phase 1 (headless business core ported from rust/) is complete; UI phases are tracked in `docs/EGUI-MIGRATION.md`. Its version (0.1.0) is independent of the rust/qt sync list.
 - `wpf/` — original .NET 8 / WPF edition, **frozen at v1.5.0, unmaintained**. Kept as read-only reference for behavior/UI parity. Do not delete it; do not add features to it. Its binaries are no longer shipped — the last ones live on the v1.5.0 release; zips since v1.7.3 carry the Rust exe only.
 
 All editions share the same UI/UX (fully specified in `docs/SPEC.md`) and the same `settings.json` schema.
@@ -76,6 +77,16 @@ qt/                              # COMPLETED (experimental): C++ Qt6 + Widgets (
     ├── theme.h/.cpp / icons.h / format_util.h / http_util.h / async_util.h
     └── windows/                 # panel/settings/skills/menu QWidget windows + titlebar.h / clamplabel.h / hoverglow.h (self-drawn halo)
 
+egui/                            # EXPERIMENTAL 4th edition, in development (pure-Rust UI; plan & phases: docs/EGUI-MIGRATION.md)
+├── Cargo.toml                   # kimi-planbar-tray-egui (independent 0.1.0); eframe =0.36.2 (glow+wgpu), tray-icon =0.26.1
+├── src/
+│   ├── main.rs                  # entry: --test-* args BEFORE the single-instance mutex (same mutex name); GUI placeholder until Phase 2
+│   ├── lib.rs                   # module wiring: build_state + check_and_emit (ports of the Tauri lib.rs helpers)
+│   ├── ctx.rs                   # AppCtx (shared state) + AppEvent bus, replacing AppHandle/emit
+│   ├── credentials.rs / quota.rs / polling.rs / settings.rs / skills.rs / update.rs / theme_watch.rs / state.rs
+│   │                            # 1:1 ports of the rust/src-tauri modules (de-tauri'd)
+│   └── bin/spike.rs             # Phase 0 feasibility spike, kept untouched as reference
+
 wpf/                             # UNMAINTAINED reference (net8.0-windows, WPF, zero third-party NuGet deps)
 ├── MainWindow / SettingsWindow / TrayMenuWindow (.xaml + .xaml.cs)
 ├── TrayManager.cs, App.xaml.cs
@@ -109,6 +120,17 @@ PYTHONUTF8=1 python package_release.py   # one-shot rebuild + windeployqt into q
 
 Before rebuilding, kill any running qt GUI process by PID/path (exe file lock) — never `taskkill /IM kimi-planbar-tray.exe` (the rust edition shares the image name). The Qt exe is GUI-subsystem, so `--test-*` self-check output is printed via `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` (covers both Git Bash pipes and cmd consoles); AttachConsole + CONOUT$ is only the fallback.
 
+egui edition (Phase 1: headless core, no GUI yet):
+
+```bash
+cd egui
+cargo build            # debug exe (console subsystem)
+cargo build --release  # release exe (GUI subsystem) at target/release/kimi-planbar-tray-egui.exe
+cargo test             # runs the ported skills frontmatter-parser tests
+```
+
+Debug builds keep a console window (`#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`); release is GUI-subsystem, where `--test-*` output uses the same `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` pattern as the qt edition. `egui/src/bin/spike.rs` is the untouched Phase 0 spike (`cargo run --bin spike`).
+
 WPF edition (reference only):
 
 ```bash
@@ -128,7 +150,7 @@ kimi-planbar-tray.exe --test-update   # one-line: local=... latest=... updateAva
 kimi-planbar-tray.exe --test-ui       # construct all 4 windows, print "MainWindow OK" etc., exit after ~6 s
 ```
 
-The Qt edition implements the same three `--test-*` args with identical output (SPEC section 19), plus a Qt-only `--test-skills` (ports the two rust frontmatter-parser test fixtures), so results can be diffed across editions on the same machine (e.g. run rust and qt `--test-fetch` back to back and compare the JSON field by field).
+The Qt edition implements the same three `--test-*` args with identical output (SPEC section 19), plus a Qt-only `--test-skills` (ports the two rust frontmatter-parser test fixtures), so results can be diffed across editions on the same machine (e.g. run rust and qt `--test-fetch` back to back and compare the JSON field by field). The egui edition implements the same args with identical output too (`--test-fetch`/`--test-update` as of Phase 1; `--test-ui` is a Phase 2 stub printing `UI-FAIL: NotImplementedError: Phase 2`), diffable against the rust edition the same way.
 
 The Rust edition has **no `--screenshot` arg** (that exists only in the frozen WPF edition); any unrecognized arg falls through to launching the GUI. For visual checks, screenshot the built `rust/dist/index.html` with headless Chrome: strip the `crossorigin` attributes (file:// blocks them), set `data-theme="light|dark"` on `<html>` and `class="enter"` on `<body>` (the panel stays `opacity:0` until the backend emits `panel-show`), and pin `body{width:424px;height:520px;overflow:hidden}` because headless Chrome clamps tiny windows to ~534 px wide.
 
