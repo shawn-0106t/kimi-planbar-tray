@@ -428,6 +428,7 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 ### 15.3 其他
 - **悬停光晕**（Rust 版）：可点击控件（ActionButton、托盘菜单项、版本行卡片、Skills 的 Refresh 小按钮）悬停时淡入强调色外发光——1px 35% 透明 accent 描边 + 8px 18% 透明光晕（暗色主题为 45% / 22%、10px），背景色切换同步过渡，均为 **140ms ease**。实现上光晕预绘制在伪元素 `::after` 上、仅过渡其 `opacity`（box-shadow 本身不做动画，compositor-only，无逐帧 repaint）。
 - **悬停光晕（Qt 版偏差）**：同等视觉目标用自绘实现（`windows/hoverglow.h`：顶层窗的独立 halo 子 widget，目标控件矩形外扩 8/10px，同心圆角描边 alpha 由内向外递减，140ms OutCubic 渐显渐隐），完全不触碰目标控件自身的 QSS 绘制；`QGraphicsDropShadowEffect` 方案已废弃（blurRadius=0 启用会把整个 widget 渲染消失，且在无边框透明窗里 enable/disable 切换渲染路径会闪烁）。
+- **悬停光晕（egui 版偏差）**：同等视觉目标由 egui painter 自绘（`ui/widgets.rs` 的 `GlowTracker`：动画式 1px accent 描边圈 + 向外 alpha 递减 halo，140ms CSS ease 渐显渐隐，即即时模式逐帧重绘），视觉与 CSS 伪元素方案等价。
 - 其余控件（主题单选、间隔丸、复选框、标题栏 ✕）悬停态切换为瞬时。进度条宽度变化无动画（直接设宽度）。
 
 ---
@@ -555,7 +556,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 |---|---|---|
 | `--test-fetch` | 拉取一次额度，打印 JSON | `QuotaResult` 的 JSON（缩进格式、不转义非 ASCII） |
 | `--test-update` | 执行一次版本检查 | 单行：`local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
+| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`；egui 版现仅输出 `MainWindow OK`，settings/skills/menu 三行 Phase 3 补齐）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
 | `--test-skills`（仅 Qt 版） | 解析两个内置 frontmatter 测试夹具（移植 rust 版 `skills.rs` 的两个 cargo 单测） | 通过打印 `PASS`，失败打印差异详情并非零退出 |
 | `--screenshot <path> [--dark] [--mock]`（仅 WPF 版） | 真实（或模拟）额度数据 + 指定主题渲染主面板为 PNG（README 用） | `saved: <path>` |
 

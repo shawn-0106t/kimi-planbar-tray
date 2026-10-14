@@ -427,6 +427,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 ### 15.3 Others
 - **Hover glow** (Rust edition): clickable controls (ActionButton, tray menu items, the version-row card, the Skills Refresh mini-button) fade in an accent-colored outer glow on hover — a 1 px accent ring at 35% alpha plus an 8 px halo at 18% alpha (dark theme: 45% / 22%, 10 px), with the background-color change transitioned in sync; all **140 ms ease**. The glow is pre-painted on an `::after` pseudo-element and only its `opacity` is transitioned (the box-shadow itself never animates — compositor-only, no per-frame repaint).
 - **Hover glow (Qt edition deviation)**: the same visual target is self-drawn (`windows/hoverglow.h`: an independent halo child widget of the top-level window, expanding 8/10 px beyond the target control's rect, concentric rounded rings with alpha decreasing outward, 140 ms OutCubic fade in/out) and never touches the target control's own QSS painting; the earlier QGraphicsDropShadowEffect approach was abandoned (enabling it with blurRadius=0 renders the whole widget invisible, and toggling enable/disable inside a frameless translucent window flickers).
+- **Hover glow (egui edition deviation)**: the same visual target is painted by the egui painter (`ui/widgets.rs` `GlowTracker`: an animated 1 px accent ring plus a halo with alpha decreasing outward, 140 ms CSS ease fade in/out — per-frame immediate-mode repainting), visually equivalent to the CSS pseudo-element approach.
 - All other controls (theme radios, interval pills, the checkbox, the title-bar ✕) switch their hover state instantly. Progress bar width changes are not animated (the width is set directly).
 
 ---
@@ -554,7 +555,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 |---|---|---|
 | `--test-fetch` | Fetch quota once, print JSON | JSON of `QuotaResult` (indented, non-ASCII not escaped) |
 | `--test-update` | Run one version check | Single line: `local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
+| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`; the egui edition currently prints `MainWindow OK` only — the settings/skills/menu lines land in Phase 3); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
 | `--test-skills` (Qt edition only) | Parse two built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests) | Prints `PASS` on success, diff details plus a non-zero exit on failure |
 | `--screenshot <path> [--dark] [--mock]` (WPF edition only) | Render the main panel as PNG with real (or mocked) quota data + the specified theme (for the README) | `saved: <path>` |
 

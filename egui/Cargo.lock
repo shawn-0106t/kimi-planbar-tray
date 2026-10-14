@@ -2268,6 +2268,7 @@ dependencies = [
  "chrono",
  "eframe",
  "egui",
+ "image",
  "regex",
  "reqwest",
  "serde",

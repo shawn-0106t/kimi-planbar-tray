@@ -159,3 +159,33 @@ egui/
 **验证**：`cargo build` 与 `cargo test`（skills 单测两例通过）零 warning；`cargo clippy -D warnings` 对 lib 与 main bin 全干净——`--all-targets` 下仅 `src/bin/spike.rs` 存在 2 处 Phase 0 遗留 lint（该文件按裁决不动，egui 包尚无 CI job 约束它）；`rustfmt --check` 对 Phase 1 新增文件全干净（spike.rs 的格式漂移为 Phase 0 原状，未动）。本机 `--test-fetch` / `--test-update` 与 rust 版 exe 同机对照：`--test-update` 单行输出逐字节一致（`local=2.1.1 latest=2.1.1 updateAvailable=False checkFailed=False`）；`--test-fetch` JSON 逐字段一致（仅 `fetchedAt` 时间戳随运行时刻变动）。debug（控制台子系统）与 release（GUI 子系统）两个 exe 均验证——release 经 Git Bash 管道输出正常，即 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` 模式生效。`--test-fetch` 当前返回 `error: "no-token"` 为本机真实状态（OAuth access_token 已过期且 config.toml 的 `managed:kimi-code` provider api_key 为空），与 rust 版行为一致，属正确的凭证链回退。单实例互斥实测：本机有 rust 版实例（`KimiPlanbarTray-rust.exe`）持锁运行时，egui 无参启动静默退出（同锁名跨版本互斥按设计生效）；GUI 占位 stderr 文案在该锁释放后才可见（Phase 2 移除该占位）。
 
 **文档**（本 Phase 按第 4 节矩阵触达）：`SPEC.md` / `SPEC_EN.md`（3.1 / 3.3 / 4 / 7.1 / 7.2 / 7.3 / 9）、`AGENTS.md`（版本清单 / 概览 / 目录结构 / 构建命令 / 测试）、`CHANGELOG.md`（双语 Unreleased 条目）、本文档本节。矩阵中的 `.github/workflows/ci.yml`（egui cargo check/test job）按 Phase 1 标记，但本期约束不动 `.github/`，留待后续 Phase / 用户裁决。
+
+### Phase 2 — 托盘 + 主面板（已完成，2026-10-14）
+
+**落地内容**（`egui/src/`，SPEC 10 / 11 / 12 / 14 / 15）：
+
+- `app.rs`：eframe `App`（0.36 `App::ui(&mut Ui)` 新签名）——面板状态机 `Hidden / Showing / Shown / Hiding`（SPEC 15.1/15.2 动画：入场 fade 160ms 线性 + translateY 16→0 220ms CubicEase-out，出场 fade 130ms + →12 160ms CubicEase-in，170ms 时真隐藏，与 rust/ 前端的 170ms 完成定时器对齐）；失焦自动收起带 `panel_was_focused` 闩 + `settings_open` / `skills_open` / `test_ui` 抑制；`UiCmd` 跨线程命令通道（TogglePanel / UpdateTooltip / Quit，push 即 `request_repaint` 唤醒）；300ms 再入防抖（`finish_hide` 盖 `last_hide` 戳，show 自 Hiding 起始即替换状态机——陈旧 finish 永不触发，语义同 rust/ panel.rs）。
+- `ui/panel.rs`：SPEC 12 全布局 painter 自绘（窗口阴影 + 368x464 卡片 + 双用量卡 flex 吸收余高 + Extra 卡 + 版本行 + 4 图标按钮），自底向上布局（底部三段锚定，对应 CSS flex 盒模型）；SPEC 15 出入场数学；`PanelAction` 回传执行（Console / Refresh 含 2s 手动刷新防抖 / Settings / Skills / Quit，后两者为 Phase 3 占位）。
+- `ui/theme.rs`：SPEC 11 双主题色表（Moonlit / Moondark const）；字体链 Segoe UI regular/bold/semibold 三档命名 family + CJK 探测链 msyh → simhei → simsun（缺文件仅降级，命名 family 永远绑定，文本布局不可能 panic）；`FontProbe` 每帧一步跨帧校验覆盖。
+- `ui/widgets.rs`：SPEC 15.3 hover glow——`GlowTracker` 140ms CSS ease（cubic-bezier(0.25,0.1,0.25,1.0)，带单测）渐显渐隐 + 自绘 1px accent 描边圈 + 向外 alpha 递减 halo（暗色主题更宽更强，同 SPEC 参数）；`KPT_GLOW_DEBUG` 可视化开关。
+- `tray.rs`：托盘 1:1 移植（SPEC 14）——左键 MouseUp toggle、hover Enter/Move 刷新 10s 节流、tooltip 文案（`5h x% · week y%` + " (update failed)" 后缀）；右键菜单窗口为 Phase 3（现 no-op）；tray-icon 建在主线程，事件线程阻塞 `receiver().recv()`。
+- `panel_pos.rs`：`show_panel` 定位（SPI_GETWORKAREA 物理坐标 ÷ 主屏 scale → `OuterPosition` 逻辑点，+22px 阴影留白补偿）；每次 show 落盘 `kpt-windows.json`（exe 旁，诊断专用，随 target/ gitignore）。
+- `windows.rs`：HWND watcher 线程（200ms 轮询可见性标志）——`DWMWA_WINDOW_CORNER_PREFERENCE = DONOTROUND` + `WS_EX_TOOLWINDOW` 兜底（每次 show 重施，幂等）；`spawn_focus_steal`（60/200/450ms 重试 `SetForegroundWindow`）。
+- `icons.rs` + `assets/`：Kimi logo（rust/ 同源 PNG）+ 4 按钮 SVG 预光栅 PNG（96x96 白色填充，绘制时按主题文本色 tint，对应 SVG `fill="currentColor"` 语义）；`format_util.rs`：fmtYuan / formatReset 等格式化移植。
+- `main.rs`：GUI 组装（SPEC 20 顺序：settings → services → 单实例 → tray（主线程）→ `run_native`）；tokio runtime 常驻后台线程（2s 首刷 / 主题监听 / 版本检查）+ 事件 drain 线程 + `SetConsoleCtrlHandler` 走 Quit 路径保托盘图标移除；`--test-ui` 实装（首帧 `show_panel` + `MainWindow OK`，6s 定时退出 + 5s 硬退出兜底），settings/skills/menu 三行按计划 Phase 3。
+
+**验证**：
+
+- 静态链：`cargo fmt --check` 干净；`cargo clippy --all-targets -- -D warnings` 全干净（含 spike.rs 收尾修复 2 处遗留 lint + fmt）；release 构建通过；`cargo test` 4 通过（2 frontmatter + 2 css_ease）。
+- 自检：`--test-update` 与 rust 版逐字节一致；`--test-fetch` 同构（本机 no-token 真实状态，与 rust 版一致）；`--test-ui` 输出 `MainWindow OK` 后 ~6s 退出码 0。
+- GUI 门禁（PowerShell UIAutomation 定位 + 真实鼠标点击，脚本与截图在 `egui/target/phase2-shots/`，gitignore 内）：亮色主题像素采样 卡片间 #f3f4f6 / 卡内 #ffffff / 进度条槽 #e5e7eb / 四角 = 桌面像素（逐像素透明成立）；卡片圆角切线法实测 ~14 逻辑 px（225% 下 31.5 物理圆角几何一致）；失焦收起：桌面点击后 ~200ms 内 `IsWindowVisible` 从 V 转 .（160ms 滑出 + 隐藏）；300ms 再入防抖：面板可见时点托盘图标 = 失焦收起 + toggle 被吞（4 个循环一致），`finish_hide` 后 ~175ms 的快速再点被吞（面板保持隐藏 1.2s），>300ms 再点正常显示（滑入 220ms）；5 连击 toggle 循环无闪烁无卡死；暗色主题采样 bg #17191e / 卡 #23262d / 槽 #3a3e47；空闲（面板隐藏）10s 采样 CPU 0.2% 单核 / RSS ~183 MB。
+- 对照 `docs/screenshot-light.png`（rust 版参考，逻辑 px）：版本行 y=382-419 vs 383-420、按钮行 y=436-471 vs 436-473（±2px 内对齐）；用量卡 +36px / Extra 卡顶边 +38px 的差异完全由本机无 token 状态解释——rust 版 `renderQuota(null)` 同样隐藏 Extra 卡 monthly 子面板 → Extra 卡变矮 → 用量卡 flex 吸收余高，"--" / "Update failed" / 真实 CLI 2.1.1 均与 rust 版同状态渲染逻辑一致。accent #1a88ff 因无数据进度条为空未截到，以 `ui/theme.rs` 色表常量对照 SPEC 11.1 核验。
+
+**踩坑（Phase 2 新增，前 3 条为 Phase 0 发现本期落地为必要逻辑）**：
+
+1. root viewport 首帧后被 eframe 强制 `set_visible(true)`（防白闪）→ 首帧立即补发 `ViewportCommand::Visible(false)`（首帧全透明，无可见闪烁）。
+2. `ViewportCommand::OuterPosition` 接收**逻辑点**：物理工区目标坐标须除以窗口 ppp 再下发（panel_pos.rs），与 tao 的 `PhysicalPosition` 相反。
+3. `set_fonts` 次帧（begin_pass 重建字体集）才生效：同帧 `has_glyph` 校验误报失败，覆盖校验必须跨帧（`FontProbe`）；未绑定的命名 weight family 会 panic，安装时永远绑定（缺文件回退 regular）。
+4. 托盘点击后单独的 `ViewportCommand::Focus` 在 Win11 不可靠（实测面板 `focused=false`）→ `spawn_focus_steal` 在 shell 前台授权窗口内重试 `SetForegroundWindow`（托盘点击手势给了授权窗口）。
+5. egui 对"已显示但从未获焦"的窗口报告 `focused == Some(false)`：失焦自动收起必须加 `panel_was_focused` 闩（真实获焦过才启用），否则程序化 show（`--test-ui`）立即被收起——tauri 侧对应的是 Focused(true)→Focused(false) 事件对，语义不同。
+6. 测试基建：Win11 托盘折叠区 flyout 在面板获焦后仍存活，可对固定图标坐标裸 `mouse_event` 连击驱动 toggle / 防抖测试；UIAutomation 单次查询约 200-500ms，无法用于 300ms 防抖窗口内的定时点击（须预取坐标）；chevron 点击是 toggle 语义，测试脚本不得盲点（会翻转 flyout 开合状态）。

@@ -262,8 +262,8 @@ fn find_hwnd(title: &str) -> Option<windows::Win32::Foundation::HWND> {
 /// (b) add WS_EX_TOOLWINDOW (skip taskbar).
 fn style_hwnd(title: &str) {
     use windows::Win32::Graphics::Dwm::{
-        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWM_WINDOW_CORNER_PREFERENCE,
-        DWMWCP_DONOTROUND,
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+        DWM_WINDOW_CORNER_PREFERENCE,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOOLWINDOW,
@@ -383,14 +383,15 @@ fn position_main_panel(ctx: &egui::Context) {
     let phys_y = bottom - (MAIN_H as f64 + 12.0 - 22.0) * s;
     ctx.send_viewport_cmd_to(
         vp_main(),
-        ViewportCommand::OuterPosition(egui::pos2(
-            (phys_x / s) as f32,
-            (phys_y / s) as f32,
-        )),
+        ViewportCommand::OuterPosition(egui::pos2((phys_x / s) as f32, (phys_y / s) as f32)),
     );
     println!(
         "[POS] main panel: physical=({:.0},{:.0}) logical=({:.1},{:.1}) scale={}",
-        phys_x, phys_y, phys_x / s, phys_y / s, s
+        phys_x,
+        phys_y,
+        phys_x / s,
+        phys_y / s,
+        s
     );
     write_windows_json();
 }
@@ -445,10 +446,7 @@ fn position_secondary_windows(ctx: &egui::Context) {
     );
     ctx.send_viewport_cmd_to(
         vp_skills(),
-        ViewportCommand::OuterPosition(egui::pos2(
-            (skills_x / s) as f32,
-            (main_y / s) as f32,
-        )),
+        ViewportCommand::OuterPosition(egui::pos2((skills_x / s) as f32, (main_y / s) as f32)),
     );
     println!(
         "[POS] settings physical=({:.0},{:.0}) skills physical=({:.0},{:.0})",
@@ -468,7 +466,9 @@ fn write_windows_json() {
     let skills_x = main_x - SKILLS_W as f64 * s - 24.0 * s;
     let windows = [
         win_json("main", main_x, main_y, MAIN_W, MAIN_H, s),
-        win_json("settings", settings_x, settings_y, SETTINGS_W, SETTINGS_H, s),
+        win_json(
+            "settings", settings_x, settings_y, SETTINGS_W, SETTINGS_H, s,
+        ),
         win_json("skills", skills_x, main_y, SKILLS_W, SKILLS_H, s),
         win_json("menu", -1.0, -1.0, MENU_W, MENU_H, s),
     ]
@@ -514,7 +514,10 @@ fn toggle_main(ctx: &egui::Context, shared: &SharedArc, from_click: bool) {
     }
     ctx.send_viewport_cmd_to(vp_main(), ViewportCommand::Visible(show));
     ctx.request_repaint();
-    println!("[TRAY] toggle main -> {}", if show { "show" } else { "hide" });
+    println!(
+        "[TRAY] toggle main -> {}",
+        if show { "show" } else { "hide" }
+    );
 }
 
 fn show_menu_at(ctx: &egui::Context, shared: &SharedArc, px: f64, py: f64) {
@@ -772,9 +775,7 @@ enum FontProbe {
 
 /// Install candidate `idx` (if readable) into the font fallback chain.
 fn install_font_candidate(ctx: &egui::Context, idx: usize) -> Option<&'static str> {
-    let Some((name, path)) = FONT_CANDIDATES.get(idx) else {
-        return None;
-    };
+    let (name, path) = FONT_CANDIDATES.get(idx)?;
     match std::fs::read(path) {
         Ok(bytes) => {
             let len = bytes.len();
@@ -1063,7 +1064,10 @@ impl eframe::App for SpikeApp {
         {
             let mut s = self.shared.lock().unwrap();
             if let (Some(click), false) = (s.click_ts, s.latency_reported) {
-                println!("[TRAY] click -> first repaint latency: {:?}", Instant::now() - click);
+                println!(
+                    "[TRAY] click -> first repaint latency: {:?}",
+                    Instant::now() - click
+                );
                 s.latency_reported = true;
             }
         }
@@ -1251,7 +1255,8 @@ fn main() {
 
     // Threads before run_native; they block on the OnceLock until the egui
     // Context exists.
-    let threads: [(&str, Box<dyn FnOnce() + Send>); 5] = [
+    type NamedThread = (&'static str, Box<dyn FnOnce() + Send>);
+    let threads: [NamedThread; 5] = [
         (
             "tray-events",
             Box::new({

@@ -1,18 +1,27 @@
 // Entry point of the egui edition. Self-check args (--test-fetch /
 // --test-update / --test-ui) run BEFORE the single-instance check, mirroring
-// rust/src-tauri/src/main.rs (SPEC 19). The GUI itself is a Phase 2
-// placeholder; see docs/EGUI-MIGRATION.md for the phase plan.
+// rust/src-tauri/src/main.rs (SPEC 19). Startup order follows SPEC 20:
+// settings -> services -> (self-check branch) -> single instance -> theme ->
+// tray -> polling (2s first refresh) -> background version check.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use kimi_planbar_tray_egui::{quota, update};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+
+use kimi_planbar_tray_egui::app::{App, UiCmd, UiShared};
+use kimi_planbar_tray_egui::ctx::{AppCtx, AppEvent};
+use kimi_planbar_tray_egui::{app, panel_pos, quota, theme_watch, tray, update, windows};
+use tokio::sync::mpsc::UnboundedReceiver;
 
 // Named mutex identical to the Rust/Qt/WPF editions (SPEC 20): guarantees
 // mutual exclusion across all four editions. Do not rename.
 fn acquire_single_instance_mutex() -> bool {
-    use windows::core::w;
-    use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
-    use windows::Win32::System::Threading::CreateMutexW;
+    // `::windows` (not `windows`): the lib's module `windows` is imported in
+    // this scope and would shadow the extern crate.
+    use ::windows::core::w;
+    use ::windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use ::windows::Win32::System::Threading::CreateMutexW;
     unsafe {
         match CreateMutexW(None, true, w!("KimiPlanbarTray.SingleInstance")) {
             Ok(h) => {
@@ -46,52 +55,148 @@ fn block_on<F: std::future::Future>(fut: F) -> F::Output {
     rt.block_on(fut)
 }
 
-// GUI-subsystem exes (release builds) have no console: print via the inherited
-// STD_OUTPUT_HANDLE — a valid pipe under Git Bash, the parent's console buffer
-// under cmd/PowerShell. This is the qt/ edition's WriteFile pattern
-// (qt/src/main.cpp printStdout); AttachConsole + CONOUT$ is the fallback and a
-// plain println! the last resort (debug builds are console-subsystem, where
-// println! always works).
-fn print_stdout(text: &str) {
-    use windows::core::w;
-    use windows::Win32::Foundation::{CloseHandle, GENERIC_WRITE, HANDLE};
-    use windows::Win32::Storage::FileSystem::{
-        CreateFileW, WriteFile, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_WRITE, OPEN_EXISTING,
-    };
-    use windows::Win32::System::Console::{
-        AttachConsole, GetStdHandle, ATTACH_PARENT_PROCESS, STD_OUTPUT_HANDLE,
+// ---- GUI wiring (SPEC 20 startup order) -----------------------------------
+
+/// Shared UI handle for the console ctrl handler (runs on its own thread).
+static UI_SHARED: OnceLock<Arc<UiShared>> = OnceLock::new();
+
+/// Clean exit on console control events (Ctrl+C, console close, logoff) by
+/// routing through the normal Quit path, so the tray icon is removed. A hard
+/// TerminateProcess (e.g. `kill -9` semantics) cannot be intercepted on
+/// Windows; every graceful path lands here.
+unsafe extern "system" fn console_ctrl_handler(_ctrl: u32) -> ::windows::core::BOOL {
+    match UI_SHARED.get() {
+        Some(ui) => {
+            ui.push(UiCmd::Quit);
+            ::windows::core::BOOL::from(true)
+        }
+        None => ::windows::core::BOOL::from(false),
+    }
+}
+
+/// Owns the tokio runtime on a background thread and keeps it parked for the
+/// process lifetime. Runs the refresh loop (2s first refresh), the system
+/// theme watcher, and the startup version check (SPEC 20); the runtime Handle
+/// is published through `handle_slot` for UI-triggered async work.
+fn spawn_runtime(ctx: AppCtx, handle_slot: Arc<OnceLock<tokio::runtime::Handle>>) {
+    std::thread::Builder::new()
+        .name("tokio-runtime".into())
+        .spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build tokio runtime");
+            let _ = handle_slot.set(rt.handle().clone());
+            rt.block_on(async move {
+                tokio::spawn(kimi_planbar_tray_egui::polling::run(ctx.clone()));
+                tokio::spawn(theme_watch::watch(ctx.clone()));
+                let c = ctx.clone();
+                tokio::spawn(async move { kimi_planbar_tray_egui::check_and_emit(&c).await });
+                // Park forever: the spawned services must outlive this future.
+                std::future::pending::<()>().await;
+            });
+        })
+        .ok();
+}
+
+/// Consumes the AppEvent bus off the UI thread. Events carry no payload the
+/// UI needs directly (AppState holds the data) — they only wake the loop; a
+/// quota update also refreshes the tray tooltip.
+fn spawn_event_drain(mut events: UnboundedReceiver<AppEvent>, ui: Arc<UiShared>) {
+    std::thread::Builder::new()
+        .name("event-drain".into())
+        .spawn(move || loop {
+            match events.blocking_recv() {
+                Some(AppEvent::QuotaUpdated(_)) => ui.push(UiCmd::UpdateTooltip),
+                Some(_) => {
+                    if let Some(ctx) = ui.egui_ctx.get() {
+                        ctx.request_repaint();
+                    }
+                }
+                None => break, // bus closed: shutting down
+            }
+        })
+        .ok();
+}
+
+fn run_app(test_ui: bool) {
+    let (biz, events_rx) = kimi_planbar_tray_egui::build_state();
+
+    let ui_shared = Arc::new(UiShared::default());
+    let _ = UI_SHARED.set(ui_shared.clone());
+
+    let runtime_slot: Arc<OnceLock<tokio::runtime::Handle>> = Arc::new(OnceLock::new());
+    spawn_runtime(biz.clone(), runtime_slot.clone());
+    spawn_event_drain(events_rx, ui_shared.clone());
+
+    let visibility = windows::new_visibility_flags();
+    windows::spawn_watcher(visibility.clone());
+
+    // The tray icon must be created on the main thread: winit's message pump
+    // (PeekMessageW over the whole thread queue) dispatches the tray-icon
+    // message window while eframe runs (Phase 0 finding).
+    let tray = tray::build(&biz, &ui_shared, &runtime_slot).expect("build tray icon");
+
+    // `::windows` (not `windows`): the lib's module `windows` is imported in
+    // this scope and would shadow the extern crate.
+    unsafe {
+        let _ = ::windows::Win32::System::Console::SetConsoleCtrlHandler(
+            Some(console_ctrl_handler),
+            true,
+        );
+    }
+
+    if test_ui {
+        // SPEC 19: exit ~6s after start; hard-exit fallback keeps automated
+        // runs from blocking if the event loop refuses to close.
+        std::thread::Builder::new()
+            .name("test-ui-timer".into())
+            .spawn(|| {
+                std::thread::sleep(Duration::from_secs(6));
+                if let Some(ui) = UI_SHARED.get() {
+                    ui.push(UiCmd::Quit);
+                }
+                std::thread::sleep(Duration::from_secs(5));
+                std::process::exit(0);
+            })
+            .ok();
+    }
+
+    let options = eframe::NativeOptions {
+        renderer: eframe::Renderer::Glow,
+        viewport: egui::viewport::ViewportBuilder::default()
+            .with_title(app::MAIN_WINDOW_TITLE)
+            .with_decorations(false)
+            .with_transparent(true)
+            .with_always_on_top()
+            .with_resizable(false)
+            .with_visible(false)
+            .with_taskbar(false)
+            .with_inner_size(egui::vec2(panel_pos::PANEL_W, panel_pos::PANEL_H)),
+        ..Default::default()
     };
 
-    let write = |h: HANDLE| -> bool {
-        let bytes = text.as_bytes();
-        let mut written: u32 = 0;
-        unsafe { WriteFile(h, Some(bytes), Some(&mut written), None).is_ok() }
-    };
-    unsafe {
-        if let Ok(h) = GetStdHandle(STD_OUTPUT_HANDLE) {
-            if !h.is_invalid() && !h.0.is_null() && write(h) {
-                return;
-            }
-        }
-        if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
-            if let Ok(h) = CreateFileW(
-                w!("CONOUT$"),
-                GENERIC_WRITE.0,
-                FILE_SHARE_WRITE,
-                None,
-                OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL,
-                None,
-            ) {
-                let owned = write(h);
-                let _ = CloseHandle(h); // only a handle we opened gets closed
-                if owned {
-                    return;
-                }
-            }
-        }
+    let ui_for_app = ui_shared.clone();
+    let result = eframe::run_native(
+        app::MAIN_WINDOW_TITLE,
+        options,
+        Box::new(move |cc| {
+            Ok(Box::new(App::new(
+                cc,
+                biz,
+                ui_for_app,
+                runtime_slot,
+                Some(tray),
+                visibility,
+                test_ui,
+            )) as Box<dyn eframe::App>)
+        }),
+    );
+    // eframe dropped the App (and with it the tray icon). Mutex handle is
+    // intentionally leaked for the process lifetime (SPEC 20).
+    if let Err(e) = result {
+        eprintln!("egui edition: eframe exited with error: {e}");
     }
-    println!("{text}");
 }
 
 fn main() {
@@ -104,14 +209,14 @@ fn main() {
             Ok(j) => j,
             Err(e) => format!("serialize error: {e}"),
         };
-        print_stdout(&format!("{line}\n"));
+        kimi_planbar_tray_egui::print_stdout(&format!("{line}\n"));
         return;
     }
 
     // Headless update-check self-check: single-line summary, exit
     if args.iter().any(|a| a == "--test-update") {
         let st = block_on(update::check());
-        print_stdout(&format!(
+        kimi_planbar_tray_egui::print_stdout(&format!(
             "local={} latest={} updateAvailable={} checkFailed={}\n",
             st.local_version.as_deref().unwrap_or(""),
             st.latest_version.as_deref().unwrap_or(""),
@@ -121,11 +226,11 @@ fn main() {
         return;
     }
 
-    // Headless UI self-check: real window construction lands in Phase 2
-    // (docs/EGUI-MIGRATION.md); the line follows the rust edition's
-    // UI-FAIL: {type}: {message} format.
+    // Headless UI self-check (SPEC 19): real window construction + theme,
+    // prints "MainWindow OK" (settings/skills/menu OK lines are Phase 3),
+    // auto-exits after ~6s. Runs WITHOUT the single-instance mutex.
     if args.iter().any(|a| a == "--test-ui") {
-        print_stdout("UI-FAIL: NotImplementedError: Phase 2\n");
+        run_app(true);
         return;
     }
 
@@ -133,6 +238,5 @@ fn main() {
         return; // another instance (Rust, Qt, or WPF edition) is already running
     }
 
-    // Placeholder until Phase 2 wires eframe + tray-icon (docs/EGUI-MIGRATION.md)
-    eprintln!("egui edition: GUI not implemented yet (Phase 2)");
+    run_app(false);
 }

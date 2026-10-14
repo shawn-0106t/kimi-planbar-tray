@@ -19,11 +19,15 @@ reqwest = { version = "0.13", features = ["json"] }
 regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
 winreg = "0.55"
+# Logo + button-icon decoding (PNG only; icons/*.png are pre-rasterized from
+# the SVGs in assets/icons/ with headless Edge, see docs/EGUI-MIGRATION.md)
+image = { version = "0.25", default-features = false, features = ["png"] }
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
+    "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_HiDpi",
     "Win32_System_ProcessStatus",

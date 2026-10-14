@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Tag-triggered release automation: pushing a `v*` tag now builds the release exe on CI, runs the packager, and opens a draft GitHub Release with all three assets attached — publishing stays a manual decision.
-- Experimental egui edition (Phase 1): the headless core ported from rust/ (credentials, quota, polling, settings, skills, update, theme_watch, state) with the Tauri dependencies removed, plus `--test-fetch`/`--test-update` output parity with the Rust edition. No GUI yet — UI phases tracked in `docs/EGUI-MIGRATION.md`.
+- Experimental egui edition (Phase 1 + Phase 2): the headless core ported from rust/ (credentials, quota, polling, settings, skills, update, theme_watch, state) with the Tauri dependencies removed, plus `--test-fetch`/`--test-update` output parity with the Rust edition. Phase 2 adds the tray icon and the main panel at SPEC 10-15 parity: left-click toggle, 10 s hover-refresh throttle, focus-loss auto-hide with the 300 ms re-entry guard, enter/exit slide+fade animations, the 140 ms hover glow, and Moonlit/Moondark themes; `--test-ui` now constructs the panel and prints `MainWindow OK` (the settings/skills/menu windows land in Phase 3, tracked in `docs/EGUI-MIGRATION.md`).
 
 ## [1.7.3] - 2026-10-10
 
@@ -126,7 +126,7 @@ Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly
 
 ### 新增
 - tag 触发的发版自动化：push `v*` tag 后在 CI 上构建 release exe、运行打包脚本并创建挂好三件资产的 draft GitHub Release——发布仍为手动决策。
-- 实验性 egui 版（Phase 1）：从 rust/ 移植无头业务核心（credentials、quota、polling、settings、skills、update、theme_watch、state）并去除 Tauri 依赖，`--test-fetch`/`--test-update` 输出与 Rust 版逐字段一致。暂无 GUI——UI 各 Phase 见 `docs/EGUI-MIGRATION.md`。
+- 实验性 egui 版（Phase 1 + Phase 2）：从 rust/ 移植无头业务核心（credentials、quota、polling、settings、skills、update、theme_watch、state）并去除 Tauri 依赖，`--test-fetch`/`--test-update` 输出与 Rust 版逐字段一致。Phase 2 落地托盘图标与主面板，达到 SPEC 10-15 parity：左键 toggle、hover 刷新 10s 节流、失焦自动收起 + 300ms 再入防抖、出入场滑入淡入动画、140ms hover 光晕、Moonlit/Moondark 双主题；`--test-ui` 现构造面板并输出 `MainWindow OK`（settings/skills/menu 三窗 Phase 3 落地，见 `docs/EGUI-MIGRATION.md`）。
 
 ## [1.7.3] - 2026-10-10
 
