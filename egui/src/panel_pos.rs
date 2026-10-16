@@ -48,6 +48,16 @@ pub fn vp_menu() -> ViewportId {
 
 // ---- Diagnostics json (local screenshot harness; gitignored target/) -------
 
+/// Whether record_rect may write kpt-windows.json next to the exe. Opt-in
+/// only (--test-ui or KPT_WRITE_RECTS=1, set once from main.rs run_app): a
+/// normal user must never get the diagnostic file, and a read-only exe
+/// directory would swallow the write attempt on every window open.
+static RECTS_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_rects_enabled(on: bool) {
+    RECTS_ENABLED.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
 #[derive(Clone, Copy)]
 pub struct WinRect {
     pub x: f64,
@@ -67,6 +77,9 @@ struct WinRects {
 static RECTS: LazyLock<Mutex<WinRects>> = LazyLock::new(|| Mutex::new(WinRects::default()));
 
 fn record_rect(key: &str, rect: WinRect) {
+    if !RECTS_ENABLED.load(std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
     if let Ok(mut r) = RECTS.lock() {
         match key {
             "main" => r.main = Some(rect),
@@ -166,20 +179,18 @@ pub fn primary_scale() -> f64 {
 /// monitor the window is currently on, NOT the monitor being positioned for.
 /// Mixed-DPI multi-monitor therefore needs the physical target divided by the
 /// WINDOW's scale (the SPEC 20 launcher-monitor trap family; rust/ sidesteps
-/// it with `PhysicalPosition`). `def` covers the window not existing yet
-/// (first pass: winit creates hidden viewports at CW_USEDEFAULT on the
-/// primary, so the primary scale is the right guess).
+/// it with `PhysicalPosition`). `def` covers the window not existing yet:
+/// before the first frame there is no HWND, so which monitor the window will
+/// land on is unknowable (CW_USEDEFAULT opens on the LAUNCHER's monitor, not
+/// necessarily the primary) and the primary scale is only a guess — a
+/// --test-ui first-open started from a different-DPI monitor will be off by
+/// the scale ratio (known-untested, checklist U-2). Normal user flows open
+/// windows long after their HWNDs exist, so the conversion stays exact.
 fn window_dpi_scale(title: &str, def: f64) -> f64 {
-    use windows::core::PCWSTR;
     use windows::Win32::UI::HiDpi::GetDpiForWindow;
-    use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
-    let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
-    let Ok(hwnd) = (unsafe { FindWindowW(PCWSTR::null(), PCWSTR::from_raw(wide.as_ptr())) }) else {
+    let Some(hwnd) = crate::windows::find_hwnd(title) else {
         return def;
     };
-    if hwnd.is_invalid() {
-        return def;
-    }
     let dpi = unsafe { GetDpiForWindow(hwnd) };
     if dpi == 0 {
         def
@@ -190,8 +201,10 @@ fn window_dpi_scale(title: &str, def: f64) -> f64 {
 
 /// ShowNearTray: pin the logical size (DPI guard, SPEC 20), place the window
 /// bottom-right, then show and focus — in that command order (viewport
-/// commands execute in enqueue order).
-pub fn show_panel(ctx: &Context) {
+/// commands execute in enqueue order). `focus` skips the Focus command and
+/// the delayed foreground steal for --test-ui (the rust run_ui_test only
+/// calls show(), it never activates; SPEC 19).
+pub fn show_panel(ctx: &Context, focus: bool) {
     let s = primary_scale();
     let (_, _, right, bottom) = work_area_phys();
     // +22 compensates the margin growth (6 -> 28, shadow fade room): the
@@ -205,11 +218,13 @@ pub fn show_panel(ctx: &Context) {
         (phys_y / win_s) as f32,
     )));
     ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-    ctx.send_viewport_cmd(ViewportCommand::Focus);
-    // The queued Focus command does not reliably take the foreground on Win11
-    // (see windows.rs): back it up with the spike's delayed steal, retried a
-    // few times since the shell grant window varies.
-    crate::windows::spawn_focus_steal(crate::app::MAIN_WINDOW_TITLE, &[60, 200, 450]);
+    if focus {
+        ctx.send_viewport_cmd(ViewportCommand::Focus);
+        // The queued Focus command does not reliably take the foreground on
+        // Win11 (see windows.rs): back it up with the spike's delayed steal,
+        // retried a few times since the shell grant window varies.
+        crate::windows::spawn_focus_steal(crate::app::MAIN_WINDOW_TITLE, &[60, 200, 450]);
+    }
     record_rect(
         "main",
         WinRect {
@@ -234,16 +249,17 @@ pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool,
     let (left, top, right, bottom) = work_area_phys();
     let phys_x = (left + right) / 2.0 - w as f64 * s / 2.0;
     let phys_y = (top + bottom) / 2.0 - h as f64 * s / 2.0;
-    // The window may have been dragged to another monitor (its DPI follows);
-    // divide by the window's own scale so the physical landing is exact.
-    let title = if vp == vp_settings() {
-        crate::windows::SETTINGS_TITLE
-    } else {
-        crate::windows::SKILLS_TITLE
-    };
-    let win_s = window_dpi_scale(title, s);
     ctx.send_viewport_cmd_to(vp, ViewportCommand::InnerSize(egui::vec2(w, h)));
     if recenter {
+        // The window may have been dragged to another monitor (its DPI
+        // follows); divide by the window's own scale so the physical landing
+        // is exact. Only the recenter branch needs the HWND query.
+        let title = if vp == vp_settings() {
+            crate::windows::SETTINGS_TITLE
+        } else {
+            crate::windows::SKILLS_TITLE
+        };
+        let win_s = window_dpi_scale(title, s);
         ctx.send_viewport_cmd_to(
             vp,
             ViewportCommand::OuterPosition(egui::pos2(
@@ -365,8 +381,11 @@ pub fn show_menu_at(ctx: &Context, px: f64, py: f64, h: f32) {
         WinRect {
             x: phys_x,
             y: phys_y,
-            w: MENU_W as f64 * s_prim,
-            h: h as f64 * s_prim,
+            // Sizes follow the cursor monitor's scale — same monitor the
+            // x/y origins are physical values of (json stays one frame of
+            // reference).
+            w: MENU_W as f64 * scale,
+            h: h as f64 * scale,
         },
     );
 }

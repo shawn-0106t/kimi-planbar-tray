@@ -58,12 +58,25 @@ pub fn new_visibility_flags() -> VisibilityFlags {
     Arc::new(Mutex::new(vec![false; WINDOW_TITLES.len()]))
 }
 
-fn find_hwnd(title: &str) -> Option<HWND> {
+/// Find our own top-level window by unique title. The PID filter matters
+/// because --test-* runs WITHOUT the single-instance mutex (SPEC 19): while a
+/// GUI instance is live, another edition's same-titled window (the four
+/// titles are shared across editions) would otherwise be styled /
+/// foregrounded / DPI-queried by mistake. FindWindowW matches globally, so
+/// verify the hit belongs to this process and skip foreign windows.
+pub fn find_hwnd(title: &str) -> Option<HWND> {
+    use windows::Win32::System::Threading::GetCurrentProcessId;
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
     let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
     unsafe {
         FindWindowW(PCWSTR::null(), PCWSTR::from_raw(wide.as_ptr()))
             .ok()
             .filter(|h: &HWND| !h.is_invalid())
+            .filter(|h: &HWND| {
+                let mut pid = 0u32;
+                GetWindowThreadProcessId(*h, Some(&mut pid));
+                pid == GetCurrentProcessId()
+            })
     }
 }
 

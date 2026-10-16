@@ -361,7 +361,8 @@ pub fn paint(
     if v_resp.hovered() {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
-    // on_hover_text consumes the response, so read clicked() first.
+    // on_hover_text takes the response by value and returns a fresh one, so
+    // read clicked() off the original before handing it over.
     let version_clicked = v_resp.clicked();
     v_resp.on_hover_text("View Kimi Code releases");
     if version_clicked {
@@ -400,7 +401,8 @@ pub fn paint(
         );
         // SPEC 12.7: the Console button carries a tooltip (rust/ index.html
         // title="Open Kimi Code Console"); the other three buttons have none.
-        // on_hover_text consumes the response, so read clicked() first.
+        // on_hover_text takes the response by value and returns a fresh one,
+        // so read clicked() off the original before handing it over.
         let clicked = resp.clicked();
         if name == "panel-btn-console" {
             resp.on_hover_text("Open Kimi Code Console");

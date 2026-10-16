@@ -182,6 +182,13 @@ pub struct App {
     /// OK lines, and suppress the focus-loss auto-hide (programmatic shows
     /// never get focus, SPEC 20).
     pub test_ui: bool,
+    /// Set by the app's own Quit paths (Exit button / tray-menu Exit /
+    /// console ctrl) right before they send `ViewportCommand::Close`. The
+    /// root close guard below cannot distinguish that Close event from an
+    /// OS WM_CLOSE (egui-winit pushes the same ViewportEvent::Close for
+    /// both), so the flag is the only way to let the explicit exits through
+    /// while cancelling Alt+F4 (SPEC 20).
+    pub quitting: bool,
 }
 
 impl App {
@@ -198,6 +205,12 @@ impl App {
     ) -> App {
         let _ = cc;
         let last_theme = biz.state.effective_theme.read().unwrap().clone();
+        // Fixed-geometry tray app: egui's keyboard zoom (Ctrl+= / Ctrl+- /
+        // Ctrl+0) would scale pixels_per_point above the native DPI, and every
+        // OuterPosition landing divides by the native scale only (see
+        // panel_pos::window_dpi_scale) — the windows would drift by the zoom
+        // factor after a shortcut. Must be set before the first pass.
+        cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         // Install fonts before the first frame so the named weight families
         // are bound when the panel first paints (an unbound family panics).
         let font_probe = FontProbe::new(&cc.egui_ctx);
@@ -218,6 +231,7 @@ impl App {
             settings_placed: false,
             skills_placed: false,
             test_ui,
+            quitting: false,
         }
     }
 
@@ -227,11 +241,11 @@ impl App {
 
     // ---- Panel transitions (port of rust/src-tauri/src/panel.rs) ----------
 
-    fn show_panel(&mut self) {
+    fn show_panel(&mut self, focus: bool) {
         let ctx = self.ctx();
         #[cfg(debug_assertions)]
         eprintln!("[ui] show_panel");
-        crate::panel_pos::show_panel(&ctx);
+        crate::panel_pos::show_panel(&ctx, focus);
         self.biz.state.panel_hiding.store(false, Ordering::SeqCst);
         self.panel_was_focused = false;
         self.panel_state = PanelState::Showing { t0: Instant::now() };
@@ -287,7 +301,7 @@ impl App {
         if self.panel_state.is_visible() {
             self.start_hide();
         } else {
-            self.show_panel();
+            self.show_panel(true);
         }
     }
 
@@ -499,6 +513,9 @@ impl App {
                 panel::PanelAction::OpenSettings => self.open_settings(true),
                 panel::PanelAction::OpenSkills => self.open_skills(true),
                 panel::PanelAction::Quit => {
+                    // Explicit exit: raise the flag BEFORE the Close command so
+                    // the root close guard stands down (SPEC 20).
+                    self.quitting = true;
                     if let Some(ctx) = self.ui.egui_ctx.get() {
                         ctx.send_viewport_cmd(ViewportCommand::Close);
                     }
@@ -530,6 +547,8 @@ impl App {
             }
             WinAction::MenuQuit => {
                 self.hide_menu();
+                // Same explicit-exit bypass as PanelAction::Quit (SPEC 20).
+                self.quitting = true;
                 if let Some(ctx) = self.ui.egui_ctx.get() {
                     ctx.send_viewport_cmd(ViewportCommand::Close);
                 }
@@ -621,7 +640,7 @@ impl eframe::App for App {
                 // exit (~6s timer in main.rs). Matches rust run_ui_test: show
                 // only, no focus stealing; settings_open suppresses the panel
                 // auto-hide; the skills list is loaded so it renders too.
-                self.show_panel();
+                self.show_panel(false);
                 crate::print_stdout("MainWindow OK\n");
                 self.open_settings(false);
                 crate::print_stdout("SettingsWindow OK\n");
@@ -650,7 +669,11 @@ impl eframe::App for App {
                 UiCmd::TogglePanel => self.toggle_panel(true),
                 UiCmd::UpdateTooltip => self.update_tooltip(),
                 UiCmd::ShowMenu { px, py } => self.open_menu_at(px, py, true),
-                UiCmd::Quit => ctx.send_viewport_cmd(ViewportCommand::Close),
+                UiCmd::Quit => {
+                    // Console ctrl handler / --test-ui timer: explicit exit.
+                    self.quitting = true;
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
+                }
             }
         }
 
@@ -684,6 +707,16 @@ impl eframe::App for App {
                 self.finish_hide();
             }
             _ => {}
+        }
+        // Root close guard (SPEC 20: closing a window never exits the
+        // process — the tray app keeps running hidden). Alt+F4 / WM_CLOSE on
+        // the focused panel surfaces here as a root close request: cancel it
+        // and play the normal hide. The app's own Quit paths arrive through
+        // the very same ViewportEvent::Close, so they raise `quitting` first
+        // and this guard stands down to let eframe exit for real.
+        if ctx.input(|i| i.viewport().close_requested()) && !self.quitting {
+            ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+            self.start_hide();
         }
         let focused = ctx.input(|i| i.viewport().focused);
         if focused == Some(true) {

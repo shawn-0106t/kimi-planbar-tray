@@ -79,7 +79,10 @@ unsafe extern "system" fn console_ctrl_handler(_ctrl: u32) -> ::windows::core::B
 /// theme watcher, and the startup version check (SPEC 20); the runtime Handle
 /// is published through `handle_slot` for UI-triggered async work.
 fn spawn_runtime(ctx: AppCtx, handle_slot: Arc<OnceLock<tokio::runtime::Handle>>) {
-    std::thread::Builder::new()
+    // Thread-spawn failure means no polling / theme follow / version check
+    // while the UI keeps running — never silently invisible. The message
+    // carries only the OS error (no credentials or paths).
+    match std::thread::Builder::new()
         .name("tokio-runtime".into())
         .spawn(move || {
             let rt = tokio::runtime::Builder::new_multi_thread()
@@ -95,8 +98,10 @@ fn spawn_runtime(ctx: AppCtx, handle_slot: Arc<OnceLock<tokio::runtime::Handle>>
                 // Park forever: the spawned services must outlive this future.
                 std::future::pending::<()>().await;
             });
-        })
-        .ok();
+        }) {
+        Ok(_) => {}
+        Err(e) => eprintln!("egui edition: failed to spawn runtime thread: {e}"),
+    }
 }
 
 /// Consumes the AppEvent bus off the UI thread. Events carry no payload the
@@ -109,8 +114,16 @@ fn spawn_event_drain(mut events: UnboundedReceiver<AppEvent>, ui: Arc<UiShared>)
             match events.blocking_recv() {
                 Some(AppEvent::QuotaUpdated(_)) => ui.push(UiCmd::UpdateTooltip),
                 Some(_) => {
+                    // Theme flips (and any other wake) must repaint every
+                    // visible window: a plain request_repaint() wakes only the
+                    // ROOT viewport, so the settings / skills / menu windows
+                    // would keep the stale palette until their next
+                    // interaction (same four-window sweep as save_settings).
                     if let Some(ctx) = ui.egui_ctx.get() {
                         ctx.request_repaint();
+                        ctx.request_repaint_of(panel_pos::vp_settings());
+                        ctx.request_repaint_of(panel_pos::vp_skills());
+                        ctx.request_repaint_of(panel_pos::vp_menu());
                     }
                 }
                 None => break, // bus closed: shutting down
@@ -120,6 +133,10 @@ fn spawn_event_drain(mut events: UnboundedReceiver<AppEvent>, ui: Arc<UiShared>)
 }
 
 fn run_app(test_ui: bool) {
+    // kpt-windows.json is a screenshot-harness diagnostic (written next to
+    // the exe): opt-in only, so normal users never get the file. --test-ui
+    // (the harness launch mode) or KPT_WRITE_RECTS=1 enables it.
+    panel_pos::set_rects_enabled(test_ui || std::env::var("KPT_WRITE_RECTS").as_deref() == Ok("1"));
     let (biz, events_rx) = kimi_planbar_tray_egui::build_state();
 
     let ui_shared = Arc::new(UiShared::default());
