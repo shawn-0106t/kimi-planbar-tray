@@ -18,7 +18,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "proce
 reqwest = { version = "0.13", features = ["json"] }
 regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
-winreg = "0.55"
+winreg = "0.56"
 # Logo + button-icon decoding (PNG only; icons/*.png are pre-rasterized from
 # the SVGs in assets/icons/ with headless Edge, see docs/archive/EGUI-MIGRATION.md)
 image = { version = "0.25", default-features = false, features = ["png"] }
