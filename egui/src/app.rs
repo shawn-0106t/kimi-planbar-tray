@@ -30,7 +30,7 @@ use crate::ui::settings_win::SettingsDraft;
 use crate::ui::theme::{FontProbe, Theme};
 use crate::ui::widgets::GlowTracker;
 
-/// Root viewport title — doubles as the FindWindowW key (windows.rs).
+/// Root viewport title — doubles as the find_hwnd key (windows.rs).
 pub const MAIN_WINDOW_TITLE: &str = crate::windows::MAIN_TITLE;
 
 /// Commands from non-UI threads (tray events, console ctrl handler).
@@ -209,8 +209,14 @@ impl App {
         // Ctrl+0) would scale pixels_per_point above the native DPI, and every
         // OuterPosition landing divides by the native scale only (see
         // panel_pos::window_dpi_scale) — the windows would drift by the zoom
-        // factor after a shortcut. Must be set before the first pass.
-        cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
+        // factor after a shortcut. Clear the built-in Ctrl/Cmd+Q quit
+        // shortcut too: it would surface as the same close event the root
+        // guard cancels (hide, SPEC 20) while no other edition has that key.
+        // Both must be set before the first pass.
+        cc.egui_ctx.options_mut(|o| {
+            o.zoom_with_keyboard = false;
+            o.quit_shortcuts = vec![];
+        });
         // Install fonts before the first frame so the named weight families
         // are bound when the panel first paints (an unbound family panics).
         let font_probe = FontProbe::new(&cc.egui_ctx);
@@ -514,11 +520,12 @@ impl App {
                 panel::PanelAction::OpenSkills => self.open_skills(true),
                 panel::PanelAction::Quit => {
                     // Explicit exit: raise the flag BEFORE the Close command so
-                    // the root close guard stands down (SPEC 20).
+                    // the root close guard stands down (SPEC 20). self.ctx()
+                    // panics if the ctx is unset instead of leaving the flag
+                    // latched without a Close (which would let a later Alt+F4
+                    // exit for real).
                     self.quitting = true;
-                    if let Some(ctx) = self.ui.egui_ctx.get() {
-                        ctx.send_viewport_cmd(ViewportCommand::Close);
-                    }
+                    self.ctx().send_viewport_cmd(ViewportCommand::Close);
                 }
             }
         }
@@ -547,11 +554,10 @@ impl App {
             }
             WinAction::MenuQuit => {
                 self.hide_menu();
-                // Same explicit-exit bypass as PanelAction::Quit (SPEC 20).
+                // Same explicit-exit bypass as PanelAction::Quit (SPEC 20):
+                // self.ctx() never leaves the flag latched without a Close.
                 self.quitting = true;
-                if let Some(ctx) = self.ui.egui_ctx.get() {
-                    ctx.send_viewport_cmd(ViewportCommand::Close);
-                }
+                self.ctx().send_viewport_cmd(ViewportCommand::Close);
             }
         }
     }

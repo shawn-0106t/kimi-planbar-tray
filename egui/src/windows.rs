@@ -3,15 +3,16 @@
 // the panel paints its own 14px radius on a transparent window; (b) add
 // WS_EX_TOOLWINDOW as a belt-and-braces skip-taskbar guarantee.
 //
-// A watcher thread polls FindWindowW for each viewport's unique title while
+// A watcher thread polls find_hwnd (title + owning-PID match) for each
+// viewport's unique title while
 // that viewport is flagged visible, and styles each native window once per
 // show (the ops are idempotent; the HWND persists across hide/show).
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use windows::core::PCWSTR;
 use windows::Win32::Foundation::HWND;
+
 /// Steal the foreground shortly after a programmatic show. After a tray click
 /// the shell grants foreground rights to the tray-icon owner for a short
 /// window; a direct SetForegroundWindow in that window takes it (the Phase 0
@@ -39,9 +40,9 @@ pub fn spawn_focus_steal(title: &'static str, delays_ms: &[u64]) {
         .ok(); // a failed spawn only costs the focus fix
 }
 
-use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
+use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextLengthW, GetWindowTextW};
 
-/// Unique window titles double as FindWindowW keys. All four viewports are
+/// Unique window titles double as find_hwnd keys. All four viewports are
 /// registered (the panel is the root; Phase 3 adds settings/skills/menu).
 pub const MAIN_TITLE: &str = "Kimi Planbar Tray Main Panel";
 pub const SETTINGS_TITLE: &str = "Kimi Planbar Tray Settings";
@@ -62,22 +63,58 @@ pub fn new_visibility_flags() -> VisibilityFlags {
 /// because --test-* runs WITHOUT the single-instance mutex (SPEC 19): while a
 /// GUI instance is live, another edition's same-titled window (the four
 /// titles are shared across editions) would otherwise be styled /
-/// foregrounded / DPI-queried by mistake. FindWindowW matches globally, so
-/// verify the hit belongs to this process and skip foreign windows.
+/// foregrounded / DPI-queried by mistake. EnumWindows (not FindWindowW, which
+/// returns only the first same-titled hit in Z order) so a foreign window
+/// sorting earlier does not hide our own: keep enumerating until the title
+/// AND the owning PID both match.
 pub fn find_hwnd(title: &str) -> Option<HWND> {
+    use windows::core::BOOL;
+    use windows::Win32::Foundation::LPARAM;
     use windows::Win32::System::Threading::GetCurrentProcessId;
     use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
-    let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
-    unsafe {
-        FindWindowW(PCWSTR::null(), PCWSTR::from_raw(wide.as_ptr()))
-            .ok()
-            .filter(|h: &HWND| !h.is_invalid())
-            .filter(|h: &HWND| {
-                let mut pid = 0u32;
-                GetWindowThreadProcessId(*h, Some(&mut pid));
-                pid == GetCurrentProcessId()
-            })
+
+    struct State<'a> {
+        title: &'a [u16], // including the trailing NUL
+        pid: u32,
+        hit: &'a mut Option<HWND>,
     }
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let state = &mut *(lparam.0 as *mut State);
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+        if pid == state.pid {
+            let len = unsafe { GetWindowTextLengthW(hwnd) };
+            if len as usize + 1 == state.title.len() {
+                let mut buf = vec![0u16; len as usize + 1];
+                let copied = unsafe { GetWindowTextW(hwnd, &mut buf) } as usize;
+                if copied + 1 == state.title.len() && buf == state.title {
+                    *state.hit = Some(hwnd);
+                    return BOOL::from(false); // found — stop enumerating
+                }
+            }
+        }
+        BOOL::from(true)
+    }
+
+    let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut hit = None;
+    let pid = unsafe { GetCurrentProcessId() };
+    let mut state = State {
+        title: &wide,
+        pid,
+        hit: &mut hit,
+    };
+    // EnumWindows yields Err when the callback stops early — that is the
+    // success case here. All failures are silently swallowed (callers treat
+    // a missing HWND as a no-op).
+    let _ = unsafe {
+        EnumWindows(
+            Some(enum_proc),
+            LPARAM(&mut state as *mut State as *mut _ as isize),
+        )
+    };
+    hit
 }
 
 /// Apply the DWM + TOOLWINDOW workarounds to the window with `title`.
