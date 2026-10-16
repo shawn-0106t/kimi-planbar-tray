@@ -3,7 +3,7 @@
 // SystemEvents.UserPreferenceChanged; the Tauri edition polls the registry
 // every 3s (cheap, no hidden message window) — ported as-is, with the emit
 // replaced by the AppEvent bus. A real WM_SETTINGCHANGE message-loop watch is
-// a Phase 2 option once the win32 event loop exists (docs/EGUI-MIGRATION.md).
+// a Phase 2 option once the win32 event loop exists (docs/archive/EGUI-MIGRATION.md).
 
 use crate::ctx::{AppCtx, AppEvent};
 use std::time::Duration;

@@ -13,6 +13,18 @@ updates:
           - "minor"
           - "patch"
 
+  # egui edition (experimental, test-only): same weekly cargo cadence so its
+  # lockfile stays fresh alongside the CI gate added for it.
+  - package-ecosystem: cargo
+    directory: /egui
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: npm
     directory: /rust
     schedule:

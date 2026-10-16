@@ -1,5 +1,7 @@
 # egui 技术栈迁移规划（EGUI-MIGRATION）
 
+> **已完结归档（2026-10-17）——冻结，不再更新。** Phase 0–5 全部完成；egui 版定位为 experimental 测试版（可构建独立 exe，仅测试用途，不随 Releases 分发，版本随主清单同步 1.7.3，CI 已接入）。实施状态正本见下方 §6；收尾记录见 §6 末尾的 Phase 5 小节。
+>
 > 本文档规划 kimi-planbar-tray 的第四个实现版本：**纯 Rust egui** 版（`egui/` 目录）。
 > 决策已定：UI 按现有设计 1:1 复刻（SPEC 第二篇第 10–21 章数值契约不变，像素级验收对照 `docs/*.png`）；`egui/` 为独立 crate（版本从 0.1.0 起步，不跟随 `rust/` 的 1.7.3）；`rust/` 保持活跃，`qt/` 实验完成归档，`wpf/` 冻结只读，三者一律不动。
 > 业务后端模块（credentials / quota / polling / settings / update / skills 等）已存在于 `rust/src-tauri/src/`，后续 Phase 直接拷贝复用，不重写。
@@ -248,3 +250,22 @@ egui/
 **静态链与回归**（修复后终态）：`cargo fmt --check` ✓；`cargo clippy --all-targets -- -D warnings` 零告警；`cargo build --release` ✓；`cargo test` 9/9（2 frontmatter + 2 css_ease + 5 菜单定位数学）；`--test-ui` 四行 OK 退出码 0；`--test-fetch` 与 rust 版逐字段一致（仅 fetchedAt 运行时刻差异）、`--test-update` 逐字节一致（`local=2.2.0 latest=2.1.1 updateAvailable=False checkFailed=False`，2026-10-17 实测）。
 
 **结论**：Phase 4 通过——SPEC 10–21 无未决 DEVIATION（2 项 minor 已定级留档），egui 版与 rust/ 契约在本机可测范围内 parity 成立；余项见 UNTESTABLE 清单（均为环境不可达，非代码缺口）。Phase 5（打包与文档收尾）待启动。
+
+### Phase 5 — 收尾：定位决策、CI、版本同步、文档归档（已完成，2026-10-17）
+
+**定位决策（用户已定）**：egui 版 = **experimental 测试版**，与 qt/ 同款待遇——可从源码构建独立 exe（`cd egui && cargo build --release` → `target/release/kimi-planbar-tray-egui.exe`），仅供测试；**不随 Releases 分发、不接入 `make_release_zip.py`**；**版本随 rust/qt 主清单同步（1.7.3）**，不再独立维护 0.1.0——bump 清单从 9 处扩为 11 处（`egui/Cargo.toml` 的 `version` + `egui/Cargo.lock` 的 `kimi-planbar-tray-egui` 条目）。
+
+**CI 接入**（Phase 1 矩阵中"暂不纳入、待用户裁决"一项就此落定）：`.github/workflows/ci.yml` 的 build-and-test job 在 rust/src-tauri 的 cargo 步骤后追加 egui 段——`cargo fmt --check` / `cargo clippy --all-targets --locked -- -D warnings` / `cargo build --locked` / `cargo test --locked`（working-directory `egui/`），并将 `egui` 加入既有 Swatinem/rust-cache 的 workspaces（eframe+wgpu 全量编译很重，不缓存易逼近 job 40 分钟超时）。与 rust 版同理由，hosted runner 不可跑 `--test-*` 运行时自检，仍为 local-only。
+
+**两轮 code review 与修复闭环**（均已过静态链 + 实测回归后入库）：
+
+- `d8de9c8`——root viewport 关闭守卫（Alt+F4/WM_CLOSE 取消 + 隐藏，SPEC 20；Quit 路径先置 `quitting` 再发 Close，否则守卫吞掉自家退出）、`--test-ui` 面板改无焦点显示（对齐 rust run_ui_test）、禁用 egui 键盘缩放（OuterPosition 除以 native DPI 的数学会被 zoom 打偏）、主题翻转同步重绘三子窗、`find_hwnd` 按 PID 过滤（FindWindowW 全局查找，`--test-*` 无锁运行时可能摸到别版同名窗）、`kpt-windows.json` 诊断落盘加 `--test-ui`/`KPT_WRITE_RECTS=1` 开关、清理未用的 Win32_Security feature 等。
+- `5407815`——`find_hwnd` 改 EnumWindows 全量枚举（标题 + 所属 PID 匹配；持锁方存在时单命中查询会在 Z 序靠前的异版窗上提前放弃，已用 rust 持锁 + egui `--test-ui` 实测）、清除 egui 内建 Ctrl/Cmd+Q 退出快捷键（只会重触发已被取消的关闭路径）、两条 WinAction Quit 路径改 `self.ctx()` 强制断言发 Close（杜绝 quitting 置位后 Close 缺失、后续 Alt+F4 真退出的窗口）。
+
+**遗留观察（留档，非缺陷）**：
+
+- 审查者观察的"菜单水平钳制用主屏 work area 而 x/y 跟随光标所在屏"——经核对为 WPF → rust/（`src-tauri/src/panel.rs`）→ egui 一脉相承的既有共享行为，三版一致，为 parity 保持不动。
+- Phase 4 的 DEVIATION 2 项 minor（`UI-FAIL` 行不可达、版本行亚秒瞬态）与 UNTESTABLE 6 项维持原判。
+- release 单 exe 形态：21.8 MB（GUI 子系统），当前 glow+wgpu 双后端并存未裁剪——如需进一步缩体可移除 wgpu feature（§5 风险 8 以 glow 为主后端的结论不变），留作后续可选项，不影响 experimental 定位。
+
+**Phase 5 清单核销**（对照 HANDOFF-egui.md §6）：README.md / README_CN.md 第四版本段落（镜像 qt 写法）✓；CONTRIBUTING.md 目录表 + `.github/PULL_REQUEST_TEMPLATE.md` checklist 补 egui ✓；SECURITY.md 核查（token 数据流表述本就 edition 通用，无 WebView/CSP 语境，无需改）✓；CHANGELOG.md Unreleased 双语条目定稿、SPEC 7.3 版本清单与 §9 文档地图终核 ✓；本文档记完结并与 `HANDOFF-egui.md` 一同移入 `docs/archive/` ✓。发版回上游（shawn-0106t/kimi-planbar-tray）前与用户确认 PR / 独立仓库的既有约定不属本 Phase，维持不变。

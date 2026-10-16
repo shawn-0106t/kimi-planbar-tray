@@ -1,6 +1,6 @@
 [package]
 name = "kimi-planbar-tray-egui"
-version = "0.1.0"
+version = "1.7.3"
 edition = "2021"
 description = "Kimi Code quota tray app — egui edition (pure-Rust UI, no WebView)"
 publish = false
@@ -20,7 +20,7 @@ regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
 winreg = "0.55"
 # Logo + button-icon decoding (PNG only; icons/*.png are pre-rasterized from
-# the SVGs in assets/icons/ with headless Edge, see docs/EGUI-MIGRATION.md)
+# the SVGs in assets/icons/ with headless Edge, see docs/archive/EGUI-MIGRATION.md)
 image = { version = "0.25", default-features = false, features = ["png"] }
 windows = { version = "0.62", features = [
     "Win32_Foundation",

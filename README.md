@@ -19,7 +19,7 @@ A lightweight Windows tray app that keeps your [Kimi Code](https://www.kimi.com/
 - **CLI version check** — shows your local `kimi --version`; an orange badge appears when a newer release exists on [kimi-code Releases](https://github.com/MoonshotAI/kimi-code/releases) (click the row to open the page). Version info comes from the official changelog (with GitHub API fallback), so it works even when GitHub is unreachable
 - **Hover-to-fresh** — hovering the tray icon prefetches quota in the background (10s throttle), so the tooltip and popup always show fresh numbers
 - **Extra Usage card** — shows your booster wallet balance (¥) and monthly charge usage/limit; gracefully shows "not activated / no data" when the wallet has never been topped up
-- **Skills at a glance** (Rust and Qt editions) — right-click menu → Skills opens a read-only list of your local Kimi Code skills, grouped by source (`~/.kimi-code/skills`, `~/.agents/skills`, managed plugins); scanned once on open and cached, zero background polling
+- **Skills at a glance** (Rust, Qt and egui editions) — right-click menu → Skills opens a read-only list of your local Kimi Code skills, grouped by source (`~/.kimi-code/skills`, `~/.agents/skills`, managed plugins); scanned once on open and cached, zero background polling
 - **Portable & UAC-free** — single exe, per-user only (HKCU autostart, no admin rights, nothing written to HKLM or Program Files); drop an empty `portable.dat` next to the exe to store settings beside it instead of `%APPDATA%`
 - **Small footprint** — single ~5.6 MB exe (uses the system WebView2, nothing else to install), no background polling beyond the refresh timer
 
@@ -34,6 +34,8 @@ Get the latest exe from [Releases](../../releases):
 | `KimiPlanbarTray-rust.exe` | ~5.6 MB | Nothing — uses the system WebView2 | ~317 MB |
 
 > There is also an **experimental Qt edition** (`qt/`, C++ Qt6 Widgets, no WebView2 dependency) at feature parity with the Rust build. It ships as a folder (`qt/dist/`, ~36 MB — Qt DLLs alongside the exe, no single-file build), is mutually exclusive with the Rust/WPF editions (same named mutex, only one instance runs at a time), and is likewise unsigned (same SmartScreen prompt). Build from source only (see below) — it is not distributed via Releases.
+
+> And an **experimental egui edition** (`egui/`, pure-Rust UI: eframe/egui 0.36.2 + tray-icon — no WebView, no Node toolchain) at SPEC parity with the Rust build (Phase 4 audit: 99 PASS / 2 minor deviations / 6 untestable). It builds to a single ~21.8 MB exe with a ~91 ms cold start (vs ~1060 ms for the Rust build, measured on the same machine), is mutually exclusive with the other editions (same named mutex), and is likewise unsigned. **Test-only: build from source (see below) — it is not distributed via Releases.**
 
 > Windows SmartScreen may warn on first launch because the exe is not code-signed. Click "More info" → "Run anyway" — this is expected for unsigned personal builds.
 
@@ -56,7 +58,7 @@ No credentials are stored or sent anywhere except the official `api.kimi.com/cod
 
 ## Build from source
 
-This repo hosts three editions: `wpf/` (original .NET 8 / WPF, **frozen at v1.5.0**, kept for reference), `rust/` (Tauri 2 / Rust rewrite, actively developed), and `qt/` (C++ Qt6 Widgets, experimental, at parity with rust/). Shared UI/UX spec lives in `docs/SPEC.md`.
+This repo hosts four editions: `wpf/` (original .NET 8 / WPF, **frozen at v1.5.0**, kept for reference), `rust/` (Tauri 2 / Rust rewrite, actively developed), `qt/` (C++ Qt6 Widgets, experimental, at parity with rust/), and `egui/` (pure-Rust UI, experimental, at parity with rust/). Shared UI/UX spec lives in `docs/SPEC.md`.
 
 WPF edition (unmaintained) — requires .NET 8 SDK (Windows):
 
@@ -84,6 +86,13 @@ cmake --build build --config Release
 PYTHONUTF8=1 python package_release.py   # distributable folder at qt/dist/
 ```
 
+egui edition (experimental, test-only) — requires Rust (stable, MSVC) only:
+
+```bash
+cd egui
+cargo build --release   # single-file exe at target/release/kimi-planbar-tray-egui.exe
+```
+
 Headless self-checks (for verifying changes locally — they are not run in CI, see below):
 
 ```bash
@@ -91,11 +100,11 @@ KimiPlanbarTray.exe --test-fetch   # fetch quota once, print JSON, exit
 KimiPlanbarTray.exe --test-ui      # construct all 4 windows, print OK lines, exit (~6 s)
 ```
 
-Pushes to `main` (except docs-only changes) and every pull request run two GitHub Actions jobs ([`ci.yml`](.github/workflows/ci.yml)): `gitleaks` (full-history secret scan) and a windows-latest build gate (`cargo fmt`/`cargo clippy`, frontend install + TypeScript type-check + Vite build, then `cargo build`/`cargo test`). The headless self-checks above are **not** part of CI — they need local Kimi Code credentials and an interactive desktop — so run them locally after changes.
+Pushes to `main` (except docs-only changes) and every pull request run two GitHub Actions jobs ([`ci.yml`](.github/workflows/ci.yml)): `gitleaks` (full-history secret scan) and a windows-latest build gate (`cargo fmt`/`cargo clippy`, frontend install + TypeScript type-check + Vite build, then `cargo build`/`cargo test`, plus the same fmt/clippy/build/test steps for the `egui/` crate). The headless self-checks above are **not** part of CI — they need local Kimi Code credentials and an interactive desktop — so run them locally after changes.
 
 ## Tech notes
 
-- Rust edition: Tauri 2 backend + vanilla HTML/CSS/TS frontend (no framework); Qt edition (experimental): C++ Qt6 Widgets, single process, no WebView; WPF edition (frozen): .NET 8 / WPF, zero third-party NuGet dependencies
+- Rust edition: Tauri 2 backend + vanilla HTML/CSS/TS frontend (no framework); Qt edition (experimental): C++ Qt6 Widgets, single process, no WebView; egui edition (experimental): pure Rust (eframe/egui 0.36.2 + tray-icon), single process, no WebView, no Node toolchain; WPF edition (frozen): .NET 8 / WPF, zero third-party NuGet dependencies
 - UI design and layout adapted from [KimiCodeBar](https://github.com/xifandev/KimiCodeBar) (MIT) by [@xifandev](https://github.com/xifandev)
 - Skill management feature referenced from [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard) by [@perinchiang](https://github.com/perinchiang)
 - Quota logic adapted from [kimi-planbar](https://github.com/baigong-ai/kimi-planbar) (MIT) — same token sources, endpoint, and cache/retry strategy

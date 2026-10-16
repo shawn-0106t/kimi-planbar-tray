@@ -67,7 +67,9 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: rust/src-tauri
+          workspaces: |
+            rust/src-tauri
+            egui
 
       - name: Cargo fmt
         working-directory: rust/src-tauri
@@ -97,4 +99,23 @@ jobs:
 
       - name: Cargo test
         working-directory: rust/src-tauri
+        run: cargo test --locked
+
+      # egui edition (experimental, test-only): same compile-level gate on its
+      # own crate; the runtime --test-* self-checks stay local-only, same as
+      # rust/ (no credentials or interactive desktop on hosted runners)
+      - name: egui Cargo fmt
+        working-directory: egui
+        run: cargo fmt --check
+
+      - name: egui Cargo clippy
+        working-directory: egui
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: egui Cargo build
+        working-directory: egui
+        run: cargo build --locked
+
+      - name: egui Cargo test
+        working-directory: egui
         run: cargo test --locked

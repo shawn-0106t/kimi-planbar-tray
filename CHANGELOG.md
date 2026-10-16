@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Tag-triggered release automation: pushing a `v*` tag now builds the release exe on CI, runs the packager, and opens a draft GitHub Release with all three assets attached — publishing stays a manual decision.
 - Experimental egui edition (Phase 1 + Phase 2 + Phase 3): the headless core ported from rust/ (credentials, quota, polling, settings, skills, update, theme_watch, state) with the Tauri dependencies removed, plus `--test-fetch`/`--test-update` output parity with the Rust edition. Phase 2 adds the tray icon and the main panel at SPEC 10-15 parity: left-click toggle, 10 s hover-refresh throttle, focus-loss auto-hide with the 300 ms re-entry guard, enter/exit slide+fade animations, the 140 ms hover glow, and Moonlit/Moondark themes. Phase 3 completes the four-window parity: the Settings window (theme radios, refresh-interval pills, autostart checkbox, Save chain with live theme apply + polling reschedule, draggable titlebar), the read-only Skills window (lazy one-shot scan with cache, grouped list, 2-line description clamp with hover tooltips, themed scrollbar, `112 skills` verified against the filesystem on the dev machine), and the tray right-click menu at the cursor (edge clamping, bottom-edge flip-up, Open/Refresh/Settings/Skills/Exit, focus-loss close) — `--test-ui` now constructs all four windows and prints `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`.
+- egui edition completion (Phase 4 + Phase 5): a full SPEC 10-21 parity audit (99 PASS / 2 minor DEVIATION / 6 UNTESTABLE, cross-edition mutex matrix 9/9, mixed-DPI audit, same-machine perf comparison — 91 ms cold start and a ~21.8 MB single exe vs 1060 ms + WebView2 for the Rust build) with two real parity fixes (mixed-DPI window positioning via `GetDpiForWindow`, first-open-only centering for the settings/skills windows), two code-review fix rounds (root close guard for Alt+F4/WM_CLOSE, PID-filtered HWND lookup, quit-shortcut/zoom hardening), CI coverage (the same fmt/clippy/build/test gate now runs on `egui/` in ci.yml), and the final positioning decision: **experimental test-only, like qt/** — buildable from source, not distributed via Releases.
+
+### Changed
+- The version bump checklist grows from 9 to 11 files: the egui/ edition's version (`egui/Cargo.toml` + the `kimi-planbar-tray-egui` entry in `egui/Cargo.lock`) now follows the rust/qt sync list (1.7.3) instead of its independent 0.1.0. The migration plan and handoff docs moved to `docs/archive/` (`EGUI-MIGRATION.md`, `HANDOFF-egui.md`).
 
 ## [1.7.3] - 2026-10-10
 
@@ -127,6 +131,10 @@ Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly
 ### 新增
 - tag 触发的发版自动化：push `v*` tag 后在 CI 上构建 release exe、运行打包脚本并创建挂好三件资产的 draft GitHub Release——发布仍为手动决策。
 - 实验性 egui 版（Phase 1 + Phase 2 + Phase 3）：从 rust/ 移植无头业务核心（credentials、quota、polling、settings、skills、update、theme_watch、state）并去除 Tauri 依赖，`--test-fetch`/`--test-update` 输出与 Rust 版逐字段一致。Phase 2 落地托盘图标与主面板，达到 SPEC 10-15 parity：左键 toggle、hover 刷新 10s 节流、失焦自动收起 + 300ms 再入防抖、出入场滑入淡入动画、140ms hover 光晕、Moonlit/Moondark 双主题。Phase 3 补齐四窗 parity：设置窗（主题单选、刷新间隔丸、开机自启复选框、Save 链路含主题实时生效与轮询重排、可拖动标题栏）、Skills 只读窗（首开懒扫描 + 缓存、分组列表、描述两行截断 + 悬停完整提示、主题化滚动条，开发机上 `112 skills` 与文件系统逐一核对）、托盘右键菜单（光标定位、右缘钳制、底边上翻、Open/Refresh/Settings/Skills/Exit、失焦关闭）——`--test-ui` 现构造全部四窗并输出 `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`。
+- egui 版完结（Phase 4 + Phase 5）：SPEC 10-21 全面 parity 审计（99 PASS / 2 项轻微偏差 / 6 项环境不可测，跨版本互斥矩阵 9/9，混合 DPI 审计，同机性能对照——冷启动 91 ms、单 exe ~21.8 MB，对比 Rust 版 1060 ms + WebView2），修复两处真实 parity bug（经 `GetDpiForWindow` 的混合 DPI 窗口定位、设置/Skills 窗仅首开居中），两轮 code review 修复（Alt+F4/WM_CLOSE 根窗口关闭守卫、按 PID 过滤的 HWND 查找、退出快捷键/缩放加固），CI 接入（ci.yml 对 `egui/` 运行同款 fmt/clippy/build/test 门禁），以及最终定位决策：**experimental 测试版，与 qt/ 同款**——仅从源码构建，不随 Releases 分发。
+
+### 变更
+- 版本 bump 清单从 9 处扩展为 11 处：egui/ 版本号（`egui/Cargo.toml` + `egui/Cargo.lock` 的 `kimi-planbar-tray-egui` 条目）改为随 rust/qt 主清单同步（1.7.3），不再独立维护 0.1.0。迁移方案与交接文档移入 `docs/archive/`（`EGUI-MIGRATION.md`、`HANDOFF-egui.md`）。
 
 ## [1.7.3] - 2026-10-10
 

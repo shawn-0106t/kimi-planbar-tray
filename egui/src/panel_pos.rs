@@ -11,7 +11,7 @@
 // the window's scale follows the monitor the WINDOW sits on (see
 // window_dpi_scale) and every positioning entry point now converts through
 // GetDpiForWindow of its own native window — the same physical landing as
-// rust/'s PhysicalPosition calls. See docs/EGUI-MIGRATION.md section 2.
+// rust/'s PhysicalPosition calls. See docs/archive/EGUI-MIGRATION.md section 2.
 
 use egui::viewport::{ViewportCommand, ViewportId};
 use egui::{Context, Vec2};
