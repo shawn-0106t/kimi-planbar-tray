@@ -1,0 +1,40 @@
+[package]
+name = "kimi-planbar-tray-egui"
+version = "1.7.3"
+edition = "2021"
+description = "Kimi Code quota tray app — egui edition (pure-Rust UI, no WebView)"
+publish = false
+
+[dependencies]
+# Pinned exact versions: the egui viewport API churns between releases, so a
+# spike that compiles today must keep compiling while later phases reuse it.
+eframe = { version = "=0.36.2", default-features = true, features = ["glow", "wgpu"] }
+egui = "0.36.2"
+tray-icon = "=0.26.1"
+# Business core, same versions as rust/src-tauri/Cargo.toml (Phase 1 port)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "sync"] }
+reqwest = { version = "0.13", features = ["json"] }
+regex = "1"
+chrono = { version = "0.4", features = ["serde"] }
+winreg = "0.55"
+# Logo + button-icon decoding (PNG only; icons/*.png are pre-rasterized from
+# the SVGs in assets/icons/ with headless Edge, see docs/archive/EGUI-MIGRATION.md)
+image = { version = "0.25", default-features = false, features = ["png"] }
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_HiDpi",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+    "Win32_System_Console",
+    "Win32_System_IO",
+    "Win32_Storage_FileSystem",
+] }
+
+[profile.release]
+opt-level = 2

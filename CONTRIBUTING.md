@@ -8,6 +8,7 @@ Thanks for your interest in contributing! This is a small Windows-only tray app,
 |---|---|---|
 | `rust/` | Actively developed (Tauri 2 + Rust backend + vanilla HTML/CSS/TypeScript frontend) | ✅ Welcome |
 | `qt/` | Experimental C++ Qt6 edition at feature parity | Only to mirror a `rust/` change; discuss in an issue first |
+| `egui/` | Experimental pure-Rust egui edition (test-only, not distributed via Releases) at feature parity | Only to mirror a `rust/` change; discuss in an issue first |
 | `wpf/` | Original .NET 8 / WPF edition, **frozen at v1.5.0** | ❌ Do not add features |
 
 `docs/SPEC.md` (Chinese, authoritative) and `docs/SPEC_EN.md` (English mirror) are the behavior/UI contract — when behavior is ambiguous, the SPEC wins. If your change alters documented behavior, update both files in the same PR. `docs/archive/` holds frozen historical handoff documents written in Chinese; they are records, not guidance.
@@ -32,7 +33,7 @@ CI runs on every PR and `main` is branch-protected, so your PR must pass:
 
 - `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings`
 - `npm ci` + `npx tsc --noEmit` + `npm run build`
-- `cargo build --locked` + `cargo test --locked`
+- `cargo build --locked` + `cargo test --locked` (the same fmt/clippy/build/test gate also runs on the `egui/` crate)
 - A full-history gitleaks secret scan
 
 CI only covers the compile level; verify runtime behavior locally with the headless self-checks (they run before the single-instance mutex, so they work while a tray instance is live):
@@ -55,7 +56,7 @@ For visual changes, compare against the `docs/*.png` baselines (`docs/SPEC.md` c
 
 ## Issues & security
 
-- Bugs and feature requests: open an issue with your Windows version, the edition you run (rust/qt), and steps to reproduce.
+- Bugs and feature requests: open an issue with your Windows version, the edition you run (rust/qt/egui), and steps to reproduce.
 - Security: use GitHub's private vulnerability reporting — see [SECURITY.md](SECURITY.md). Do not open public issues for security matters.
 - Be kind: this project follows the Contributor Covenant — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
@@ -71,6 +72,7 @@ For visual changes, compare against the `docs/*.png` baselines (`docs/SPEC.md` c
 |---|---|---|
 | `rust/` | 活跃开发版（Tauri 2 + Rust 后端 + vanilla HTML/CSS/TypeScript 前端） | ✅ 欢迎 |
 | `qt/` | 实验性 C++ Qt6 版，功能对齐 | 仅镜像 `rust/` 的改动；请先在 issue 讨论 |
+| `egui/` | 实验性纯 Rust egui 版（仅供测试，不随 Releases 分发），功能对齐 | 仅镜像 `rust/` 的改动；请先在 issue 讨论 |
 | `wpf/` | 原 .NET 8 / WPF 版，**冻结于 v1.5.0** | ❌ 勿加功能 |
 
 `docs/SPEC.md`（中文，权威）与 `docs/SPEC_EN.md`（英文镜像）是行为/UI 契约——行为有歧义时以 SPEC 为准。改动涉及已文档化的行为时，请在同一 PR 内同步两个文件。`docs/archive/` 是冻结的中文历史交接文档，仅为记录，不是指引。
@@ -95,7 +97,7 @@ CI 在每个 PR 上运行且 `main` 受分支保护，PR 必须通过：
 
 - `cargo fmt --check` 与 `cargo clippy --all-targets --locked -- -D warnings`
 - `npm ci` + `npx tsc --noEmit` + `npm run build`
-- `cargo build --locked` + `cargo test --locked`
+- `cargo build --locked` + `cargo test --locked`（同款 fmt/clippy/build/test 门禁也会对 `egui/` crate 运行）
 - 全历史 gitleaks 密钥扫描
 
 CI 只覆盖编译级；请用无头自检在本地验证运行时行为（先于单实例互斥锁执行，可与运行中的托盘实例并存）：
@@ -118,6 +120,6 @@ kimi-planbar-tray.exe --test-ui       # 构造全部 4 个窗口，打印 OK
 
 ## Issue 与安全
 
-- Bug 与功能请求：开 issue 并附 Windows 版本、使用的版本（rust/qt）与复现步骤。
+- Bug 与功能请求：开 issue 并附 Windows 版本、使用的版本（rust/qt/egui）与复现步骤。
 - 安全问题：使用 GitHub 私密漏洞报告——见 [SECURITY.md](SECURITY.md)。勿为安全问题开公开 issue。
 - 保持友善：本项目遵循 Contributor Covenant——见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。

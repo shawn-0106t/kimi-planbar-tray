@@ -45,10 +45,11 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 
 ## 3. System Architecture
 
-### 3.1 Repository layout (monorepo, three editions)
+### 3.1 Repository layout (monorepo, four editions)
 
-- `rust/` — **one of the two actively developed lines (dual-track with `qt/`)**: Tauri 2 + Rust backend + vanilla HTML/CSS/TS frontend (Vite multi-page build, no framework)
-- `qt/` — **the other active line (completed, experimental)**: C++ Qt6 + Qt Widgets, no WebView dependency; reached parity with rust/ 1.7.3; see `docs/archive/QT-MIGRATION.md` (archived) for the architecture plan and module mapping
+- `rust/` — **one of the actively developed lines (dual-track with `qt/`)**: Tauri 2 + Rust backend + vanilla HTML/CSS/TS frontend (Vite multi-page build, no framework)
+- `qt/` — **an active line (completed, experimental)**: C++ Qt6 + Qt Widgets, no WebView dependency; reached parity with rust/ 1.7.3; see `docs/archive/QT-MIGRATION.md` (archived) for the architecture plan and module mapping
+- `egui/` — **one of the actively developed lines (completed, experimental — test-only: builds a standalone exe from source, NOT distributed via Releases)**: Rust egui + tray-icon, no WebView dependency, no Node toolchain; at SPEC parity with rust/ (Phase 4 audit: 99 PASS / 2 minor deviations / 6 untestable); its version follows the shared sync list (1.7.3); see `docs/archive/EGUI-MIGRATION.md` (archived) for the plan and phase record
 - `wpf/` — original .NET 8 / WPF, frozen at v1.5.0, read-only reference, do not delete or modify
 - `docs/` — this spec, screenshot baselines, archived history
 - Scripts live under `scripts/`: `scripts/release/` (`make_release_zip.py` release packaging, `make_screenshots.py` README screenshot generation, `verify_icons.py` byte-compares icons against the library) and `scripts/diagnostics/` (one-off diagnostic/measurement scripts)
@@ -84,6 +85,8 @@ Single process. All 4 WebView windows are created at startup (hidden) and are al
 
 > Qt edition (`qt/`): the backend modules above and the 4 frontend pages merge into a single C++ process — there is no frontend/backend boundary and no IPC; see the module mapping in `docs/archive/QT-MIGRATION.md` section 3.
 
+> egui edition (`egui/`): the same business modules (credentials / quota / polling / settings / skills / update / theme_watch / state) are copied into a single Rust process with the Tauri dependencies removed — AppHandle / emit are replaced by an in-process `AppCtx` (shared state + an `AppEvent` event bus); see the mapping and status in `docs/archive/EGUI-MIGRATION.md` sections 2 and 6.
+
 ### 3.4 Frontend/backend boundary (Tauri IPC, rust/ edition only)
 
 Commands (registered in `lib.rs`, called by the frontend via `invoke`):
@@ -116,6 +119,8 @@ All 4 pages share `common.ts` (DTO types + formatting helpers + theme init) and 
 - **Vite + TypeScript** — frontend build; no runtime framework
 
 **qt/ edition**: C++17 + **Qt 6** (Widgets / Network / Svg only, no third-party libraries); built with **CMake + MSVC**; distributed via windeployqt dynamic linking (the LGPL-compliant route, directory form, no single exe); one-shot packaging via `PYTHONUTF8=1 python qt/package_release.py` → `qt/dist/`. A point-by-point comparison with the Rust stack is in `docs/archive/QT-MIGRATION.md` section 2.
+
+**egui/ edition**: **egui 0.36.2 (eframe pinned `=0.36.2`, glow as the primary renderer with wgpu as the fallback) + tray-icon 0.26.1** — pure-Rust immediate-mode UI, no WebView, no Node toolchain; the business stack (tokio / reqwest / serde / regex / chrono / winreg / windows) matches the rust/ edition's versions. Stack comparison, target architecture, and phase record in `docs/archive/EGUI-MIGRATION.md`.
 
 ## 5. Data Flow
 
@@ -165,19 +170,29 @@ PYTHONUTF8=1 python package_release.py   # one-shot rebuild + windeployqt into q
 
 Note: the Qt edition is a GUI-subsystem exe, so `--test-*` self-check output is printed via `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` (covers both Git Bash pipes and cmd consoles); AttachConsole + `CONOUT$` is only the fallback. Before rebuilding, kill any running qt GUI process by PID/path (exe file lock; the image name `kimi-planbar-tray.exe` is shared with the rust edition — never use `taskkill /IM`).
 
+**egui/ edition**: prerequisites are Windows + Rust stable (MSVC).
+
+```bash
+cd egui
+cargo build --release   # release exe -> target/release/kimi-planbar-tray-egui.exe
+```
+
+Note: debug builds are console-subsystem (with a console window) and release builds are GUI-subsystem (no console); the `--test-*` self-check output goes through the same `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` pattern as the qt/ edition, so it works under both. The egui edition is complete (experimental, test-only); the implementation record lives in `docs/archive/EGUI-MIGRATION.md` section 6.
+
 ### 7.2 Testing
 
 There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those). Verification methods (details in chapter 19):
 
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
+- The egui/ edition implements the same `--test-*` args with field-identical output to the rust/ edition (directly diffable on the same machine); the skills frontmatter-parser tests run via `cd egui && cargo test` (`--test-ui` is fully implemented: it constructs and shows all four windows, prints `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`, and auto-exits after ~6 s)
 - Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
-- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
+- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests, with the same fmt/clippy/build/test gate (`--locked`) also running on the egui/ crate) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
 - Dependency updates: `.github/dependabot.yml` enables weekly Dependabot updates for cargo (`/rust/src-tauri`), npm (`/rust`), and github-actions (minor+patch grouped into one PR per ecosystem, majors open individual PRs); Dependabot alerts and security updates are enabled on the repo
 
 ### 7.3 Release
 
-1. Bump the version in all these places (9 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, and the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`; also sync the "Current version" line in `AGENTS.md`, finalize the release's bilingual `CHANGELOG.md` entry (English + Chinese, moved out of `Unreleased`), and keep this checklist in sync (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision)
+1. Bump the version in all these places (11 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`, `version` in `egui/Cargo.toml`, and the `kimi-planbar-tray-egui` entry in `egui/Cargo.lock` (cargo rewrites it alongside `Cargo.toml`); also sync the "Current version" line in `AGENTS.md`, finalize the release's bilingual `CHANGELOG.md` entry (English + Chinese, moved out of `Unreleased`), and keep this checklist in sync (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision; the egui/ edition is the same — experimental, test-only, stays out of the release flow; user decision — but its version follows the shared sync list and is part of the 11-file list)
 2. **Automated path (preferred)**: push the `v<x.y.z>` tag — `.github/workflows/release.yml` (`v*` tag trigger) builds the release exe on a windows runner, runs the packager, and opens a **draft** GitHub Release with the three assets (`KimiPlanbarTray-rust.exe`, the source-snapshot zip, `SHA256SUMS.txt`) attached; review the title/notes against `CHANGELOG.md`, then publish. Steps 3-4 below are what the workflow automates, kept as the manual fallback
 3. `npx tauri build` produces the release exe (manual fallback)
 4. `python scripts/release/make_release_zip.py` packages a zip of the source snapshot + the Rust release exe and generates `SHA256SUMS.txt`: each is written as `<name>.part`, the checksum file is renamed into place first and the zip last, and a failed zip rename rewrites the previous checksum file, so a failed run always leaves the previous consistent pair (a read-only target, a directory squatting on the target name, or a read-only leftover `.part` is rejected by name before anything is built; an empty source set aborts instead of shipping binaries only; the only residual windows are a process kill between the two renames and an exclusive lock taken at rename time)
@@ -194,14 +209,15 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 
 ## 9. Maintenance Boundaries and Documentation Map
 
-- New features go into the two active lines `rust/` and `qt/` (dual-track, sharing Part 2 as the functional baseline); `wpf/` is frozen as a read-only reference
-- When behavior is ambiguous: Part 2 is the contract, `wpf/` is the reference implementation; the Qt edition's architecture plan and module mapping live in `docs/archive/QT-MIGRATION.md`
+- New features go into the three active lines `rust/`, `qt/`, and `egui/` (Part 2 is the shared functional baseline); `wpf/` is frozen as a read-only reference; the experimental egui edition's (test-only) behavioral parity is gated by the phase acceptance record in `docs/archive/EGUI-MIGRATION.md` (completed and archived)
+- When behavior is ambiguous: Part 2 is the contract, `wpf/` is the reference implementation; the Qt edition's architecture plan and module mapping live in `docs/archive/QT-MIGRATION.md`; the egui edition's architecture plan and phase record live in `docs/archive/EGUI-MIGRATION.md`
 
 | Document | Role |
 |---|---|
 | `README.md` / `README_CN.md` | User-facing: features, download, usage, build |
 | `docs/SPEC.md` (the Chinese original of this document) | The single authoritative spec: project-level + UI/behavior details |
 | `docs/archive/QT-MIGRATION.md` | Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): case survey, stack comparison, module mapping, phased roadmap |
+| `docs/archive/EGUI-MIGRATION.md` | egui edition (Rust egui + tray-icon) migration plan (archived; development complete): stack choice, target architecture, phase plan and status |
 | `AGENTS.md` | Onboarding index for AI coding agents (structure, commands, trap summary) |
 | `.github/workflows/ci.yml` | GitHub Actions checks: gitleaks full-history secret scan + build gate (push/PR triggered, see 7.2) |
 | `.github/dependabot.yml` | Dependabot weekly dependency updates: cargo/npm/github-actions (see 7.2) |
@@ -244,7 +260,7 @@ All three windows are: **frameless** (`WindowStyle=None`), **transparent backgro
 - Behavior: does not auto-close on focus loss; only the ✕ button or "Save" closes it. Singleton, reused.
 
 ### 10.3 Tray right-click menu (TrayMenuWindow)
-- Size: `Width=150`, height `SizeToContent=Height` (auto-fits 4 items)
+- Size: `Width=150`, height `SizeToContent=Height` (auto-fits 5 items; the menu carries the Skills item since v1.6, see 21.3)
 - Root Border: `CornerRadius=12`, `Margin=5`, `Padding=4`, background `WindowBgBrush`
 - Shadow: `DropShadowEffect BlurRadius=20, ShadowDepth=2, Opacity=0.3, Color=#000000`
 - Positioning (`ShowAtCursor`):
@@ -411,6 +427,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 ### 15.3 Others
 - **Hover glow** (Rust edition): clickable controls (ActionButton, tray menu items, the version-row card, the Skills Refresh mini-button) fade in an accent-colored outer glow on hover — a 1 px accent ring at 35% alpha plus an 8 px halo at 18% alpha (dark theme: 45% / 22%, 10 px), with the background-color change transitioned in sync; all **140 ms ease**. The glow is pre-painted on an `::after` pseudo-element and only its `opacity` is transitioned (the box-shadow itself never animates — compositor-only, no per-frame repaint).
 - **Hover glow (Qt edition deviation)**: the same visual target is self-drawn (`windows/hoverglow.h`: an independent halo child widget of the top-level window, expanding 8/10 px beyond the target control's rect, concentric rounded rings with alpha decreasing outward, 140 ms OutCubic fade in/out) and never touches the target control's own QSS painting; the earlier QGraphicsDropShadowEffect approach was abandoned (enabling it with blurRadius=0 renders the whole widget invisible, and toggling enable/disable inside a frameless translucent window flickers).
+- **Hover glow (egui edition deviation)**: the same visual target is painted by the egui painter (`ui/widgets.rs` `GlowTracker`: an animated 1 px accent ring plus a halo with alpha decreasing outward, 140 ms CSS ease fade in/out — per-frame immediate-mode repainting), visually equivalent to the CSS pseudo-element approach.
 - All other controls (theme radios, interval pills, the checkbox, the title-bar ✕) switch their hover state instantly. Progress bar width changes are not animated (the width is set directly).
 
 ---
@@ -538,7 +555,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 |---|---|---|
 | `--test-fetch` | Fetch quota once, print JSON | JSON of `QuotaResult` (indented, non-ASCII not escaped) |
 | `--test-update` | Run one version check | Single line: `local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
+| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`; the egui edition prints the same four lines — settings/skills/menu landed in Phase 3, with the menu placed at the current cursor position); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
 | `--test-skills` (Qt edition only) | Parse two built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests) | Prints `PASS` on success, diff details plus a non-zero exit on failure |
 | `--screenshot <path> [--dark] [--mock]` (WPF edition only) | Render the main panel as PNG with real (or mocked) quota data + the specified theme (for the README) | `saved: <path>` |
 

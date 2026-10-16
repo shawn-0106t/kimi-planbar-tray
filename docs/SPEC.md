@@ -45,10 +45,11 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 ## 3. 系统架构
 
-### 3.1 仓库结构（monorepo 三版本）
+### 3.1 仓库结构（monorepo 四版本）
 
 - `rust/` — **活跃开发线之一（与 `qt/` 双轨并行）**：Tauri 2 + Rust 后端 + vanilla HTML/CSS/TS 前端（Vite 多页构建，无框架）
 - `qt/` — **活跃开发线之一（已完成，实验性质）**：C++ Qt6 + Qt Widgets，无 WebView 依赖；已达到与 rust/ 1.7.3 的 parity；架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`（已归档）
+- `egui/` — **活跃开发线之一（已完成，实验性质——仅供测试：可从源码构建独立 exe，不随 Releases 分发）**：Rust egui + tray-icon，无 WebView 依赖、无 Node 工具链；已达到与 rust/ 的 SPEC parity（Phase 4 审计 99 PASS / 2 项轻微偏差 / 6 项环境不可测）；版本随主清单同步（1.7.3）；方案与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`（已归档）
 - `wpf/` — 原版 .NET 8 / WPF，冻结于 v1.5.0，只读参考，勿删勿改
 - `docs/` — 本规格、截图基准、归档历史
 - 脚本均在 `scripts/` 下：`scripts/release/`（`make_release_zip.py` 发布打包、`make_screenshots.py` README 截图生成、`verify_icons.py` 图标与库逐字节比对）、`scripts/diagnostics/`（一次性诊断/测量脚本）
@@ -84,6 +85,8 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 > Qt 版（`qt/`）：上述后端模块与 4 个前端页面合并进同一 C++ 进程，无前后端边界与 IPC；模块与文件映射见 `docs/archive/QT-MIGRATION.md` 第 3 节。
 
+> egui 版（`egui/`）：同一批业务模块（credentials / quota / polling / settings / skills / update / theme_watch / state）拷贝进同一 Rust 进程并去除 Tauri 依赖——AppHandle / emit 换成进程内 `AppCtx`（共享状态 + `AppEvent` 事件总线）；映射与实施状态见 `docs/archive/EGUI-MIGRATION.md` 第 2、6 节。
+
 ### 3.4 前后端边界（Tauri IPC，仅 rust/ 版）
 
 命令（`lib.rs` 注册，前端 `invoke`）：
@@ -116,6 +119,8 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 - **Vite + TypeScript** — 前端构建；无运行时框架
 
 **qt/ 版**：C++17 + **Qt 6**（仅 Widgets / Network / Svg，无第三方库）；**CMake + MSVC** 构建；windeployqt 动态链接分发（LGPL 合规路线，目录形态，无单 exe）；一键打包 `PYTHONUTF8=1 python qt/package_release.py` → `qt/dist/`。与 Rust 栈的逐项对比见 `docs/archive/QT-MIGRATION.md` 第 2 节。
+
+**egui/ 版**：**egui 0.36.2（eframe 锁定 `=0.36.2`，glow 为主渲染后端、wgpu 备选）+ tray-icon 0.26.1**——纯 Rust 即时模式自绘 UI，无 WebView、无 Node 工具链；业务栈（tokio / reqwest / serde / regex / chrono / winreg / windows）与 rust/ 版同源同版本。选型对比、目标架构与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`。
 
 ## 5. 数据流
 
@@ -165,19 +170,29 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 
 注意：Qt 版为 GUI 子系统 exe，`--test-*` 自检输出直接 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))`（Git Bash 管道与 cmd 控制台均覆盖），AttachConsole + `CONOUT$` 仅作兜底。构建前需先按 PID/路径结束 qt GUI 进程（exe 文件锁；与 rust 版同名 `kimi-planbar-tray.exe`，勿用 `taskkill /IM`）。
 
+**egui/ 版**：前提 Windows + Rust stable（MSVC）。
+
+```bash
+cd egui
+cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.exe
+```
+
+注意：debug 构建为控制台子系统（带控制台窗口），release 构建为 GUI 子系统（不弹控制台）；`--test-*` 自检输出走 qt/ 版同款 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` 模式，两种构建下均可用。egui 版已全部完结（实验性质、仅供测试），实施记录见 `docs/archive/EGUI-MIGRATION.md` §6。
+
 ### 7.2 测试
 
 除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
 
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
+- egui/ 版实现同名 `--test-*` 参数，输出与 rust/ 版逐字段一致（同一台机器可直接 diff）；skills frontmatter 解析单测随 `cd egui && cargo test` 运行（`--test-ui` 已实装：构造并显示全部四窗后输出 `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK` 四行，约 6s 自动退出）
 - 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
 - 交付前按用户全局规范派独立 subagent 做 code review
-- 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；push 到 main 的纯文档变更（`**.md`、`docs/`）不触发 CI（`paths-ignore` 仅挂在 `push` 触发器上），PR 一律触发以保证 required check 回报；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
+- 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测，egui/ crate 上亦跑同款 fmt/clippy/build/test（`--locked`））；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；push 到 main 的纯文档变更（`**.md`、`docs/`）不触发 CI（`paths-ignore` 仅挂在 `push` 触发器上），PR 一律触发以保证 required check 回报；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
 - 依赖更新：`.github/dependabot.yml` 为 cargo（`/rust/src-tauri`）、npm（`/rust`）、github-actions 三生态开 weekly Dependabot（minor+patch 按生态合组单 PR、major 单开）；repo 已开 Dependabot alerts 与 security updates
 
 ### 7.3 发布
 
-1. 版本号同步（9 处）：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`rust/src-tauri/Cargo.lock` 的 `kimi-planbar-tray` 条目、`rust/package-lock.json` 的根版本（顶层与 `packages[""]` 两处；`cd rust && npm install` 可让 npm 自行同步）、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)`、`qt/src/main.cpp` 的 `setApplicationVersion`、`qt/resources.rc` 的 `FILEVERSION`/`PRODUCTVERSION` 与 `FileVersion`/`ProductVersion` 字符串；另同步 `AGENTS.md` 顶部 "Current version" 行、`CHANGELOG.md`（双语条目——英文 + 中文，从 `Unreleased` 移出定稿）与本清单（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定）
+1. 版本号同步（11 处）：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`rust/src-tauri/Cargo.lock` 的 `kimi-planbar-tray` 条目、`rust/package-lock.json` 的根版本（顶层与 `packages[""]` 两处；`cd rust && npm install` 可让 npm 自行同步）、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)`、`qt/src/main.cpp` 的 `setApplicationVersion`、`qt/resources.rc` 的 `FILEVERSION`/`PRODUCTVERSION` 与 `FileVersion`/`ProductVersion` 字符串、`egui/Cargo.toml` 的 `version`、`egui/Cargo.lock` 的 `kimi-planbar-tray-egui` 条目（cargo 随 `Cargo.toml` 一并重写）；另同步 `AGENTS.md` 顶部 "Current version" 行、`CHANGELOG.md`（双语条目——英文 + 中文，从 `Unreleased` 移出定稿）与本清单（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定；egui/ 版同理：experimental 测试版，不纳入发布流程——用户已定，但其版本号随主清单同步，在上述 11 处内）
 2. **自动路径（首选）**：push `v<x.y.z>` tag——`.github/workflows/release.yml`（`v*` tag 触发）在 windows runner 上构建 release exe、运行打包脚本并创建挂好三件资产（`KimiPlanbarTray-rust.exe`、源码快照 zip、`SHA256SUMS.txt`）的 **draft** Release；按 `CHANGELOG.md` 核对标题/说明后手动 Publish。第 3-4 步即该 workflow 自动化的内容，保留为手动兜底
 3. `npx tauri build` 出 release exe（手动兜底）
 4. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`：两者各先写 `<name>.part`，校验和文件先改名、zip 最后改名，zip 改名失败会把旧校验和原样写回，故失败后留下的始终是**上一轮一致的那一对**（只读目标、占位目录或只读的残留 `.part` 会在构建前被指名拒绝；源码集为空则直接报错不产包；残留窗口只有两处——两次改名之间被杀进程、改名瞬间被别的进程独占）
@@ -194,8 +209,8 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 
 ## 9. 维护边界与文档地图
 
-- 新功能进 `rust/` 与 `qt/` 两条活跃线（双轨并行，功能基线以第二篇为准）；`wpf/` 冻结为只读参考
-- 行为歧义时：第二篇为契约，`wpf/` 为参考实现；Qt 版架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`
+- 新功能进 `rust/`、`qt/`、`egui/` 三条活跃线（功能基线以第二篇为准）；`wpf/` 冻结为只读参考；egui 版（实验性质、仅供测试）的行为一致性由 `docs/archive/EGUI-MIGRATION.md` 的 Phase 验收记录把关（已完结归档）
+- 行为歧义时：第二篇为契约，`wpf/` 为参考实现；Qt 版架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`；egui 版架构方案与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`
 
 | 文档 | 定位 |
 |---|---|
@@ -203,6 +218,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 | `docs/SPEC.md`（本文档） | 唯一权威规格：项目级 + UI/行为细则 |
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
 | `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
+| `docs/archive/EGUI-MIGRATION.md` | egui 版（Rust egui + tray-icon）迁移规划（已归档，开发完成）：选型、目标架构、Phase 计划与实施状态 |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
 | `.github/workflows/ci.yml` | GitHub Actions 检查：gitleaks 全历史密钥扫描 + 构建门禁（push/PR 触发，见 7.2） |
 | `.github/dependabot.yml` | Dependabot weekly 依赖更新：cargo/npm/github-actions（见 7.2） |
@@ -245,7 +261,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 - 行为：失焦不自动关闭；仅 ✕ 按钮或 "Save" 关闭。单例复用。
 
 ### 10.3 托盘右键菜单（TrayMenuWindow）
-- 尺寸：`Width=150`，高度 `SizeToContent=Height`（4 项自适应）
+- 尺寸：`Width=150`，高度 `SizeToContent=Height`（5 项自适应；v1.6 起菜单含 Skills 项，见 21.3）
 - 根 Border：`CornerRadius=12`，`Margin=5`，`Padding=4`，背景 `WindowBgBrush`
 - 阴影：`DropShadowEffect BlurRadius=20, ShadowDepth=2, Opacity=0.3, Color=#000000`
 - 定位（`ShowAtCursor`）：
@@ -412,6 +428,7 @@ PYTHONUTF8=1 python package_release.py   # 一键重建 Release + windeployqt �
 ### 15.3 其他
 - **悬停光晕**（Rust 版）：可点击控件（ActionButton、托盘菜单项、版本行卡片、Skills 的 Refresh 小按钮）悬停时淡入强调色外发光——1px 35% 透明 accent 描边 + 8px 18% 透明光晕（暗色主题为 45% / 22%、10px），背景色切换同步过渡，均为 **140ms ease**。实现上光晕预绘制在伪元素 `::after` 上、仅过渡其 `opacity`（box-shadow 本身不做动画，compositor-only，无逐帧 repaint）。
 - **悬停光晕（Qt 版偏差）**：同等视觉目标用自绘实现（`windows/hoverglow.h`：顶层窗的独立 halo 子 widget，目标控件矩形外扩 8/10px，同心圆角描边 alpha 由内向外递减，140ms OutCubic 渐显渐隐），完全不触碰目标控件自身的 QSS 绘制；`QGraphicsDropShadowEffect` 方案已废弃（blurRadius=0 启用会把整个 widget 渲染消失，且在无边框透明窗里 enable/disable 切换渲染路径会闪烁）。
+- **悬停光晕（egui 版偏差）**：同等视觉目标由 egui painter 自绘（`ui/widgets.rs` 的 `GlowTracker`：动画式 1px accent 描边圈 + 向外 alpha 递减 halo，140ms CSS ease 渐显渐隐，即即时模式逐帧重绘），视觉与 CSS 伪元素方案等价。
 - 其余控件（主题单选、间隔丸、复选框、标题栏 ✕）悬停态切换为瞬时。进度条宽度变化无动画（直接设宽度）。
 
 ---
@@ -539,7 +556,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 |---|---|---|
 | `--test-fetch` | 拉取一次额度，打印 JSON | `QuotaResult` 的 JSON（缩进格式、不转义非 ASCII） |
 | `--test-update` | 执行一次版本检查 | 单行：`local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
+| `--test-ui` | 应用当前主题后依次构造各窗口验证资源解析与页面加载 | 每窗一行 `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK`（Rust / Qt 版另有 `SkillsWindow OK`；egui 版输出相同四行——settings/skills/menu 三窗 Phase 3 起实装，并以当前光标位置落菜单窗）；异常时 `UI-FAIL: {异常类型}: {消息}` + InnerException 消息 |
 | `--test-skills`（仅 Qt 版） | 解析两个内置 frontmatter 测试夹具（移植 rust 版 `skills.rs` 的两个 cargo 单测） | 通过打印 `PASS`，失败打印差异详情并非零退出 |
 | `--screenshot <path> [--dark] [--mock]`（仅 WPF 版） | 真实（或模拟）额度数据 + 指定主题渲染主面板为 PNG（README 用） | `saved: <path>` |
 

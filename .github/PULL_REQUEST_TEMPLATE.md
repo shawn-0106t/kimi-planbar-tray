@@ -10,10 +10,10 @@
 
 ## Checklist / 检查清单
 
-- [ ] Changes target `rust/` (or are docs/community files); qt/ changes mirror a rust/ change and were discussed in an issue first
-      改动指向 `rust/`（或为文档/社区文件）；qt/ 改动须镜像 rust/ 的变更且已在 issue 中先行讨论
-- [ ] CI passes (fmt, clippy, tsc, vite build, cargo build/test, secret scan)
-      CI 通过（fmt、clippy、tsc、vite build、cargo build/test、密钥扫描）
+- [ ] Changes target `rust/` (or are docs/community files); qt/ or egui/ changes mirror a rust/ change and were discussed in an issue first
+      改动指向 `rust/`（或为文档/社区文件）；qt/ 或 egui/ 改动须镜像 rust/ 的变更且已在 issue 中先行讨论
+- [ ] CI passes (fmt, clippy, tsc, vite build, cargo build/test — rust/ and egui/, secret scan)
+      CI 通过（fmt、clippy、tsc、vite build、cargo build/test——rust/ 与 egui/、密钥扫描）
 - [ ] Runtime self-checks run locally (`--test-fetch` / `--test-ui`)
       已在本地执行运行时自检（`--test-fetch` / `--test-ui`）
 - [ ] Docs updated if behavior changed (`docs/SPEC.md` + `docs/SPEC_EN.md` kept in sync)
