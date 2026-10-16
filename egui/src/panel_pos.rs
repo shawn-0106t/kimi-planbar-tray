@@ -224,8 +224,12 @@ pub fn show_panel(ctx: &Context) {
 /// CenterScreen (SPEC 10.2 / 21.1): centered on the primary work area, size
 /// pinned on every open (DPI guard, same as show_panel). `focus` steals the
 /// foreground with the usual delayed retry; --test-ui passes false (the rust
-/// run_ui_test only calls show(), it never activates).
-pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool) {
+/// run_ui_test only calls show(), it never activates). `recenter` matches the
+/// singleton semantics the other editions have: the WPF window centers at
+/// construction (WindowStartupLocation) and rust/ at conf `center: true` —
+/// both only ONCE; later opens show the window where it was (a user drag
+/// survives). So the first open centers, later opens only re-pin the size.
+pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool, recenter: bool) {
     let s = primary_scale();
     let (left, top, right, bottom) = work_area_phys();
     let phys_x = (left + right) / 2.0 - w as f64 * s / 2.0;
@@ -239,30 +243,34 @@ pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool)
     };
     let win_s = window_dpi_scale(title, s);
     ctx.send_viewport_cmd_to(vp, ViewportCommand::InnerSize(egui::vec2(w, h)));
-    ctx.send_viewport_cmd_to(
-        vp,
-        ViewportCommand::OuterPosition(egui::pos2(
-            (phys_x / win_s) as f32,
-            (phys_y / win_s) as f32,
-        )),
-    );
+    if recenter {
+        ctx.send_viewport_cmd_to(
+            vp,
+            ViewportCommand::OuterPosition(egui::pos2(
+                (phys_x / win_s) as f32,
+                (phys_y / win_s) as f32,
+            )),
+        );
+    }
     ctx.send_viewport_cmd_to(vp, ViewportCommand::Visible(true));
     if focus {
         ctx.send_viewport_cmd_to(vp, ViewportCommand::Focus);
     }
-    record_rect(
-        if vp == vp_settings() {
-            "settings"
-        } else {
-            "skills"
-        },
-        WinRect {
-            x: phys_x,
-            y: phys_y,
-            w: w as f64 * s,
-            h: h as f64 * s,
-        },
-    );
+    if recenter {
+        record_rect(
+            if vp == vp_settings() {
+                "settings"
+            } else {
+                "skills"
+            },
+            WinRect {
+                x: phys_x,
+                y: phys_y,
+                w: w as f64 * s,
+                h: h as f64 * s,
+            },
+        );
+    }
 }
 
 /// Content height of the menu window (WPF SizeToContent equivalent, SPEC

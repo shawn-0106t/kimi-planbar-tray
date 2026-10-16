@@ -215,3 +215,36 @@ egui/
 3. **菜单右键重开 = 原窗重定位**：rust 版"先关旧实例再 new"在 egui 单例窗上等价于重新 InnerSize/OuterPosition/Visible（命令按入队序执行，先定位后显示顺序可靠）。
 4. **✕/✓/⟳ 画原语不用字形**：Segoe UI / msyh 不保证覆盖 U+2715/U+2713/U+27F3，直接两段线/折线/弧线+三角绘制，跨机像素一致（与 CSS 字形视觉等价，记为微小偏差）。
 5. **子窗 pass 里不能碰 App**：deferred viewport 回调是 `Fn + Send + Sync + 'static`，捕获 `Arc<AppCtx>` + `Arc<WinBus>`；App 持有的 tray（Rc）不可跨线程——图标纹理经 `WinBus.icons: OnceLock<Icons>` 下发（`Icons` 派生 Clone，TextureHandle 本就是引用计数）。
+
+### Phase 4 — SPEC parity 全面审计（已完成，2026-10-17）
+
+**范围**：SPEC 10–21 逐章对抗式 checklist（每条款 PASS / DEVIATION / UNTESTABLE + 证据）、跨版本互斥锁实测、混合 DPI/多屏审计、性能正式测量、双主题截图结构化对比、真实 parity bug 修复。审计正文与全部原始数据（脚本、日志、截图、采样）在 `egui/target/phase4-shots/`（gitignored）：`checklist.md` 为结论正本，`mutex_matrix.log` / `test_while_locked.log` / `qt_holder_test.log` / `reopen-settings-{before,after}.log` / `menu-real-{egui,rust}.log` / `menu-2nd-egui.log` / `cold-{egui,rust}.log` / `geom_compare4.log` / `shoot_themes.log` 为实测原始记录。
+
+**修复的 parity bug（2 处，均已过静态链 + 实测回归）**：
+
+1. **混合 DPI 多屏定位**（暂停前已入库）：`panel_pos.rs` 新增 `window_dpi_scale`——`ViewportCommand::OuterPosition` 是逻辑点且乘**窗口自身** scale（窗口所在屏），混合 DPI 下须按 `GetDpiForWindow` 换算（SPEC 20 启动器屏陷阱族）；`show_panel` / `show_centered` / `show_menu_at` 三个入口全部改走该换算。实测：设置窗拖至 125% 副屏（dpi 120）后重开精确落回主屏中心 (986,324)（修复前公式会落 (547,180)）；菜单落副屏光标点 (3840,930) 实测 (1379,653) vs 理论 (1378.75,652.9)。
+2. **设置/Skills 窗每次重开被强制居中**（本次审计发现）：`show_centered` 原实现每次打开都居中，偏离 rust/（conf `center: true` 一次性）与 WPF（WindowStartupLocation 构造期一次性）的单例语义——用户拖动后的位置重开即丢。修复：`show_centered(..., recenter)` 首开居中、后续仅 pin 尺寸（DPI 守卫保留）；`App` 增 `settings_placed` / `skills_placed` 闩。回归实测：首开居中 (986,324) ✓，移至副屏 (6300,1080) → WM_CLOSE 隐藏 → 托盘菜单重开**位置保留 (6300,1080)** ✓。
+
+**checklist 结论**（正本 `phase4-shots/checklist.md`，含每条证据引用）：PASS 99 / DEVIATION 2（均 minor，详见下）/ UNTESTABLE 6 / 修复 2（其中 1 项即上列第 2 条，另一项为暂停前的 DPI 修复，均转为 PASS）。
+
+- **DEV-minor ×2**：① SPEC 19 的 `UI-FAIL: {type}: {message}` 错误路径行——egui --test-ui 若窗构造 panic 不打印该行（无 catch_unwind；正常路径四行 OK 与 rust 逐字节一致，触发前提是 eframe 自身 bug，裁决不修）；② SPEC 12.6 版本行首查完成前的亚秒瞬态——rust/ 前端显示 HTML 初值 `--`，egui 直显 `Not detected`（稳态两侧一致，裁决不修）。
+- **UNTESTABLE ×6**：100%/其他单档 DPI 全量（Qt 先例；225%+125% 双档已实测）；启动器居副屏的首开定位（与已实测的"副屏窗口重开主屏"同一换算路径）；托盘图标驻留副屏任务栏（单任务栏主机）；Update available 徽标亮灯态（本机 latest 2.1.1 < local 2.2.0 永不亮；代码布局+色表核验）；`--test-skills`/`--screenshot`（Qt/WPF 专属）；真实 token 下的数据渲染实拍（无 token 真实状态；fmt_yuan 单测 + FormatReset 逐分支 + 三陷阱值代码核对替代）。
+
+**互斥锁矩阵**（SPEC 20，全部用 repo 构建产物）：egui/rust/qt 三版两两（含自配对）共 9 组合，持锁方存活时后启方 **9/9 静默退出**；持锁期间 `--test-fetch` / `--test-update` / `--test-ui` 对三版挑战者 **27/27 可用**（`test_while_locked.log` + `qt_holder_test.log` + gate 补测 `gate_ui_locked.log`，自检先于 mutex 的设计成立）；`--test-update` 输出三版逐字节一致。
+
+**DPI/多屏审计**（225% 主屏 2880x1800 物理 + 125% 副屏 1920x1080 物理，混合 DPI 拓扑）：真实托盘右键菜单落点 A/B——光标 (1812,1518)→菜单 (1769,1019) 423x524 与公式逐像素一致，rust 版同机同式命中 (2021,1247)@光标(2064,1746)，菜单物理高度两版逐字节同值（524）；--test-ui 菜单落副屏光标 ±0.3px；主面板 (1949,545) vs 理论 (1948.5,544.5)；设置窗跨屏重开见上。100% 单档与副屏任务栏如实标 UNTESTABLE（Qt 先例）。
+
+**性能**（同机对照，方法：spawn→tray-icon 消息窗（类 `tray_icon_app`，两版同 crate 同信号）15ms 轮询，3 次取中位；空闲为面板隐藏态 10s 采样）：
+
+| 指标 | egui | rust（同机） |
+|---|---|---|
+| 冷启动 spawn→托盘就绪（中位，3 次） | **91 ms**（142/91/63） | **1060 ms**（1131/959/1060，含 WebView2 环境创建） |
+| 空闲 CPU（10s，单核折算） | 0.2%（0.016s/10s） | 0.0% |
+| 空闲 RSS（进程树口径） | 213 MB（单进程） | ~665 MB（主进程 45-52 MB + 8 个 msedgewebview2 子进程） |
+| exe 体积 | 21.8 MB（单文件） | 6.97 MB + WebView2 Runtime 系统共享 |
+
+**双主题截图结构化对比**（参照物 = `docs/screenshot-{light,dark}.png` rust mock；本机无 token 为真实状态，数据驱动子状态按约定以代码/单测佐证）：底部锚定行逐块对比（geom_compare4.py）——版本行 REF y=382-419 vs EGUI 383-420（+1px）、按钮行顶边 436 vs 436（0px，底边 +3px 为文字降部渲染差，行盒锚定精确）；卡高差异（用量卡 +36/Extra 卡顶 +38）与 Phase 2 结论同源（rust renderQuota(null) 同样折叠 Extra 月度子面板）。SPEC 11 色值采样（sample_px.py，两主题 × 四窗）：winbg #f3f4f6/#17191e、卡 #ffffff/#23262d、菜单卡=winbg、设置 Save=ButtonBg #e9ecf0/#2c3039、动作按钮 rest=CardBg ✓——全部逐字节命中；透明边距采样=桌面像素（逐像素透明持续成立）。
+
+**静态链与回归**（修复后终态）：`cargo fmt --check` ✓；`cargo clippy --all-targets -- -D warnings` 零告警；`cargo build --release` ✓；`cargo test` 9/9（2 frontmatter + 2 css_ease + 5 菜单定位数学）；`--test-ui` 四行 OK 退出码 0；`--test-fetch` 与 rust 版逐字段一致（仅 fetchedAt 运行时刻差异）、`--test-update` 逐字节一致（`local=2.2.0 latest=2.1.1 updateAvailable=False checkFailed=False`，2026-10-17 实测）。
+
+**结论**：Phase 4 通过——SPEC 10–21 无未决 DEVIATION（2 项 minor 已定级留档），egui 版与 rust/ 契约在本机可测范围内 parity 成立；余项见 UNTESTABLE 清单（均为环境不可达，非代码缺口）。Phase 5（打包与文档收尾）待启动。

@@ -12,7 +12,7 @@ This is a **monorepo with four editions**:
 
 - `rust/` — **actively developed (dual-track with `qt/`)**. Tauri 2 + Rust backend + vanilla HTML/CSS/TypeScript frontend (no framework, no React).
 - `qt/` — **completed, experimental**. C++ Qt6 + Qt Widgets, no WebView dependency; reached SPEC parity with rust/ 1.7.3. Architecture plan, stack comparison, and module mapping: `docs/archive/QT-MIGRATION.md` (archived).
-- `egui/` — **experimental 4th edition, under development**. Pure-Rust UI: egui (eframe, pinned 0.36.2) + tray-icon — no WebView, no Node toolchain. Phases 1-3 are complete (headless business core ported from rust/, tray icon + main panel at SPEC 10-15 parity, and the settings/skills/tray-menu windows at SPEC 10.2/10.3/13/21 parity — `--test-ui` prints all four OK lines); the remaining phases are tracked in `docs/EGUI-MIGRATION.md`. Its version (0.1.0) is independent of the rust/qt sync list.
+- `egui/` — **experimental 4th edition, under development**. Pure-Rust UI: egui (eframe, pinned 0.36.2) + tray-icon — no WebView, no Node toolchain. Phases 1-4 are complete (headless business core ported from rust/, tray icon + main panel at SPEC 10-15 parity, the settings/skills/tray-menu windows at SPEC 10.2/10.3/13/21 parity — `--test-ui` prints all four OK lines — and the Phase 4 SPEC 10-21 parity audit: 99 PASS / 2 minor DEVIATION / 6 UNTESTABLE, cross-edition mutex matrix 9/9, mixed-DPI audit, perf numbers, plus two positioning fixes — `window_dpi_scale` and first-open-only centering for settings/skills); Phase 5 (packaging + docs) is tracked in `docs/EGUI-MIGRATION.md` section 6. Its version (0.1.0) is independent of the rust/qt sync list.
 - `wpf/` — original .NET 8 / WPF edition, **frozen at v1.5.0, unmaintained**. Kept as read-only reference for behavior/UI parity. Do not delete it; do not add features to it. Its binaries are no longer shipped — the last ones live on the v1.5.0 release; zips since v1.7.3 carry the Rust exe only.
 
 All editions share the same UI/UX (fully specified in `docs/SPEC.md`) and the same `settings.json` schema.
@@ -120,7 +120,7 @@ PYTHONUTF8=1 python package_release.py   # one-shot rebuild + windeployqt into q
 
 Before rebuilding, kill any running qt GUI process by PID/path (exe file lock) — never `taskkill /IM kimi-planbar-tray.exe` (the rust edition shares the image name). The Qt exe is GUI-subsystem, so `--test-*` self-check output is printed via `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` (covers both Git Bash pipes and cmd consoles); AttachConsole + CONOUT$ is only the fallback.
 
-egui edition (Phases 0-3 complete: headless core + tray/main panel + settings/skills/menu windows; packaging/consistency phases tracked in `docs/EGUI-MIGRATION.md`):
+egui edition (Phases 0-4 complete: headless core + tray/main panel + settings/skills/menu windows + the SPEC 10-21 parity audit; packaging/docs phase tracked in `docs/EGUI-MIGRATION.md`):
 
 ```bash
 cd egui

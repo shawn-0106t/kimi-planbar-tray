@@ -171,6 +171,13 @@ pub struct App {
     /// `focused == Some(false)` for a shown-but-never-focused window, while
     /// tauri's Focused(false) event only follows a Focused(true) (SPEC 15).
     pub panel_was_focused: bool,
+    /// Singleton-placement latches (SPEC 10.2 / 21.1): the settings/skills
+    /// windows center on the primary work area on their FIRST open only —
+    /// later opens show them where they were, like the WPF WindowStartupLocation
+    /// / tauri conf `center: true` semantics (a user drag survives reopen).
+    /// Sizes are re-pinned on every open either way (DPI guard).
+    pub settings_placed: bool,
+    pub skills_placed: bool,
     /// --test-ui mode: show all four windows headless-style, print the SPEC 19
     /// OK lines, and suppress the focus-loss auto-hide (programmatic shows
     /// never get focus, SPEC 20).
@@ -208,6 +215,8 @@ impl App {
             visibility,
             first_frame: true,
             panel_was_focused: false,
+            settings_placed: false,
+            skills_placed: false,
             test_ui,
         }
     }
@@ -330,7 +339,9 @@ impl App {
             crate::panel_pos::SETTINGS_W,
             crate::panel_pos::SETTINGS_H,
             focus,
+            !self.settings_placed,
         );
+        self.settings_placed = true;
         if focus {
             // A user gesture (panel button / tray menu click) granted our
             // process foreground rights; back the queued Focus up with the
@@ -363,7 +374,9 @@ impl App {
             crate::panel_pos::SKILLS_W,
             crate::panel_pos::SKILLS_H,
             focus,
+            !self.skills_placed,
         );
+        self.skills_placed = true;
         if focus {
             crate::windows::spawn_focus_steal(crate::windows::SKILLS_TITLE, &[60, 200, 450]);
         }
