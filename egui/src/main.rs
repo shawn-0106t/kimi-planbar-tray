@@ -146,8 +146,7 @@ fn run_app(test_ui: bool) {
     spawn_runtime(biz.clone(), runtime_slot.clone());
     spawn_event_drain(events_rx, ui_shared.clone());
 
-    let visibility = windows::new_visibility_flags();
-    windows::spawn_watcher(visibility.clone());
+    windows::spawn_watcher();
 
     // The tray icon must be created on the main thread: winit's message pump
     // (PeekMessageW over the whole thread queue) dispatches the tray-icon
@@ -206,7 +205,6 @@ fn run_app(test_ui: bool) {
                 win_bus,
                 runtime_slot,
                 Some(tray),
-                visibility,
                 test_ui,
             )) as Box<dyn eframe::App>)
         }),

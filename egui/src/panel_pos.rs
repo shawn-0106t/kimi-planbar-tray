@@ -225,6 +225,9 @@ pub fn show_panel(ctx: &Context, focus: bool) {
         // retried a few times since the shell grant window varies.
         crate::windows::spawn_focus_steal(crate::app::MAIN_WINDOW_TITLE, &[60, 200, 450]);
     }
+    // Re-arm winit's pointer position (a re-shown window is click-dead until
+    // the cursor MOVES to a new position over it — see windows.rs).
+    crate::windows::spawn_pointer_rearm(crate::app::MAIN_WINDOW_TITLE);
     record_rect(
         "main",
         WinRect {
@@ -272,6 +275,14 @@ pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool,
     if focus {
         ctx.send_viewport_cmd_to(vp, ViewportCommand::Focus);
     }
+    // Re-arm winit's pointer position (a re-shown window is click-dead until
+    // the cursor MOVES to a new position over it — see windows.rs).
+    let title = if vp == vp_settings() {
+        crate::windows::SETTINGS_TITLE
+    } else {
+        crate::windows::SKILLS_TITLE
+    };
+    crate::windows::spawn_pointer_rearm(title);
     if recenter {
         record_rect(
             if vp == vp_settings() {
@@ -376,6 +387,9 @@ pub fn show_menu_at(ctx: &Context, px: f64, py: f64, h: f32) {
         )),
     );
     ctx.send_viewport_cmd_to(vp, ViewportCommand::Visible(true));
+    // Re-arm winit's pointer position (a re-shown window is click-dead until
+    // the cursor MOVES to a new position over it — see windows.rs).
+    crate::windows::spawn_pointer_rearm(crate::windows::MENU_TITLE);
     record_rect(
         "menu",
         WinRect {

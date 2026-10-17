@@ -68,6 +68,27 @@ pub enum WinAction {
     MenuQuit,
 }
 
+/// Wake the UI thread, with a delayed retry. eframe 0.36.2 drops a
+/// `UserEvent::RequestRepaint` as "outdated" when two passes of the target
+/// viewport completed between the repaint callback and the event being
+/// processed (run.rs, egui issue #7776-era scheduling). A request issued
+/// right as a pass burst ends can be the LAST wake source — dropped, it
+/// leaves the queued command undrained until some unrelated event arrives
+/// (observed as a lost tray TogglePanel). The retry fires only when passes
+/// have run since the first request (egui's repaint-delay gate suppresses it
+/// otherwise), so it costs nothing in the common case.
+fn wake_with_retry(ctx: &egui::Context, vp: ViewportId) {
+    ctx.request_repaint_of(vp);
+    let ctx = ctx.clone();
+    std::thread::Builder::new()
+        .name("wake-retry".into())
+        .spawn(move || {
+            std::thread::sleep(Duration::from_millis(120));
+            ctx.request_repaint_of(vp);
+        })
+        .ok();
+}
+
 /// Shared handle for other threads to talk to the UI thread. The egui Context
 /// lands here once the app is constructed; pushing a command wakes the loop.
 #[derive(Default)]
@@ -82,7 +103,7 @@ impl UiShared {
         if let Some(ctx) = self.egui_ctx.get() {
             // Outside a pass this targets the root viewport, which is what
             // drains the queues.
-            ctx.request_repaint();
+            wake_with_retry(ctx, ViewportId::ROOT);
         }
     }
 
@@ -143,7 +164,7 @@ impl WinBus {
     /// viewport repaints independently — the root would stay asleep).
     pub fn push_action(&self, ctx: &egui::Context, action: WinAction) {
         self.actions.lock().unwrap().push_back(action);
-        ctx.request_repaint_of(ViewportId::ROOT);
+        wake_with_retry(ctx, ViewportId::ROOT);
     }
 
     fn drain(&self) -> VecDeque<WinAction> {
@@ -164,7 +185,6 @@ pub struct App {
     pub glow: GlowTracker,
     pub font_probe: FontProbe,
     pub last_theme: String,
-    pub visibility: crate::windows::VisibilityFlags,
     pub first_frame: bool,
     /// True once the panel actually held focus since the current show. The
     /// focus-loss auto-hide must fire only on a REAL focus loss — egui reports
@@ -200,7 +220,6 @@ impl App {
         win: Arc<WinBus>,
         runtime: Arc<OnceLock<tokio::runtime::Handle>>,
         tray: Option<crate::tray::Tray>,
-        visibility: crate::windows::VisibilityFlags,
         test_ui: bool,
     ) -> App {
         let _ = cc;
@@ -231,7 +250,6 @@ impl App {
             glow: GlowTracker::default(),
             font_probe,
             last_theme,
-            visibility,
             first_frame: true,
             panel_was_focused: false,
             settings_placed: false,
@@ -745,15 +763,6 @@ impl eframe::App for App {
         }
         if let Some(remaining) = self.panel_state.animating_for(now) {
             ctx.request_repaint_after(remaining.min(Duration::from_millis(16)));
-        }
-        // HWND styling watcher tracks all four windows.
-        if let Ok(mut flags) = self.visibility.lock() {
-            if flags.len() == 4 {
-                flags[0] = self.panel_state.is_visible();
-                flags[1] = self.biz.state.settings_open.load(Ordering::SeqCst);
-                flags[2] = self.biz.state.skills_open.load(Ordering::SeqCst);
-                flags[3] = self.win.menu_open.load(Ordering::SeqCst);
-            }
         }
 
         // Deferred viewports: registered every pass (singleton windows).

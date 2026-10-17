@@ -269,3 +269,28 @@ egui/
 - release 单 exe 形态：21.8 MB（GUI 子系统），当前 glow+wgpu 双后端并存未裁剪——如需进一步缩体可移除 wgpu feature（§5 风险 8 以 glow 为主后端的结论不变），留作后续可选项，不影响 experimental 定位。
 
 **Phase 5 清单核销**（对照 HANDOFF-egui.md §6）：README.md / README_CN.md 第四版本段落（镜像 qt 写法）✓；CONTRIBUTING.md 目录表 + `.github/PULL_REQUEST_TEMPLATE.md` checklist 补 egui ✓；SECURITY.md 核查（token 数据流表述本就 edition 通用，无 WebView/CSP 语境，无需改）✓；CHANGELOG.md Unreleased 双语条目定稿、SPEC 7.3 版本清单与 §9 文档地图终核 ✓；本文档记完结并与 `HANDOFF-egui.md` 一同移入 `docs/archive/` ✓。发版回上游（shawn-0106t/kimi-planbar-tray）前与用户确认 PR / 独立仓库的既有约定不属本 Phase，维持不变。
+
+## 7. 已知视觉限制：窗口边缘 DWM hairline「半透明框」（2026-10-17 定案）
+
+**现象**：亮色桌面下，四个窗口的矩形边缘可见 1–2 物理像素宽的半透明白线（等效白 alpha 0.09–0.17，peak +19~+41 灰阶），围成一圈"半透明框"；暗色背景下基本不可见。卡片本体不透明、ring 透明通道正常（均已逐像素验证）。
+
+**根因（源码级）**：winit 0.30.13 对无装饰+保留阴影窗口的 `WM_NCCALCSIZE` hack（event_loop.rs:1162-1199）：`rgrc[0].top += 1; bottom += 1` 换取 DWM 投影，源码自注释承认顶部 1px 黑边；叠加基础样式 `WS_CAPTION`（window_state.rs:258 还含 `WS_BORDER`）在 Win11（定位机 build 26300）上的默认 DWM 边框 hairline，绘制在客户区内容之上。tao 0.37.1（rust/）同分支采用 Zed/gpui 的 per-DPI inset 方案（`calculate_window_insets`，客户区对称内缩、边框画进非客户区），故同机无此框。两 fork 的 blur-behind 透明调用逐字相同，非差异点。
+
+**排除表（勿重查）**：
+
+- egui `Shadow` 偏浓：真实（epaint 单线性 feather 比 CSS 高斯浓 4–25 倍）且参数可修（等效值 blur 12 / spread 0 / alpha 28，menu 10/38），但修后"框"依旧 → 非主因，改动已回滚
+- 系统透明效果（EnableTransparency）：开/关 A/B → 无关
+- GL vs wgpu 后端：Renderer 切换重建实测 → 两后端都有框，无关
+- blur-behind 调用差异：与 tao 源码逐字对比 → 相同，非差异点
+
+**已试修复（验证后回滚）**：`DwmSetWindowAttribute(DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE)`（注入点 `windows.rs::style_hwnd`）——四周 hairline 消除（+19~+41 → 0~+1），但 winit 顶部 1px 非客户条残留（+31/2px），实测后用户裁决放弃，改动已回滚。
+
+**未试路线图**（如未来重启）：
+
+- `DWMNCRP_DISABLED`：连 DWM 投影一起关；面板本就自绘阴影，理论无损
+- winit 升级观察：0.30.x 的 NCCALCSIZE hack 仍在；eframe 0.36.2 锁版本，升级即一次移植任务
+- 裁剪窗口矩形到卡片：牺牲 SPEC 10.1 阴影渐隐 ring，不推荐
+
+**方法论备忘（复验防坑）**：两图 diff（无窗口底图 vs `--test-ui` 显示中截图，按 `kpt-windows.json` 物理矩形对位）+ 窗口矩形边缘 1px 分辨率剖面。**本轮前几轮 transect 全部从卡片边缘向外采样，漏掉窗口最外圈 1–2px，导致误判为 ring 雾带/shadow**——复验时边缘剖面必须含 y+0 / x+0 首像素。另：epaint `Shadow` 是单线性 feather（tessellator 只生成内外两圈顶点），与 CSS 高斯 box-shadow 不可直接同参数对齐。
+
+**结局（2026-10-17，本节所述"限制"已消除）**：上述"未试路线图"的第一项当晚即被实施并验证——`DWMWA_NCRENDERING_POLICY = DWMNCRP_DISABLED` + wndproc 子类化完全折叠非客户区（`windows.rs::style_hwnd`），hairline 与 26H2 持续白框一并消除；后续又修复了同根因族的激活瞬间 GDI caption 单帧闪烁（`nc_collapse_proc` 转发期间临时剥 WS_CAPTION）、eframe 唤醒丢失（`wake_with_retry`）与重显示窗口 click-dead（`spawn_pointer_rearm`），全部经高速连拍回归验证。egui 版自 2026-10-17 起冻结不再维护；完整 arc 见 `HANDOFF-egui-26H2-ncframe.md`。
