@@ -55,6 +55,57 @@ pub fn spawn_focus_steal(title: &'static str, delays_ms: &[u64]) {
         .ok(); // a failed spawn only costs the focus fix
 }
 
+/// Re-arm the winit pointer state after a programmatic show. egui-winit only
+/// learns the pointer position from `CursorMoved` events, and drops all
+/// mouse-button input while none is known (`on_mouse_button_input` bails when
+/// `pointer_pos_in_points` is None). Hiding a window under the cursor fires
+/// WM_MOUSELEAVE (egui pointer -> None) but winit keeps `mouse.last_position`
+/// across the hide/show cycle, and a later cursor move that lands on that
+/// exact stale pixel emits no `CursorMoved` (position unchanged) — so a
+/// re-shown window is click-dead until the cursor moves to a NEW position
+/// over it. Post two synthetic WM_MOUSEMOVEs carrying the current cursor
+/// position (the second nudged 1px to break any tie with the stale pixel) so
+/// `last_position` is refreshed on every show; real input then flows again.
+pub fn spawn_pointer_rearm(title: &'static str) {
+    std::thread::Builder::new()
+        .name("pointer-rearm".into())
+        .spawn(move || {
+            std::thread::sleep(Duration::from_millis(30));
+            let Some(hwnd) = find_hwnd(title) else {
+                return;
+            };
+            use windows::Win32::Foundation::POINT;
+            use windows::Win32::Graphics::Gdi::ScreenToClient;
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GetCursorPos, PostMessageW, WM_MOUSEMOVE,
+            };
+            let mut pt = POINT::default();
+            if unsafe { GetCursorPos(&mut pt) }.is_err() {
+                return;
+            }
+            let mut client = pt;
+            let _ = unsafe { ScreenToClient(hwnd, &mut client) };
+            let pack = |x: i32, y: i32| {
+                windows::Win32::Foundation::LPARAM(
+                    (((y as u16 as u32) << 16) | (x as u16 as u32)) as isize,
+                )
+            };
+            // Two moves: exact position, then +1px — one of them always
+            // differs from any stale last_position.
+            for (x, y) in [(client.x, client.y), (client.x + 1, client.y + 1)] {
+                let _ = unsafe {
+                    PostMessageW(
+                        Some(hwnd),
+                        WM_MOUSEMOVE,
+                        windows::Win32::Foundation::WPARAM(0),
+                        pack(x, y),
+                    )
+                };
+            }
+        })
+        .ok(); // a failed spawn only costs the re-arm
+}
+
 use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextLengthW, GetWindowTextW};
 
 /// Unique window titles double as find_hwnd keys. All four viewports are
@@ -128,13 +179,6 @@ pub fn find_hwnd(title: &str) -> Option<HWND> {
 /// process lifetime — singletons that are only ever hidden — so the map is
 /// write-once and never needs cleanup).
 static OLD_WNDPROCS: std::sync::Mutex<Vec<(isize, isize)>> = std::sync::Mutex::new(Vec::new());
-
-// TEMP trace instrumentation (KPT_TRACE): per-HWND message counters drained
-// once per second by app.rs into scripts/diagnostics/debug_trace.log.
-pub static TRACE_MOUSEMOVE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-pub static TRACE_LBUTTON: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-pub static TRACE_NCACTIVATE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-pub static TRACE_ANY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Subclass proc: winit's undecorated-shadow hack answers WM_NCCALCSIZE with
 /// `rgrc[0].top += 1`, leaving a 1px non-client band at the window's top edge
@@ -214,21 +258,6 @@ unsafe extern "system" fn nc_collapse_proc(
             },
         }
     };
-    // TEMP trace counters (KPT_TRACE) — drained by app.rs once per 500ms.
-    use std::sync::atomic::Ordering as AOrd;
-    TRACE_ANY.fetch_add(1, AOrd::Relaxed);
-    match msg {
-        0x0200 => {
-            TRACE_MOUSEMOVE.fetch_add(1, AOrd::Relaxed);
-        }
-        0x0201 => {
-            TRACE_LBUTTON.fetch_add(1, AOrd::Relaxed);
-        }
-        0x0086 => {
-            TRACE_NCACTIVATE.fetch_add(1, AOrd::Relaxed);
-        }
-        _ => {}
-    }
     if msg == WM_NCACTIVATE {
         unsafe {
             let style = GetWindowLongPtrW(hwnd, GWL_STYLE);

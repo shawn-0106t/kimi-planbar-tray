@@ -1,11 +1,11 @@
-# HANDOFF — egui 版 Win11 26H2 窗口外框/闪烁修复（进行中）
+# HANDOFF — egui 版 Win11 26H2 窗口外框/闪烁修复（已完结，冻结）
 
-> **状态：IN PROGRESS（2026-10-17 深夜检查点）**。与 archive 内其他冻结交接不同，本文档随工作推进更新，完结后再标冻结。
-> 分支：`docs/egui-dwm-hairline-limitation`。本次 commit 是**调试中途快照**：bug #1（激活闪烁）的修复代码已入库但**未完成端到端验证**；bug #2（窗口状态脱钩）定位中。
+> **状态：FROZEN（2026-10-17 完结）**。bug #1（激活闪烁）与 bug #2（窗口状态脱钩）均已根因修复并通过回归；egui 版经用户决策**不再继续维护**，残留已知问题接受现状（见 §8）。
+> 分支：`docs/egui-dwm-hairline-limitation`（PR #25）。
 
 ## 1. 一句话状态
 
-用户实测发现 egui 版窗口在打开/焦点切换瞬间闪出白色原生标题栏（1 帧）。已实锤根因并实现修复（`WM_NCACTIVATE` 转发期间临时剥 `WS_CAPTION`）；但回归测试途中发现**第二个既有 bug**（settings 窗口关不掉/面板状态机与 OS 窗口脱钩，排除法证实非本次改动引入），它卡住了 bug #1 修复的验证路径。当前停在 bug #2 的根因定位。
+用户实测发现 egui 版窗口在打开/焦点切换瞬间闪出白色原生标题栏（1 帧）。根因实锤并修复（`WM_NCACTIVATE` 转发期间临时剥 `WS_CAPTION`）；回归途中发现的第二个既有 bug（settings 关不掉/面板状态脱钩）亦已根因修复（eframe 唤醒丢失重试 + winit 指针位置重新武装，见 §3）。2026-10-17 完成全部回归（§6 结果），egui 版自此冻结。
 
 ## 2. Bug #1：激活变化瞬间闪白色原生标题栏
 
@@ -26,11 +26,11 @@
 4. GDI 画进窗口 DC（GL surface 的重定向位图），下一次 GL present 才覆盖 → 单帧白闪。
 5. winit 0.30.13 必须收到 `WM_NCACTIVATE`（它是唯一设置 `is_active` 的消息；没有它 `has_active_focus` 永假 → egui 收不到 `Focused(true)` → 失焦自动隐藏的 `panel_was_focused` latch 失效），且其 handler 以 `ProcResult::DefWindowProc` 结尾（`winit-0.30.13/src/platform_impl/windows/event_loop.rs:2142`，已核实源码）——不能简单吞掉该消息。
 
-### 修复（已入库，未验证完）
+### 修复（已入库，回归验证通过）
 
 `egui/src/windows.rs::nc_collapse_proc`：拦截 `WM_NCACTIVATE`，**转发给 winit 原 wndproc 期间临时剥掉 `WS_CAPTION`**（`SetWindowLongPtrW(GWL_STYLE, style & !WS_CAPTION)`），转发返回后立即恢复。无 `SWP_FRAMECHANGED` → 不触发 NC 重算、无视觉副作用；winit 不处理 `WM_STYLECHANGING/WM_STYLECHANGED`（已核实）；`apply_diff` 反正每次可见性切换都整体重写样式。DefWindowProc 找不到 caption 可画 → 不闪。
 
-**验证状态**：连拍回归做过一轮但**作废**——当时 settings 点击实际未生效（bug #2 已发作），没有发生激活切换，"无闪帧"是空转。bug #2 修复后须重测全部场景：settings 点击、右键菜单、菜单项开各窗口、关 settings 焦点回落。
+**验证状态（2026-10-17 最终回归，release 构建 + kimi-cu 真实输入 + 高速连拍）**：四个激活场景全部无闪帧——打开 settings（bright% 峰值 0.19，无跳变）、托盘右键菜单（菜单绘制帧 0.59-1.09 为壁纸/文字正常亮度，无 caption）、菜单项开窗口（Settings 重开 + Skills 本实例首开，峰值 0.22-0.24）、关 settings 焦点回落（峰值 0.26，焦点正确回落面板）。四窗稳态截图全部干净：无白色标题栏、无顶部灰条。唯一异常见 §8（一次未复现的首秀 caption 残留）。
 
 ## 3. Bug #2：窗口状态脱钩（既有 bug，本次改动无关）
 
@@ -49,17 +49,22 @@
 - **不是 UIA 探测假象**：`IsWindowVisible` 直查 + 截图双重确认。
 - 上一轮会话还排除过：winit `apply_diff` 竞态（有 NCRP+子类化在不闪）、窗口类背景刷（两个窗口类 hbrBackground=0）、"四个 HWND 全消失"假象（当时是我误杀进程 + PS EnumWindows 回调内 pid 过滤有怪癖——**别在 EnumWindows 回调里做 pid 过滤**，用 `enum_all_windows.ps1` 的全量收集后置过滤）。
 
-### 当前假设（待验证）
+### 根因（已实锤并修复，2026-10-17）
 
-eframe 0.36.2 的 glow_integration：`on_window_event` 以 `glutin.viewport_from_window.get(&window_id)` 路由事件、`handle_viewport_output` 执行 viewport 命令；`builder.patch()` 返回 `recreate=true` 时会把 `viewport.window/egui_winit/gl_surface` 全部置 None（glow_integration.rs:1561-1570）。疑似某个时序下 deferred viewport（settings）的 pass 停摆 → 它的命令队列（含 `Visible(false)`）不再执行；root 的 `Visible(true)` 同样不落地。下一步：在 `register_viewports`/`handle_viewport_output` 层面加打点或直接读 eframe 源码确认 pass 停摆条件（重点：`ViewportBuilder::patch` 的 recreate 触发条件、deferred viewport 的 RedrawRequested 唤醒链、occlusion 判定）。
+假设方向（eframe 唤醒链）证实，机制比预想更窄，两个叠加原因：
 
-## 4. 当前代码树状态（本次 commit）
+1. **eframe 0.36.2 丢弃"过期"唤醒**：目标 viewport 在 repaint 回调与事件处理之间完成了两次 pass 时，`UserEvent::RequestRepaint` 被判 "outdated" 丢弃（run.rs，egui issue #7776 时代的调度）。恰在 pass 突发结束时发出的唤醒可能是**最后一个唤醒源**——被丢后队列里的命令（TogglePanel、SettingsClose）无人 drain，settings 子 viewport 的 pass 停摆、root 的 `Visible(true)` 不落地，直到某个无关事件到来。修复：`app.rs::wake_with_retry`——每次跨线程入队在 120ms 后补发一次唤醒；egui 的 repaint-delay 门控在 pass 正常流动时抑制补发，常态零成本。
+2. **winit 指针位置陈旧导致 click-dead**：egui-winit 只从 `CursorMoved` 学习指针位置，位置未知时丢弃全部鼠标按键输入；而 winit 在 隐藏→显示 周期间保留 `mouse.last_position`——窗口在光标原地不动时重新显示不产生 `CursorMoved`，点击被忽略直到光标移到新位置。修复：`windows.rs::spawn_pointer_rearm`——每次 show post 两条合成 WM_MOUSEMOVE（第二条偏移 1px 打破平局），`panel_pos.rs` 三条 show 路径全部接入。
 
-- `egui/src/windows.rs`：上一会话的 NCRP_DISABLED + NC 折叠子类化（已验证，修持续白框）+ 本次的 NCACTIVATE style-strip（待验证）+ **临时 trace 计数器**（`TRACE_*` atomics，零成本）。
-- `egui/src/app.rs`：`KPT_TRACE=1` 环境变量门控的打点——每 500ms 向 `%TEMP%\kpt_trace.log` 写一行（panel_state / focused / was_focused / pointer / root hwnd / 消息计数），并在 `show_panel`/`start_hide`/`finish_hide`/`open_settings`/`close_settings`/`execute_win_action` 打 `>>>` 事件行。**定位完 bug #2 后全部移除。**
-- `egui/src/main.rs`、`AGENTS.md`、`CHANGELOG.md`：上一会话持续白框修复的配套改动（watcher 提前到 HWND 出现即样式化等），已完整。
-- `scripts/diagnostics/` 新增本 arc 的全部测试脚本（见 §5）。
-- 已通过：`cargo fmt --check`、`cargo clippy --all-targets --locked -- -D warnings`。
+修复后验证：带埋点中间构建上原复现序列连跑 10 轮全过（修复前第 2 轮起必发）；最终清理构建（KPT_TRACE 已移除）上 `timed_repro.ps1` 通过。注意：埋点本身的 500ms 文件 I/O 会改变时序、掩盖竞态——**验证必须在无埋点构建上复跑**。
+
+## 4. 最终代码树状态
+
+- `egui/src/windows.rs`：NCRP_DISABLED + NC 折叠子类化（修持续白框）+ NCACTIVATE style-strip（修激活闪帧）+ `spawn_pointer_rearm`（修 click-dead）。**KPT_TRACE 临时计数器已全部移除。**
+- `egui/src/app.rs`：`wake_with_retry` 唤醒重试；**KPT_TRACE 打点已全部移除。**
+- `egui/src/panel_pos.rs`：三条 show 路径（panel / centered / menu）均接入 `spawn_pointer_rearm`。
+- `scripts/diagnostics/` 新增本 arc 的全部测试脚本（见 §5），外加回归期新增的 `wait_window.ps1`（UIA 轮询等窗口可见）与 `ensure_window.ps1`（IsWindowVisible 真值 + 托盘坐标可传参的重试打开）。
+- 已通过：`cargo fmt --check`、`cargo clippy --all-targets --locked -- -D warnings`、`cargo test`（9 个）、`--test-ui` 四行 OK。
 
 ## 5. 测试工具链（scripts/diagnostics/，均可复用）
 
@@ -77,15 +82,17 @@ eframe 0.36.2 的 glow_integration：`on_window_event` 以 `glutin.viewport_from
 
 环境坐标（225% DPI，2880x1800）：托盘图标中心约 (2050,1746)（用 find_tray_icon.ps1 现查）；面板 rect (1949,545,954,1170) 物理像素；Settings 按钮 = 面板左上 + (0.603, 0.868)×(宽,高)；settings 窗 X = 窗口右上内缩 (134, -122)... 即 `(X + Width - 134, Y + 122)`。
 
-## 6. 恢复操作序列（下一会话从这里继续）
+## 6. 最终回归结果（2026-10-17，release 构建，无埋点）
 
-1. `git log` 确认本 commit；当前无运行中的 egui 实例（提交前已杀）。
-2. 重建运行：`cd egui && cargo build --release && (KPT_TRACE=1 ./target/release/kimi-planbar-tray-egui.exe &)`，拿 PID（`list_kimi_procs.ps1`）。
-3. 复现 bug #2：`timed_repro.ps1` 连跑 2 轮（第 2 轮起稳定发作），读 `%TEMP%\kpt_trace.log`。
-4. 定位：按 §3 假设查 eframe `handle_viewport_output` / `patch(recreate)` / deferred viewport 唤醒链。
-5. 修完 bug #2 → 移除全部 KPT_TRACE 打点 → 重跑 bug #1 的闪帧连拍回归（四个场景）→ auto-hide 回归 → `--test-ui` 四行 OK → fmt/clippy/test。
-6. 交付前：AskUserQuestion 问模型与思考强度 → 委派 code-reviewer（证伪导向）→ 用户实机确认（**确认测的是哪个构建/PID**）。
-7. 文档收尾：AGENTS.md 的 egui known-trap 段补"激活变化 GDI caption 闪烁"条目（机制 + 修复方式）；CHANGELOG.md 补对应 Fixed 条目（中英双写）；SPEC.md/SPEC_EN.md 不用动（无行为变更）；本 HANDOFF 标冻结。
+全部通过（第 5 步的 code-reviewer 环节经用户决策跳过）：
+
+1. `cargo fmt --check` / `cargo clippy --all-targets --locked -- -D warnings` / `cargo test`（9 个）✓
+2. `cargo build --release` 最终清理后源码重建 ✓；`--test-ui` 四行 OK ✓
+3. bug #2 复现序列 `timed_repro.ps1` 通过（Settings 点击、X 关、托盘重开全通）✓
+4. bug #1 闪帧连拍回归四场景全部无闪帧（峰值 bright% 0.19-0.26，无 ~2.5 跳变），四窗稳态截图干净 ✓
+5. auto-hide 回归：面板聚焦后点击他处 ~2s 内自动隐藏 ✓
+
+回归方法备注：后半程改用 **kimi-cu 真实输入 + `IsWindowVisible` ground truth**——UIA `BoundingRectangle` 对隐藏的单例窗口报陈旧矩形（假阳性），`SetCursorPos`+`mouse_event` 合成点击对 egui 窗口不可靠（输入事件可能被排队延迟处理）；kimi-cu 无法操作托盘图标（Shell_TrayWnd 排除在发现之外），托盘点击仍需 PS 脚本，且**托盘图标位置会漂移**（本次回归中左移了 63px），用前必须 `find_tray_icon.ps1` 现查。
 
 ## 7. 已知测试环境陷阱
 
@@ -94,3 +101,9 @@ eframe 0.36.2 的 glow_integration：`on_window_event` 以 `glutin.viewport_from
 - PowerShell 单行 `-Command` 里 `$_` 会被 bash 吃掉——一律写 .ps1 文件用 `-File` 跑。
 - `FindWindowW(null, title)` 在 PowerShell P/Invoke 里 `$null` 会被 marshal 成空字符串导致找不到——用 UIA 或 EnumWindows。
 - debug 构建的托盘图标会被壳收进溢出区（图标不可见），find_tray_icon 只对 release 路径有效。
+
+## 8. 残留已知问题（接受现状，egui 版已冻结）
+
+- **首秀 caption 残留（未复现）**：回归中一个实例的**首次**面板展示时，原生标题栏持续出现约 3.5-7 秒后自行消失（连拍 bright% 恒 1.48 铁证）；此后两个实例首秀及所有后续 show 均未再现（1/3 实例首秀命中率，无法按需复现）。疑似首次 show 时 hwnd-watcher 样式化与 winit `apply_diff` 的竞态残留。
+- **合成输入延迟 drain（测试环境限定）**：`SetCursorPos`+`mouse_event` 合成点击的输入事件曾被排队、数分钟后随无关事件延迟 drain（表现为"窗口自己打开了"）；kimi-cu 真实输入与带正确坐标的托盘点击在最终构建上零失败。真实用户场景（物理鼠标持续产生事件）不受影响。
+- 用户决策（2026-10-17）：egui 版作为 experimental 版**不再继续维护**，上述残留接受现状；代码保留可构建与 CI 门禁。

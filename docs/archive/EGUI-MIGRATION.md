@@ -292,3 +292,5 @@ egui/
 - 裁剪窗口矩形到卡片：牺牲 SPEC 10.1 阴影渐隐 ring，不推荐
 
 **方法论备忘（复验防坑）**：两图 diff（无窗口底图 vs `--test-ui` 显示中截图，按 `kpt-windows.json` 物理矩形对位）+ 窗口矩形边缘 1px 分辨率剖面。**本轮前几轮 transect 全部从卡片边缘向外采样，漏掉窗口最外圈 1–2px，导致误判为 ring 雾带/shadow**——复验时边缘剖面必须含 y+0 / x+0 首像素。另：epaint `Shadow` 是单线性 feather（tessellator 只生成内外两圈顶点），与 CSS 高斯 box-shadow 不可直接同参数对齐。
+
+**结局（2026-10-17，本节所述"限制"已消除）**：上述"未试路线图"的第一项当晚即被实施并验证——`DWMWA_NCRENDERING_POLICY = DWMNCRP_DISABLED` + wndproc 子类化完全折叠非客户区（`windows.rs::style_hwnd`），hairline 与 26H2 持续白框一并消除；后续又修复了同根因族的激活瞬间 GDI caption 单帧闪烁（`nc_collapse_proc` 转发期间临时剥 WS_CAPTION）、eframe 唤醒丢失（`wake_with_retry`）与重显示窗口 click-dead（`spawn_pointer_rearm`），全部经高速连拍回归验证。egui 版自 2026-10-17 起冻结不再维护；完整 arc 见 `HANDOFF-egui-26H2-ncframe.md`。
