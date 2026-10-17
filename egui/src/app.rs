@@ -164,7 +164,6 @@ pub struct App {
     pub glow: GlowTracker,
     pub font_probe: FontProbe,
     pub last_theme: String,
-    pub visibility: crate::windows::VisibilityFlags,
     pub first_frame: bool,
     /// True once the panel actually held focus since the current show. The
     /// focus-loss auto-hide must fire only on a REAL focus loss — egui reports
@@ -182,6 +181,8 @@ pub struct App {
     /// OK lines, and suppress the focus-loss auto-hide (programmatic shows
     /// never get focus, SPEC 20).
     pub test_ui: bool,
+    /// TEMP trace instrumentation (KPT_TRACE): last drain instant.
+    pub trace_last: Option<Instant>,
     /// Set by the app's own Quit paths (Exit button / tray-menu Exit /
     /// console ctrl) right before they send `ViewportCommand::Close`. The
     /// root close guard below cannot distinguish that Close event from an
@@ -200,7 +201,6 @@ impl App {
         win: Arc<WinBus>,
         runtime: Arc<OnceLock<tokio::runtime::Handle>>,
         tray: Option<crate::tray::Tray>,
-        visibility: crate::windows::VisibilityFlags,
         test_ui: bool,
     ) -> App {
         let _ = cc;
@@ -231,12 +231,12 @@ impl App {
             glow: GlowTracker::default(),
             font_probe,
             last_theme,
-            visibility,
             first_frame: true,
             panel_was_focused: false,
             settings_placed: false,
             skills_placed: false,
             test_ui,
+            trace_last: None,
             quitting: false,
         }
     }
@@ -247,7 +247,23 @@ impl App {
 
     // ---- Panel transitions (port of rust/src-tauri/src/panel.rs) ----------
 
+    // TEMP trace instrumentation (KPT_TRACE).
+    fn trace_log(msg: &str) {
+        if std::env::var_os("KPT_TRACE").is_none() {
+            return;
+        }
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(std::env::temp_dir().join("kpt_trace.log"))
+        {
+            use std::io::Write;
+            let _ = f.write_all(format!(">>> {msg}\n").as_bytes());
+        }
+    }
+
     fn show_panel(&mut self, focus: bool) {
+        Self::trace_log("show_panel");
         let ctx = self.ctx();
         #[cfg(debug_assertions)]
         eprintln!("[ui] show_panel");
@@ -260,6 +276,7 @@ impl App {
 
     /// Ask the panel to play the slide-out (re-entry guarded, SPEC 15.2).
     fn start_hide(&mut self) {
+        Self::trace_log("start_hide");
         #[cfg(debug_assertions)]
         eprintln!("[ui] start_hide (was {:?})", self.panel_state);
         if matches!(
@@ -280,6 +297,7 @@ impl App {
     /// as the rust edition's hard guard: a show since the hide started
     /// replaces the Hiding state, so a stale finish can never fire.
     fn finish_hide(&mut self) {
+        Self::trace_log("finish_hide");
         if !matches!(self.panel_state, PanelState::Hiding { .. }) {
             return;
         }
@@ -349,6 +367,7 @@ impl App {
     /// ShowSettings: flag up, backfill the draft, center + show + focus. The
     /// window itself is a persistent hidden viewport (singleton reuse).
     fn open_settings(&mut self, focus: bool) {
+        Self::trace_log("open_settings");
         self.biz.state.settings_open.store(true, Ordering::SeqCst);
         *self.win.draft.lock().unwrap() =
             SettingsDraft::from_settings(&self.biz.state.settings.read().unwrap());
@@ -372,6 +391,7 @@ impl App {
     }
 
     fn close_settings(&mut self) {
+        Self::trace_log("close_settings");
         self.biz.state.settings_open.store(false, Ordering::SeqCst);
         let ctx = self.ctx();
         ctx.send_viewport_cmd_to(
@@ -532,6 +552,7 @@ impl App {
     }
 
     fn execute_win_action(&mut self, action: WinAction) {
+        Self::trace_log(&format!("win_action {action:?}"));
         #[cfg(debug_assertions)]
         eprintln!("[ui] win action {action:?}");
         match action {
@@ -733,6 +754,35 @@ impl eframe::App for App {
             let (lp, ip) = ctx.input(|i| (i.pointer.latest_pos(), i.pointer.interact_pos()));
             eprintln!("[ui] pointer latest={lp:?} interact={ip:?} focused={focused:?}");
         }
+        // TEMP trace instrumentation (KPT_TRACE): once per second, append the
+        // panel input state + wndproc message counters to %TEMP%\kpt_trace.log.
+        if std::env::var_os("KPT_TRACE").is_some() {
+            let last = self.trace_last.get_or_insert_with(Instant::now);
+            if last.elapsed() >= Duration::from_millis(500) {
+                *last = Instant::now();
+                use std::sync::atomic::Ordering as AOrd;
+                let any = crate::windows::TRACE_ANY.swap(0, AOrd::Relaxed);
+                let mv = crate::windows::TRACE_MOUSEMOVE.swap(0, AOrd::Relaxed);
+                let lb = crate::windows::TRACE_LBUTTON.swap(0, AOrd::Relaxed);
+                let nc = crate::windows::TRACE_NCACTIVATE.swap(0, AOrd::Relaxed);
+                let lp = ctx.input(|i| i.pointer.latest_pos());
+                let root_hwnd = crate::windows::find_hwnd(crate::windows::MAIN_TITLE)
+                    .map(|h| format!("0x{:X}", h.0 as isize))
+                    .unwrap_or_else(|| "none".into());
+                let line = format!(
+                    "state={:?} focused={:?} was_focused={} pointer={lp:?} hwnd={root_hwnd} msgs: any={any} move={mv} lbtn={lb} ncact={nc}\n",
+                    self.panel_state, focused, self.panel_was_focused
+                );
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(std::env::temp_dir().join("kpt_trace.log"))
+                {
+                    use std::io::Write;
+                    let _ = f.write_all(line.as_bytes());
+                }
+            }
+        }
         if self.panel_state.is_visible()
             && !matches!(self.panel_state, PanelState::Hiding { .. })
             && self.panel_was_focused
@@ -745,15 +795,6 @@ impl eframe::App for App {
         }
         if let Some(remaining) = self.panel_state.animating_for(now) {
             ctx.request_repaint_after(remaining.min(Duration::from_millis(16)));
-        }
-        // HWND styling watcher tracks all four windows.
-        if let Ok(mut flags) = self.visibility.lock() {
-            if flags.len() == 4 {
-                flags[0] = self.panel_state.is_visible();
-                flags[1] = self.biz.state.settings_open.load(Ordering::SeqCst);
-                flags[2] = self.biz.state.skills_open.load(Ordering::SeqCst);
-                flags[3] = self.win.menu_open.load(Ordering::SeqCst);
-            }
         }
 
         // Deferred viewports: registered every pass (singleton windows).
