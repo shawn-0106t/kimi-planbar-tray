@@ -11,9 +11,15 @@ public class TrayManager : IDisposable
     private readonly Forms.NotifyIcon _notify;
     private MainWindow? _popup;
     private SettingsWindow? _settings;
+    private SkillsWindow? _skills;
     private DateTime _lastHide = DateTime.MinValue;
     private DateTime _lastHoverRefresh = DateTime.MinValue;
     private TrayMenuWindow? _menu;
+
+    // Panel focus-loss auto-hide is suppressed while one of these is open
+    // (SPEC 20 / 21; rust panel.rs on_main_blur checks settings_open/skills_open)
+    public bool IsSettingsOpen => _settings is { IsVisible: true };
+    public bool IsSkillsOpen => _skills is { IsVisible: true };
 
     public TrayManager()
     {
@@ -79,6 +85,21 @@ public class TrayManager : IDisposable
         if (_settings == null || !_settings.IsLoaded) _settings = new SettingsWindow();
         _settings.Show();
         _settings.Activate();
+    }
+
+    // Same singleton pattern as ShowSettings; the scan itself is lazy — the
+    // window only renders from the SkillsService.Updated callback (SPEC 21.2:
+    // zero background cost until the window is actually opened)
+    public void ShowSkills()
+    {
+        if (_skills == null || !_skills.IsLoaded) _skills = new SkillsWindow();
+        // Re-pin the logical size on every open (DPI guard, mirrors rust
+        // open_skills' set_size)
+        _skills.Width = 404;
+        _skills.Height = 520;
+        _skills.Show();
+        _skills.Activate();
+        App.Skills.Load(refresh: false);
     }
 
     // 托盘图标：优先使用内嵌的官方 logo（PNG 包装为 ICO，Vista+ 原生支持且保留 alpha），
