@@ -446,3 +446,7 @@ print("done")
 - `docs/archive/EGUI-MIGRATION.md` §7：DWM hairline「半透明框」的定案与最终消除。
 - `AGENTS.md` 的「egui edition specifics」段：现有陷阱清单（冻结状态、`WM_NCACTIVATE`、首秀残留）。
 - `docs/SPEC.md` §10/§20：窗口尺寸、阴影、定位与 DPI 契约（验收对照）。
+
+---
+
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
