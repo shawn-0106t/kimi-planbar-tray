@@ -6,7 +6,7 @@ Guidance for AI coding agents working in this repository. Read this first; it as
 
 Kimi Planbar Tray is a lightweight **Windows-only system tray app** that shows Kimi Code plan quota (5-hour window + weekly usage, reset countdowns, "Extra Usage" booster wallet) one click away from the tray. It reads the local Kimi Code CLI OAuth token and calls `GET https://api.kimi.com/coding/v1/usages`.
 
-Current version: **1.7.3** (full sync list: `docs/SPEC.md` section 7.3 step 1).
+Current version: **1.8.0** (full sync list: `docs/SPEC.md` section 7.3 step 1).
 
 This is a **monorepo with four editions**:
 
@@ -91,7 +91,7 @@ egui/                            # COMPLETED (experimental, test-only): pure-Rus
 │   ├── ui/                      # theme.rs / panel.rs / widgets.rs / settings_win.rs / skills_win.rs / menu_win.rs (painter-drawn windows)
 │   └── bin/spike.rs             # Phase 0 feasibility spike, kept untouched as reference
 
-wpf/                             # maintained (net8.0-windows, WPF, zero third-party NuGet deps; aligned with rust/ 1.7.3)
+wpf/                             # maintained (net8.0-windows, WPF, zero third-party NuGet deps; aligned with rust/ 1.8.0)
 ├── MainWindow / SettingsWindow / SkillsWindow / TrayMenuWindow (.xaml + .xaml.cs)
 ├── TrayManager.cs, App.xaml.cs  # App.xaml.cs hosts --test-fetch/--test-update/--test-skills/--test-ui/--screenshot + the 2s manual-refresh debounce
 ├── Services/{QuotaService,SettingsService,SkillsService,UpdateService,ThemeService}.cs

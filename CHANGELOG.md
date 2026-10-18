@@ -4,11 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries for v1.7.2 and earlier were reconstructed from the GitHub release notes of each tag.
 
-## [Unreleased]
+## [1.8.0] - 2026-10-18
 
 ### Added
 - WPF edition revival, aligned with rust/ 1.7.3: the read-only Skills window end-to-end (scanner + window + tray-menu item + lazy scan with cache + panel focus-loss suppression while open, plus `--test-skills` and the fourth `--test-ui` OK line), the icon action row with the Console button (panel height 512 → 520, four icon buttons on the card background), the self-drawn hover glow (SPEC 15.3: accent ring + halo, 140 ms, theme-dependent parameters), and the 1.7.1 hardening backport (`KIMI_CODE_HOME` override, 2 s manual-refresh debounce, RefreshMinutes clamp 1–30 at save, saturating arithmetic, non-finite percent zeroing, stale-reschedule guard for the 2 s first refresh, hide/show animation generation counter, settings backfill tolerating malformed persisted values). The WPF edition ships via Releases again.
-- Tag-triggered release automation: pushing a `v*` tag now builds the release exe on CI, runs the packager, and opens a draft GitHub Release with all three assets attached — publishing stays a manual decision.
+- Tag-triggered release automation: pushing a `v*` tag now builds the release exe on CI, runs the packager, and opens a draft GitHub Release with all five assets attached — publishing stays a manual decision.
 - Experimental egui edition (Phase 1 + Phase 2 + Phase 3): the headless core ported from rust/ (credentials, quota, polling, settings, skills, update, theme_watch, state) with the Tauri dependencies removed, plus `--test-fetch`/`--test-update` output parity with the Rust edition. Phase 2 adds the tray icon and the main panel at SPEC 10-15 parity: left-click toggle, 10 s hover-refresh throttle, focus-loss auto-hide with the 300 ms re-entry guard, enter/exit slide+fade animations, the 140 ms hover glow, and Moonlit/Moondark themes. Phase 3 completes the four-window parity: the Settings window (theme radios, refresh-interval pills, autostart checkbox, Save chain with live theme apply + polling reschedule, draggable titlebar), the read-only Skills window (lazy one-shot scan with cache, grouped list, 2-line description clamp with hover tooltips, themed scrollbar, `112 skills` verified against the filesystem on the dev machine), and the tray right-click menu at the cursor (edge clamping, bottom-edge flip-up, Open/Refresh/Settings/Skills/Exit, focus-loss close) — `--test-ui` now constructs all four windows and prints `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`.
 - egui edition completion (Phase 4 + Phase 5): a full SPEC 10-21 parity audit (99 PASS / 2 minor DEVIATION / 6 UNTESTABLE, cross-edition mutex matrix 9/9, mixed-DPI audit, same-machine perf comparison — 91 ms cold start and a ~21.8 MB single exe vs 1060 ms + WebView2 for the Rust build) with two real parity fixes (mixed-DPI window positioning via `GetDpiForWindow`, first-open-only centering for the settings/skills windows), two code-review fix rounds (root close guard for Alt+F4/WM_CLOSE, PID-filtered HWND lookup, quit-shortcut/zoom hardening), CI coverage (the same fmt/clippy/build/test gate now runs on `egui/` in ci.yml), and the final positioning decision: **experimental test-only, like qt/** — buildable from source, not distributed via Releases.
 - Known-limitation documentation: the egui edition shows a faint 1-2px DWM hairline tracing the window rect on bright desktops (winit 0.30.13's undecorated-shadow NCCALCSIZE hack + the WS_CAPTION border drawn over content; tao's inset scheme is why rust/ is clean) — root-caused 2026-10-17, fix attempts verified then rolled back, accepted as-is for the experimental edition; full diagnosis and future options in `docs/archive/EGUI-MIGRATION.md` section 7. (Superseded: fixed later in this cycle — see Fixed below.)
@@ -119,7 +119,8 @@ Review-hardening round; no new features.
 
 Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly usage cards with reset countdowns, Moonlit/Moondark themes following the system, portable and UAC-free (.NET 8 / WPF).
 
-[Unreleased]: https://github.com/shawn-0106t/kimi-planbar-tray/compare/v1.7.3...HEAD
+[Unreleased]: https://github.com/shawn-0106t/kimi-planbar-tray/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.8.0
 [1.7.3]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.7.3
 [1.7.2]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.7.2
 [1.7.1]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.7.1
@@ -138,11 +139,11 @@ Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly
 
 > 以下为上方英文各版本的中文对照（发版时双语同步维护）；版本链接见英文区。
 
-## [Unreleased]
+## [1.8.0] - 2026-10-18
 
 ### 新增
 - WPF 版复活并对齐 rust/ 1.7.3：Skills 只读窗口端到端（扫描器 + 窗口 + 托盘菜单项 + 首开懒扫描缓存 + 打开期间抑制面板失焦收起，外加 `--test-skills` 与 `--test-ui` 第四行 OK），带 Console 按钮的图标动作行（面板高度 512 → 520，四按钮图标化且底色改卡片色），自绘 hover glow（SPEC 15.3：accent 描边 + 光晕、140ms、随主题取参），以及 1.7.1 加固回移植（`KIMI_CODE_HOME` 覆盖、手动刷新 2s 防抖、保存时 RefreshMinutes clamp 1–30、饱和算术、非有限百分比归零、过期 reschedule 不覆盖 2s 首刷、hide/show 动画代际守卫、设置回填容忍损坏持久化值）。WPF 版恢复随 Releases 分发。
-- tag 触发的发版自动化：push `v*` tag 后在 CI 上构建 release exe、运行打包脚本并创建挂好三件资产的 draft GitHub Release——发布仍为手动决策。
+- tag 触发的发版自动化：push `v*` tag 后在 CI 上构建 release exe、运行打包脚本并创建挂好五件资产的 draft GitHub Release——发布仍为手动决策。
 - 实验性 egui 版（Phase 1 + Phase 2 + Phase 3）：从 rust/ 移植无头业务核心（credentials、quota、polling、settings、skills、update、theme_watch、state）并去除 Tauri 依赖，`--test-fetch`/`--test-update` 输出与 Rust 版逐字段一致。Phase 2 落地托盘图标与主面板，达到 SPEC 10-15 parity：左键 toggle、hover 刷新 10s 节流、失焦自动收起 + 300ms 再入防抖、出入场滑入淡入动画、140ms hover 光晕、Moonlit/Moondark 双主题。Phase 3 补齐四窗 parity：设置窗（主题单选、刷新间隔丸、开机自启复选框、Save 链路含主题实时生效与轮询重排、可拖动标题栏）、Skills 只读窗（首开懒扫描 + 缓存、分组列表、描述两行截断 + 悬停完整提示、主题化滚动条，开发机上 `112 skills` 与文件系统逐一核对）、托盘右键菜单（光标定位、右缘钳制、底边上翻、Open/Refresh/Settings/Skills/Exit、失焦关闭）——`--test-ui` 现构造全部四窗并输出 `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`。
 - egui 版完结（Phase 4 + Phase 5）：SPEC 10-21 全面 parity 审计（99 PASS / 2 项轻微偏差 / 6 项环境不可测，跨版本互斥矩阵 9/9，混合 DPI 审计，同机性能对照——冷启动 91 ms、单 exe ~21.8 MB，对比 Rust 版 1060 ms + WebView2），修复两处真实 parity bug（经 `GetDpiForWindow` 的混合 DPI 窗口定位、设置/Skills 窗仅首开居中），两轮 code review 修复（Alt+F4/WM_CLOSE 根窗口关闭守卫、按 PID 过滤的 HWND 查找、退出快捷键/缩放加固），CI 接入（ci.yml 对 `egui/` 运行同款 fmt/clippy/build/test 门禁），以及最终定位决策：**experimental 测试版，与 qt/ 同款**——仅从源码构建，不随 Releases 分发。
 - 已知限制文档化：egui 版在亮色桌面下窗口矩形边缘有一圈 1-2px 的 DWM hairline（winit 0.30.13 无装饰窗口 NCCALCSIZE hack + WS_CAPTION 边框叠绘所致；tao 的 inset 方案是 rust/ 无此问题的原因）——2026-10-17 完成根因定位，修复尝试经实测验证后回滚，experimental 版接受现状；完整诊断与后续选项见 `docs/archive/EGUI-MIGRATION.md` 第 7 节。（已被取代：本周期内已修复——见下方"修复"。）
