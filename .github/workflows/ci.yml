@@ -119,3 +119,14 @@ jobs:
       - name: egui Cargo test
         working-directory: egui
         run: cargo test --locked
+
+      # WPF edition (maintained again, ships via Releases): compile-level gate
+      # only — the runtime --test-* self-checks need local Kimi Code credentials
+      # and an interactive desktop, same boundary as rust/ and egui/
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: WPF build
+        run: dotnet build wpf -c Release
