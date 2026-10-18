@@ -147,6 +147,15 @@ fn run_app(test_ui: bool) {
     spawn_event_drain(events_rx, ui_shared.clone());
 
     windows::spawn_watcher();
+    // WH_CBT hook: styles each viewport window inside CreateWindowEx (before
+    // it can ever be shown), closing the first-show caption race. Must be
+    // installed on THIS thread before run_native — eframe creates every
+    // viewport window on the main/event-loop thread (see windows.rs). If the
+    // hook cannot be installed, engage the spec's A′ fallback (10ms polling
+    // for the first 3s) so the race is shrunk instead of silently lost.
+    if !windows::install_cbt_hook() {
+        windows::spawn_fast_startup_watcher();
+    }
 
     // The tray icon must be created on the main thread: winit's message pump
     // (PeekMessageW over the whole thread queue) dispatches the tray-icon

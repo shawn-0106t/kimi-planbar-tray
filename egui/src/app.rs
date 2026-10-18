@@ -239,7 +239,7 @@ impl App {
         // Install fonts before the first frame so the named weight families
         // are bound when the panel first paints (an unbound family panics).
         let font_probe = FontProbe::new(&cc.egui_ctx);
-        App {
+        let app = App {
             biz,
             ui,
             win,
@@ -256,7 +256,13 @@ impl App {
             skills_placed: false,
             test_ui,
             quitting: false,
-        }
+        };
+        // Sync-style the root panel the moment it exists (idempotent; the CBT
+        // hook normally did this inside CreateWindowEx — this only re-asserts
+        // the DWM attributes / TOOLWINDOW if the hook missed). No-op when the
+        // HWND is not findable yet.
+        crate::windows::style_hwnd(crate::windows::MAIN_TITLE);
+        app
     }
 
     fn ctx(&self) -> egui::Context {
