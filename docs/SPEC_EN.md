@@ -179,6 +179,17 @@ cargo build --release   # release exe -> target/release/kimi-planbar-tray-egui.e
 
 Note: debug builds are console-subsystem (with a console window) and release builds are GUI-subsystem (no console); the `--test-*` self-check output goes through the same `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` pattern as the qt/ edition, so it works under both. The egui edition is complete (experimental, test-only); the implementation record lives in `docs/archive/EGUI-MIGRATION.md` section 6.
 
+**wpf/ edition**: prerequisite Windows + the .NET 8 SDK.
+
+```bash
+cd wpf
+dotnet build -c Release   # the compile-level gate CI runs
+dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish                                          # framework-dependent exe (~0.3 MB, needs the .NET 8 Desktop Runtime)
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish-sc   # self-contained exe (~65 MB, no prerequisites)
+```
+
+Note: the `--test-*` self-check output goes through `Console.WriteLine` — the exe is WinExe with no console, so the output is visible only when stdout is redirected (Git Bash pipe, `> file`); launched bare (double-click / Explorer) it is discarded. `--screenshot` is exclusive to this edition.
+
 ### 7.2 Testing
 
 There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`cargo test` runs only those). Verification methods (details in chapter 19):
@@ -186,6 +197,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 - `--test-fetch` / `--test-update` / `--test-ui` headless self-checks (run before the mutex check, so they can coexist with a running instance)
 - The egui/ edition implements the same `--test-*` args with field-identical output to the rust/ edition (directly diffable on the same machine); the skills frontmatter-parser tests run via `cd egui && cargo test` (`--test-ui` is fully implemented: it constructs and shows all four windows, prints `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`, and auto-exits after ~6 s)
 - Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
+- Manual headless-Chrome screenshot recipe (for `rust/dist/index.html`): strip the `crossorigin` attributes (file:// blocks them), set `data-theme="light|dark"` on `<html>` and `class="enter"` on `<body>` (the panel stays `opacity:0` until the backend emits `panel-show`), and pin `body{width:424px;height:520px;overflow:hidden}` (headless Chrome clamps tiny windows to ~534 px wide). The Rust edition has **no `--screenshot` arg** (only the frozen wpf/ edition has one); unrecognized args fall through to launching the GUI
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
 - Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests, with the same fmt/clippy/build/test gate (`--locked`) also running on the egui/ crate, and a compile-level `dotnet build -c Release` on wpf/) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
 - Dependency updates: `.github/dependabot.yml` enables weekly Dependabot updates for cargo (`/rust/src-tauri`), npm (`/rust`), and github-actions (minor+patch grouped into one PR per ecosystem, majors open individual PRs); Dependabot alerts and security updates are enabled on the repo

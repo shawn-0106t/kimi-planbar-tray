@@ -179,6 +179,17 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 
 注意：debug 构建为控制台子系统（带控制台窗口），release 构建为 GUI 子系统（不弹控制台）；`--test-*` 自检输出走 qt/ 版同款 `WriteFile(GetStdHandle(STD_OUTPUT_HANDLE))` 模式，两种构建下均可用。egui 版已全部完结（实验性质、仅供测试），实施记录见 `docs/archive/EGUI-MIGRATION.md` §6。
 
+**wpf/ 版**：前提 Windows + .NET 8 SDK。
+
+```bash
+cd wpf
+dotnet build -c Release   # CI 跑的编译级门禁
+dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish                                              # framework-dependent exe（~0.3 MB，需 .NET 8 桌面运行时）
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish-sc   # self-contained exe（~65 MB，零前提）
+```
+
+注意：`--test-*` 自检输出走 `Console.WriteLine`——WinExe 无控制台，仅在 stdout 被重定向（Git Bash 管道、`> file`）时可见，裸跑（双击/资源管理器启动）输出丢弃；`--screenshot` 为本版独有。
+
 ### 7.2 测试
 
 除 `skills.rs` frontmatter 解析的单元测试（`cargo test` 仅跑这部分）外无单元测试套件。验证手段（详见第 19 章）：
@@ -186,6 +197,7 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 - `--test-fetch` / `--test-update` / `--test-ui` 无头自检（先于互斥锁执行，可与运行中实例并存）
 - egui/ 版实现同名 `--test-*` 参数，输出与 rust/ 版逐字段一致（同一台机器可直接 diff）；skills frontmatter 解析单测随 `cd egui && cargo test` 运行（`--test-ui` 已实装：构造并显示全部四窗后输出 `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK` 四行，约 6s 自动退出）
 - 视觉验证：`PYTHONUTF8=1 python scripts/release/make_screenshots.py`（headless Chrome/Edge 渲染 dist，`KPT_CHROME` 可指定浏览器，重拍 `docs/screenshot-*.png`）或与 `docs/*.png` 基准对比
+- 手动 headless Chrome 截图配方（检查 `rust/dist/index.html`）：去掉 `crossorigin` 属性（file:// 会拦截），`<html>` 上设 `data-theme="light|dark"`，`<body>` 加 `class="enter"`（面板在收到后端 `panel-show` 事件前保持 `opacity:0`），并钉死 `body{width:424px;height:520px;overflow:hidden}`（headless Chrome 会把过小的窗口钳到约 534 px 宽）。rust/ 版**没有 `--screenshot` 参数**（仅冻结的 wpf/ 版有）；未识别的参数会回落为正常启动 GUI
 - 交付前按用户全局规范派独立 subagent 做 code review
 - 持续集成：`.github/workflows/ci.yml`（GitHub Actions）两个 job——`gitleaks`（ubuntu-latest，全历史密钥扫描，`GITLEAKS_VERSION` 钉 8.29.1 避开 8.30.x 检出回归）与 `build-and-test`（windows-latest，`npm ci` + `npx tsc --noEmit` + `npm run build` 前端类型检查与打包，及 `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills 解析单测，egui/ crate 上亦跑同款 fmt/clippy/build/test（`--locked`），wpf/ 上跑编译级 `dotnet build -c Release`）；`--test-*` 自检与 `verify_icons.py` 依赖本机凭据/交互桌面/仓库外图标库，**不在 CI 执行**，仍为本地检查；push 到 main 的纯文档变更（`**.md`、`docs/`）不触发 CI（`paths-ignore` 仅挂在 `push` 触发器上），PR 一律触发以保证 required check 回报；main 分支受保护（两个 CI job 均为 required check，含管理员），改动一律走 PR
 - 依赖更新：`.github/dependabot.yml` 为 cargo（`/rust/src-tauri`）、npm（`/rust`）、github-actions 三生态开 weekly Dependabot（minor+patch 按生态合组单 PR、major 单开）；repo 已开 Dependabot alerts 与 security updates
