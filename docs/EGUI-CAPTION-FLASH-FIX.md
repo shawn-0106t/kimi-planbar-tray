@@ -1,7 +1,7 @@
 # egui 版「开窗闪白色原生标题栏」根因与修复规格
 
 > 文档性质：实施规格（What / Why / How），供后续 agent 直接执行。
-> 当前状态：**未实施**。egui 版自 2026-10-17 起处于冻结状态，落地前需用户解冻。
+> 当前状态：**已实施（2026-10-18，用户解冻后落地）**。验收：V0 阳性对照（`85e106c^` debug 构建 `--test-ui` 连拍）抓到 26 帧 bright% ≈ 88.9；修复后同场景 311 帧 peak 0.36%、灰度跳变 0.000；`cargo fmt/clippy/test` 全过、`--test-ui` 四行 OK。独立只读审查（glm-5.3）Approve，据此追加三处：`WM_STYLECHANGED` 转发前改写 `styleNew` 快照、CBT 钩子安装失败时启用 A′ 降级（`windows::spawn_fast_startup_watcher`，首 3 秒 10ms 轮询）、`title_matches_any` 的 UTF-16 标题表 OnceLock 缓存。改动文件：`egui/src/windows.rs`、`egui/src/main.rs`、`egui/src/app.rs`、`egui/src/panel_pos.rs`。
 > 适用基线：HEAD `3028e7a`，egui 版 1.7.3，eframe `=0.36.2`，winit `0.30.13`，`windows` crate `0.62`。
 > 验证环境：Windows 11 26H2 build 26300，主屏 2880x1800 @225%，副屏 3456x1944 @(5184,704)。
 

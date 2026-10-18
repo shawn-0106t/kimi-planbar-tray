@@ -217,6 +217,10 @@ pub fn show_panel(ctx: &Context, focus: bool) {
         (phys_x / win_s) as f32,
         (phys_y / win_s) as f32,
     )));
+    // Style the native window synchronously BEFORE it can become visible
+    // (caption-flash hardening, docs/EGUI-CAPTION-FLASH-FIX.md; idempotent,
+    // microsecond-level — the CBT hook already did this at creation).
+    crate::windows::style_hwnd(crate::windows::MAIN_TITLE);
     ctx.send_viewport_cmd(ViewportCommand::Visible(true));
     if focus {
         ctx.send_viewport_cmd(ViewportCommand::Focus);
@@ -271,6 +275,14 @@ pub fn show_centered(ctx: &Context, vp: ViewportId, w: f32, h: f32, focus: bool,
             )),
         );
     }
+    // Style the native window synchronously BEFORE it can become visible
+    // (caption-flash hardening, docs/EGUI-CAPTION-FLASH-FIX.md; idempotent,
+    // microsecond-level — the CBT hook already did this at creation).
+    crate::windows::style_hwnd(if vp == vp_settings() {
+        crate::windows::SETTINGS_TITLE
+    } else {
+        crate::windows::SKILLS_TITLE
+    });
     ctx.send_viewport_cmd_to(vp, ViewportCommand::Visible(true));
     if focus {
         ctx.send_viewport_cmd_to(vp, ViewportCommand::Focus);
@@ -386,6 +398,10 @@ pub fn show_menu_at(ctx: &Context, px: f64, py: f64, h: f32) {
             (phys_y / win_s) as f32,
         )),
     );
+    // Style the native window synchronously BEFORE it can become visible
+    // (caption-flash hardening, docs/EGUI-CAPTION-FLASH-FIX.md; idempotent,
+    // microsecond-level — the CBT hook already did this at creation).
+    crate::windows::style_hwnd(crate::windows::MENU_TITLE);
     ctx.send_viewport_cmd_to(vp, ViewportCommand::Visible(true));
     // Re-arm winit's pointer position (a re-shown window is click-dead until
     // the cursor MOVES to a new position over it — see windows.rs).
