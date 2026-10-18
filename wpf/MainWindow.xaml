@@ -115,14 +115,18 @@
                 </DockPanel>
             </Button>
 
-            <!-- 底部动作行（SPEC 12.7）：上图标下文字，四按钮；图标为
-                 rust/index.html 同款 inline SVG 的 StreamGeometry 转写 -->
+            <!-- Bottom buttons (SPEC 12.7): icon on top, label below; icons are
+                 StreamGeometry transcriptions of the rust/index.html inline SVGs.
+                 The Path MUST carry explicit Width/Height=24: Viewbox scales by
+                 the child's DesiredSize and a bare Path measures its own geometry
+                 bounds, which renders icons oversized with per-icon scale drift.
+                 With the explicit size the scaling matches SVG viewBox semantics. -->
             <primitives:UniformGrid Grid.Row="4" Columns="4">
                 <Button Style="{StaticResource IconActionButton}" Click="ConsoleClick"
                         ToolTip="Open Kimi Code Console" Margin="0,0,6,0">
                     <StackPanel>
                         <Viewbox Width="16" Height="16" HorizontalAlignment="Center">
-                            <Path Data="{StaticResource IconConsole}"
+                            <Path Data="{StaticResource IconConsole}" Width="24" Height="24"
                                   Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Viewbox>
                         <TextBlock Text="Console" FontSize="12" Margin="0,2,0,0"
@@ -132,7 +136,7 @@
                 <Button Style="{StaticResource IconActionButton}" Click="RefreshClick" Margin="3,0">
                     <StackPanel>
                         <Viewbox Width="16" Height="16" HorizontalAlignment="Center">
-                            <Path Data="{StaticResource IconRefresh}"
+                            <Path Data="{StaticResource IconRefresh}" Width="24" Height="24"
                                   Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Viewbox>
                         <TextBlock Text="Refresh" FontSize="12" Margin="0,2,0,0"
@@ -142,7 +146,7 @@
                 <Button Style="{StaticResource IconActionButton}" Click="SettingsClick" Margin="3,0">
                     <StackPanel>
                         <Viewbox Width="16" Height="16" HorizontalAlignment="Center">
-                            <Path Data="{StaticResource IconSettings}"
+                            <Path Data="{StaticResource IconSettings}" Width="24" Height="24"
                                   Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Viewbox>
                         <TextBlock Text="Settings" FontSize="12" Margin="0,2,0,0"
@@ -152,7 +156,7 @@
                 <Button Style="{StaticResource IconActionButton}" Click="ExitClick" Margin="6,0,0,0">
                     <StackPanel>
                         <Viewbox Width="16" Height="16" HorizontalAlignment="Center">
-                            <Path Data="{StaticResource IconExit}"
+                            <Path Data="{StaticResource IconExit}" Width="24" Height="24"
                                   Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Viewbox>
                         <TextBlock Text="Exit" FontSize="12" Margin="0,2,0,0"
