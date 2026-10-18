@@ -225,3 +225,12 @@ WPF 版冻结于 v1.5.0（最后提交 `fa04182` 2026-08-15），21 个文件，
 - **m2**：`ManualRefreshAsync` 改为 quota 刷新与版本检查并行（对齐 rust `refresh_now` 的双 spawn）。
 - **m3**：`fade.Completed` 里的 `Opacity = 1` 原为 no-op（hold-end 动画优先于本地赋值）——先 `BeginAnimation(null)` 再赋值。
 - 未采纳：托盘菜单改为单例隐藏复用（s2）——v1.5.0 起即每次新建，用户可见行为等价，改动触及菜单关闭重入逻辑、风险大于收益，记录为已知偏差。
+
+### E. 闭环增量审查（2026-10-18）
+
+由同一独立 reviewer 对修复 commit（附录 D）做闭环核验：上轮 7 项全部判定为**正确修复**（M1 的序列化选项严格限定在 `--test-fetch` 分支局部，settings.json 的 PascalCase schema 与共享 mutex 均不受影响；m2 并行化经异常面逐一排查无新增问题；m3 时序无闪烁/残留），闭环通过。新发现 4 项 Minor 已当场修复：
+
+- **N1**：校验脚本的隐式重复命令改为继承原命令的相对性（SVG/WPF 规范：`l1 1 2 2` 两组均为相对 lineto），并对连写 arc flags 的解析局限加了文档注记（当前四图标不含该写法，触发时 fail loudly 不静默漏检）；修复后以三组语义探针（相对隐式重复 / 小写 m 隐式 / 大写 M 绝对隐式）+ 四图标全量比对验证。
+- **N2**：SPEC 双语的间隔回落注记补齐四版对比——WPF 与 egui 回落选中 `5 min` 丸，rust 与 qt 留空、仅 Save 按 5 兜底（持久化结果一致）。
+- **N3**：AGENTS.md 的 "identical output" 措辞改为 "field-compatible output"（数值文本格式与时刻偏移表示存在附录 C 记录的差异），与实际 diff 结果一致。
+- **N4**：`QuotaService.cs` 一处合并格式残留（同行双右括号）拆行。

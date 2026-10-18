@@ -39,6 +39,11 @@ def expand_absolute(tokens):
     parameter block. Only endpoints are absolutized; radii/rotation/flags
     stay as written."""
     ARITY = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4, "T": 2}
+    # Known limitation (documented, fails loudly if ever hit): the tokenizer
+    # splits on whitespace/commas, so the legal concatenated arc-flag form
+    # (`a1 1 0 011 1`) would parse `011` as one number and misalign the
+    # parameter block. None of the four audited icons use it; the icons fail
+    # the comparison loudly rather than silently passing.
     out = []
     cmd = None
     i = 0
@@ -86,8 +91,11 @@ def expand_absolute(tokens):
                 out.append((c, vals))
             if i >= n or isinstance(tokens[i], str):
                 break
+            # implicit repetition inherits the original command's relative-ness
+            # (SVG/WPF spec: `l1 1 2 2` draws two RELATIVE linetos; the pairs
+            # after a lowercase `m` are relative linetos too)
             c = repeat_cmd
-            rel = False
+            rel = cmd.islower()
     return out
 
 

@@ -92,7 +92,8 @@ public class QuotaService : IDisposable
                                   TimeSpan.FromMilliseconds(_periodMs));
                 }
                 catch (ObjectDisposedException) { }
-            }        }
+            }
+        }
         try { Application.Current?.Dispatcher.Invoke(() => Updated?.Invoke()); } catch { }
     }
 

@@ -259,7 +259,7 @@ All three windows are: **frameless** (`WindowStyle=None`), **transparent backgro
 - Content Grid: `Margin=16`, 2 rows (Auto / *)
 - Custom title bar: `DragMove()` on `MouseLeftButtonDown` anywhere on the row makes it draggable
 - Behavior: does not auto-close on focus loss; only the ✕ button or "Save" closes it. Singleton, reused.
-- Backfill tolerates malformed persisted values: an unmatched theme falls back to `system` (all editions); an unmatched `RefreshMinutes` checks the `5 min` pill in the WPF edition (the rust frontend leaves the pills empty and only coerces to 5 at Save time — the persisted outcome is identical), never leaving a control unchecked.
+- Backfill tolerates malformed persisted values: an unmatched theme falls back to `system` (all editions); an unmatched `RefreshMinutes` checks the `5 min` pill in the WPF and egui editions, while the rust and qt frontends leave the pills empty and only coerce to 5 at Save time (the persisted outcome is identical), never leaving a control unchecked.
 
 ### 10.3 Tray right-click menu (TrayMenuWindow)
 - Size: `Width=188`, height `SizeToContent=Height` (auto-fits 5 items; the menu carries the Skills item since v1.6, see 21.3)
@@ -382,7 +382,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 | Save | `Button "Save"`, style `ActionButton`, `Margin=0,26,0,0` | — | — |
 
 - Save action: write `settings.json` → `ApplyAutoStart()` → `Theme.Apply(theme)` → `Quota.Reschedule()` → `Close()`.
-- On open, the window back-fills the checked states from the current settings; `RefreshMinutes` is matched via the Tag string. The backfill tolerates malformed persisted values: an unmatched theme falls back to `system` (all editions); an unmatched interval checks the `5 min` pill in the WPF edition (the rust frontend leaves it empty and coerces to 5 at Save), never leaving a control unchecked (the save path additionally clamps `RefreshMinutes` to 1–30).
+- On open, the window back-fills the checked states from the current settings; `RefreshMinutes` is matched via the Tag string. The backfill tolerates malformed persisted values: an unmatched theme falls back to `system` (all editions); an unmatched interval checks the `5 min` pill in the WPF and egui editions, while rust and qt leave it empty and coerce to 5 at Save (persisted outcome identical), never leaving a control unchecked (the save path additionally clamps `RefreshMinutes` to 1–30).
 
 ### 13.3 Shared control styles (`Themes/Shared.xaml`)
 - **ActionButton**: `Padding=0,10`, `FontSize=13`, foreground `TextPrimaryBrush`, background `ButtonBgBrush`, no border, hand cursor; template `Border CornerRadius=10`, hover background `ButtonHoverBrush`
