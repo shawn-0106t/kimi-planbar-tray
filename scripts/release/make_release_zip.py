@@ -35,12 +35,16 @@ SUMS = os.path.join(ROOT, "SHA256SUMS.txt")
 SUMS_PART = SUMS + ".part"  # written first, renamed onto SUMS before the zip
 
 # (absolute source, arcname in zip, uploaded as a standalone release asset)
-# The frozen WPF edition stopped shipping in v1.7.3 (zero CI coverage, ~zero
-# downloads); its last binaries live on the v1.5.0 release, and the wpf/ source
-# stays in-tree as the behavior/UI reference.
+# The WPF edition ships again since its 1.7.3 revival: framework-dependent
+# (needs the .NET 8 Desktop Runtime) plus self-contained (no install), under
+# the historical v1.5.0 asset names.
 BINARIES = [
     ("rust/src-tauri/target/release/kimi-planbar-tray.exe",
      "KimiPlanbarTray-rust.exe", True),
+    ("wpf/publish/KimiPlanbarTray.exe",
+     "KimiPlanbarTray-wpf.exe", True),
+    ("wpf/publish-sc/KimiPlanbarTray.exe",
+     "KimiPlanbarTray-wpf-selfcontained.exe", True),
 ]
 
 # Never shipped even when present, matched case-folded like the rules below (all

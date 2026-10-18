@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!-- 月之亮面 -->
     <SolidColorBrush x:Key="AccentBrush" Color="#FF1A88FF"/>
     <SolidColorBrush x:Key="WindowBgBrush" Color="#FFF3F4F6"/>
@@ -11,4 +12,9 @@
     <SolidColorBrush x:Key="ButtonHoverBrush" Color="#FFDCE2E9"/>
     <SolidColorBrush x:Key="BadgeBgBrush" Color="#FFFFF0E0"/>
     <SolidColorBrush x:Key="BadgeFgBrush" Color="#FFE06D00"/>
+    <!-- SPEC 15.3 hover glow：accent 描边 1px 35% + 光晕 8px 18%（140ms 过渡，
+         参数对齐 rust theme.css 的 .btn::after 亮面值） -->
+    <SolidColorBrush x:Key="GlowStrokeBrush" Color="#591A88FF"/>
+    <sys:Double x:Key="GlowBlurRadius">8</sys:Double>
+    <sys:Double x:Key="GlowHaloOpacity">0.18</sys:Double>
 </ResourceDictionary>

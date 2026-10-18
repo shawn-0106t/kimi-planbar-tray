@@ -1,7 +1,7 @@
 name: Release (draft)
 
 # Pushing a v* tag builds the release artifacts on a runner and opens a DRAFT
-# release with all three assets attached; publishing stays a manual decision
+# release with all five assets attached; publishing stays a manual decision
 # (review the title/notes against CHANGELOG.md, then hit Publish).
 on:
   push:
@@ -78,16 +78,31 @@ jobs:
         working-directory: rust
         run: npx tauri build --no-bundle
 
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      # WPF edition ships again since its 1.7.3 revival, under the historical
+      # v1.5.0 asset names; publish/ + publish-sc/ are gitignored
+      - name: Publish WPF exes
+        run: |
+          dotnet publish wpf -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o wpf/publish
+          dotnet publish wpf -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o wpf/publish-sc
+
       - name: Package source snapshot + checksums
         run: python scripts/release/make_release_zip.py
 
-      # The packager embeds the exe in the zip but never copies it to the root
-      # under its release-asset name; stage it so gh can attach all three files.
-      # Exact zip name, no glob: a tag / script VERSION mismatch fails loudly here.
+      # The packager embeds the exes in the zip but never copies them to the
+      # root under their release-asset names; stage them so gh can attach all
+      # five files. Exact zip name, no glob: a tag / script VERSION mismatch
+      # fails loudly here.
       - name: Stage assets under release names
         shell: bash
         run: |
           cp rust/src-tauri/target/release/kimi-planbar-tray.exe KimiPlanbarTray-rust.exe
+          cp wpf/publish/KimiPlanbarTray.exe KimiPlanbarTray-wpf.exe
+          cp wpf/publish-sc/KimiPlanbarTray.exe KimiPlanbarTray-wpf-selfcontained.exe
           test -f "KimiPlanbarTray-v${GITHUB_REF_NAME#v}.zip"
 
       - name: Create draft release
@@ -100,7 +115,8 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null | grep -q true; then
             gh release delete "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --yes
           fi
-          printf 'Auto-generated draft from tag push %s.\n\n- Curated changes: the matching version section in CHANGELOG.md\n- Review the three assets, adjust title/notes, then publish.\n' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          printf 'Auto-generated draft from tag push %s.\n\n- Curated changes: the matching version section in CHANGELOG.md\n- Review the five assets, adjust title/notes, then publish.\n' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --draft --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
-            KimiPlanbarTray-rust.exe "KimiPlanbarTray-v${GITHUB_REF_NAME#v}.zip" SHA256SUMS.txt
+            KimiPlanbarTray-rust.exe KimiPlanbarTray-wpf.exe KimiPlanbarTray-wpf-selfcontained.exe \
+            "KimiPlanbarTray-v${GITHUB_REF_NAME#v}.zip" SHA256SUMS.txt

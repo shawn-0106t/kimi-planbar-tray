@@ -48,14 +48,28 @@ public class QuotaService : IDisposable
 
     public void StartAutoRefresh() => Reschedule();
 
+    // Bumped by Reschedule: a refresh that started before a settings save must
+    // not re-time the timer over the fresh 2s first-refresh tick the save
+    // installed. Deliberately STRONGER than rust polling.rs's retime-hint
+    // drain: the drain only discards hints queued before the reschedule (a
+    // fetch completing after it can still win the select! race roughly half
+    // the time); the generation check skips the re-time deterministically.
+    private int _scheduleGen;
+
     public void Reschedule()
     {
-        _periodMs = (int)TimeSpan.FromMinutes(Math.Max(1, App.Settings.Data.RefreshMinutes)).TotalMilliseconds;
+        // Saturating ms conversion: a hostile persisted RefreshMinutes (e.g. a
+        // hand-edited settings.json) must not overflow the int period
+        // (rust polling.rs: mins.saturating_mul(60)).
+        int mins = Math.Max(1, App.Settings.Data.RefreshMinutes);
+        _periodMs = (int)Math.Min((long)mins * 60 * 1000, int.MaxValue);
+        Interlocked.Increment(ref _scheduleGen);
         _timer.Change(TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(_periodMs));
     }
 
     public async Task SafeRefresh()
     {
+        int gen = Volatile.Read(ref _scheduleGen);
         var r = await FetchAsync();
         if (r != null)
         {
@@ -67,14 +81,18 @@ public class QuotaService : IDisposable
                 r.Extra ??= Last.Extra;
             }
             Last = r;
-            // 失败后 30 秒快速重试（对齐 quota-status.py 的 RETRY 策略），成功则回到正常周期
+            // 失败后 30 秒快速重试（对齐 quota-status.py 的 RETRY 策略），成功则回到正常周期。
+            // 期间发生过 Reschedule 则跳过：新 2s 首刷 tick 已就位，不得覆盖（P1-6）。
             // （退出阶段 Timer 可能已 Dispose，吞掉竞态异常）
-            try
+            if (gen == Volatile.Read(ref _scheduleGen))
             {
-                _timer.Change(TimeSpan.FromMilliseconds(r.Error != null ? 30_000 : _periodMs),
-                              TimeSpan.FromMilliseconds(_periodMs));
+                try
+                {
+                    _timer.Change(TimeSpan.FromMilliseconds(r.Error != null ? 30_000 : _periodMs),
+                                  TimeSpan.FromMilliseconds(_periodMs));
+                }
+                catch (ObjectDisposedException) { }
             }
-            catch (ObjectDisposedException) { }
         }
         try { Application.Current?.Dispatcher.Invoke(() => Updated?.Invoke()); } catch { }
     }
@@ -140,7 +158,9 @@ public class QuotaService : IDisposable
             && TryGetLong(al, out long raw))
         {
             info.State = ExtraState.Ready;
-            info.BalanceCents = (raw + 500000) / 1000000; // 1e-8 元 → 分，四舍五入
+            // 1e-8 元 → 分，四舍五入；饱和加法：接近 long.MaxValue 的畸形
+            // amountLeft 不得溢出（rust quota.rs: raw.saturating_add(500_000)）
+            info.BalanceCents = (raw > long.MaxValue - 500000 ? long.MaxValue : raw + 500000) / 1000000;
         }
         else
         {
@@ -180,19 +200,33 @@ public class QuotaService : IDisposable
         double used = e.GetDoubleOrZero("used");
         double limit = e.GetDoubleOrZero("limit");
         if (limit <= 0) limit = 1;
-        var seg = new QuotaSegment { Percent = used / limit * 100 };
+        // GetDoubleOrZero can yield inf/NaN from hostile strings ("1e999",
+        // "NaN"); keep percent finite so the UI never renders a non-finite
+        // double (rust quota.rs parse_segment)
+        double percent = used / limit * 100;
+        var seg = new QuotaSegment { Percent = double.IsFinite(percent) ? percent : 0.0 };
         if (e.TryGetProperty("resetTime", out var rt) && rt.ValueKind == JsonValueKind.String
             && DateTimeOffset.TryParse(rt.GetString(), out var dto))
             seg.ResetAt = dto;
         return seg;
     }
 
+    // ~/.kimi-code, honoring the KIMI_CODE_HOME override (SPEC 16.2 / 21.2).
+    // Shared with the skills scanner (SkillsService) — same resolution as
+    // rust credentials.rs::kimi_home.
+    public static string KimiHome()
+    {
+        string? p = Environment.GetEnvironmentVariable("KIMI_CODE_HOME");
+        if (!string.IsNullOrEmpty(p)) return p;
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kimi-code");
+    }
+
     // 1) ~/.kimi-code/credentials/kimi-code.json 的 OAuth access_token（未过期）
     // 2) config.toml 中 base_url 含 api.kimi.com/coding 的 provider 的明文 api_key
     public static string? LoadToken()
     {
-        var home = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kimi-code");
+        var home = KimiHome();
         try
         {
             var cred = Path.Combine(home, "credentials", "kimi-code.json");

@@ -15,7 +15,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         App.Quota.Updated += Render;
         App.Updates.Updated += RenderVersion;
-        Deactivated += (_, _) => { if (!_suppressDeactivate) HideAnimated(); };
+        // Focus-loss auto-hide, suppressed while the settings or skills window
+        // is open (SPEC 20 / 21; rust panel.rs on_main_blur)
+        Deactivated += (_, _) =>
+        {
+            if (_suppressDeactivate || App.HeadlessUiTest) return;
+            if (App.Tray is { IsSettingsOpen: true } or { IsSkillsOpen: true }) return;
+            HideAnimated();
+        };
         Closed += (_, _) =>
         {
             App.Quota.Updated -= Render;
@@ -25,8 +32,14 @@ public partial class MainWindow : Window
 
     private bool _hiding;
 
+    // Generation counter: the pending hide-completion callback must not fire
+    // after a newer show/hide, or a stale callback would hide a freshly shown
+    // window (rust panel.rs finish_hide + main.ts hideGen)
+    private int _animGen;
+
     public void ShowNearTray()
     {
+        _animGen++; // supersede any pending hide completion
         _hiding = false;
         var wa = SystemParameters.WorkArea;
         // +22 compensates the root Border margin growing 6 -> 28 (shadow fade
@@ -56,6 +69,7 @@ public partial class MainWindow : Window
     {
         if (_hiding) return;
         _hiding = true;
+        int gen = ++_animGen;
         var tt = RootBorder.RenderTransform as TranslateTransform ?? new TranslateTransform();
         RootBorder.RenderTransform = tt;
         var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130));
@@ -65,7 +79,11 @@ public partial class MainWindow : Window
         };
         fade.Completed += (_, _) =>
         {
+            if (gen != _animGen) return; // superseded by a newer show/hide
             Hide();
+            // Clear the completed hold-end animation first: an animation on
+            // the property overrides a plain local assignment
+            BeginAnimation(OpacityProperty, null);
             Opacity = 1;
             App.Tray?.NotifyPopupHidden();
         };
@@ -176,8 +194,7 @@ public partial class MainWindow : Window
 
     private async void RefreshClick(object sender, RoutedEventArgs e)
     {
-        await App.Quota.SafeRefresh();
-        await App.Updates.CheckAsync();
+        await App.ManualRefreshAsync();
     }
 
     private void SettingsClick(object sender, RoutedEventArgs e)
@@ -189,7 +206,18 @@ public partial class MainWindow : Window
 
     private void ExitClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
-    private void OpenReleases(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    // SPEC 12.7 Console action: open the Kimi Code console in the default browser
+    private void ConsoleClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(
+                "https://www.kimi.com/code/console?from=kfc_overview_topbar") { UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    private void OpenReleases(object sender, RoutedEventArgs e)
     {
         try
         {

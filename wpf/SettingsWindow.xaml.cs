@@ -10,18 +10,20 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         var d = App.Settings.Data;
+        // Backfill tolerates a malformed persisted value: fall back to the
+        // defaults instead of leaving any control unchecked (rust settings.ts
+        // backfill, SPEC 13.2)
         ThemeSystem.IsChecked = d.Theme == "system";
         ThemeLight.IsChecked = d.Theme == "light";
         ThemeDark.IsChecked = d.Theme == "dark";
+        if (ThemeSystem.IsChecked != true && ThemeLight.IsChecked != true && ThemeDark.IsChecked != true)
+            ThemeSystem.IsChecked = true;
         AutoStartBox.IsChecked = d.AutoStart;
-        foreach (var child in IntervalPanel.Children)
-        {
-            if (child is RadioButton { Tag: string tag } rb && tag == d.RefreshMinutes.ToString())
-            {
-                rb.IsChecked = true;
-                break;
-            }
-        }
+        var wanted = d.RefreshMinutes.ToString();
+        var intervalPills = IntervalPanel.Children.OfType<RadioButton>().ToList();
+        var matched = intervalPills.FirstOrDefault(rb => rb.Tag as string == wanted);
+        if (matched == null) matched = intervalPills.FirstOrDefault(rb => rb.Tag as string == "5");
+        if (matched != null) matched.IsChecked = true;
     }
 
     private void SaveClick(object sender, RoutedEventArgs e)
@@ -34,7 +36,9 @@ public partial class SettingsWindow : Window
             if (child is RadioButton { IsChecked: true, Tag: string tag }
                 && int.TryParse(tag, out int mins))
             {
-                d.RefreshMinutes = mins;
+                // Clamp at the persistence boundary: polling multiplies this by
+                // 60 seconds (rust save_settings: settings.refresh_minutes.clamp(1, 30))
+                d.RefreshMinutes = Math.Clamp(mins, 1, 30);
                 break;
             }
         }

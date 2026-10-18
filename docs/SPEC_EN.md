@@ -32,7 +32,7 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 - Does not modify any Kimi Code CLI files (credentials are read-only)
 - No telemetry, no data reporting, no third-party analytics
 - Windows 10/11 only; no macOS / Linux
-- `wpf/` legacy edition frozen at v1.5.0, no new features
+- `wpf/` was frozen at v1.5.0; as of v1.7.3 it has been revived to parity and ships via Releases again (see 1.1)
 
 ## 2. Terminology
 
@@ -50,7 +50,7 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 - `rust/` — **one of the actively developed lines (dual-track with `qt/`)**: Tauri 2 + Rust backend + vanilla HTML/CSS/TS frontend (Vite multi-page build, no framework)
 - `qt/` — **an active line (completed, experimental)**: C++ Qt6 + Qt Widgets, no WebView dependency; reached parity with rust/ 1.7.3; see `docs/archive/QT-MIGRATION.md` (archived) for the architecture plan and module mapping
 - `egui/` — **one of the actively developed lines (completed, experimental — test-only: builds a standalone exe from source, NOT distributed via Releases)**: Rust egui + tray-icon, no WebView dependency, no Node toolchain; at SPEC parity with rust/ (Phase 4 audit: 99 PASS / 2 minor deviations / 6 untestable); its version follows the shared sync list (1.7.3); see `docs/archive/EGUI-MIGRATION.md` (archived) for the plan and phase record
-- `wpf/` — original .NET 8 / WPF, frozen at v1.5.0, read-only reference, do not delete or modify
+- `wpf/` — native .NET 8 / WPF edition (zero third-party NuGet dependencies), formerly frozen at v1.5.0, now aligned with rust/ 1.7.3 (Skills window, icon action row, hover glow, the 1.7.1 hardening backport) and shipping via Releases again as a two-exe set (framework-dependent + self-contained)
 - `docs/` — this spec, screenshot baselines, archived history
 - Scripts live under `scripts/`: `scripts/release/` (`make_release_zip.py` release packaging, `make_screenshots.py` README screenshot generation, `verify_icons.py` byte-compares icons against the library) and `scripts/diagnostics/` (one-off diagnostic/measurement scripts)
 - `.github/` — GitHub Actions continuous integration and dependency updates: `.github/workflows/ci.yml` runs a `gitleaks` full-history secret-scan job and a windows-latest build-gate job on every push to main and every pull request (scope and boundaries in 7.2); `.github/dependabot.yml` enables weekly Dependabot updates for cargo/npm/github-actions (see 7.2)
@@ -187,13 +187,13 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 - The egui/ edition implements the same `--test-*` args with field-identical output to the rust/ edition (directly diffable on the same machine); the skills frontmatter-parser tests run via `cd egui && cargo test` (`--test-ui` is fully implemented: it constructs and shows all four windows, prints `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`, and auto-exits after ~6 s)
 - Visual verification: `PYTHONUTF8=1 python scripts/release/make_screenshots.py` (headless Chrome/Edge renders dist, `KPT_CHROME` selects the browser, regenerates `docs/screenshot-*.png`) or compare against the `docs/*.png` baselines
 - Before delivery, per the user's global rules, dispatch an independent subagent for code review
-- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests, with the same fmt/clippy/build/test gate (`--locked`) also running on the egui/ crate) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
+- Continuous integration: `.github/workflows/ci.yml` (GitHub Actions) has two jobs — `gitleaks` (ubuntu-latest, full-history secret scan, `GITLEAKS_VERSION` pinned to 8.29.1 below the 8.30.x detection regression) and `build-and-test` (windows-latest: `npm ci` + `npx tsc --noEmit` + `npm run build` frontend type-check and bundle, plus `cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings` + `cargo build --locked` + `cargo test --locked` skills parser unit tests, with the same fmt/clippy/build/test gate (`--locked`) also running on the egui/ crate, and a compile-level `dotnet build -c Release` on wpf/) — on every push to main and every PR; the `--test-*` self-checks and `verify_icons.py` depend on local credentials / an interactive desktop / the out-of-repo icon library and are **not executed in CI** — they remain local checks; docs-only pushes to `main` (`**.md`, `docs/`) skip CI (`paths-ignore` on the `push` trigger only) while PRs always run CI so the required checks always report; the `main` branch is protected (both CI jobs are required checks, admins included) — changes land via PR
 - Dependency updates: `.github/dependabot.yml` enables weekly Dependabot updates for cargo (`/rust/src-tauri`), npm (`/rust`), and github-actions (minor+patch grouped into one PR per ecosystem, majors open individual PRs); Dependabot alerts and security updates are enabled on the repo
 
 ### 7.3 Release
 
-1. Bump the version in all these places (11 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`, `version` in `egui/Cargo.toml`, and the `kimi-planbar-tray-egui` entry in `egui/Cargo.lock` (cargo rewrites it alongside `Cargo.toml`); also sync the "Current version" line in `AGENTS.md`, finalize the release's bilingual `CHANGELOG.md` entry (English + Chinese, moved out of `Unreleased`), and keep this checklist in sync (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision; the egui/ edition is the same — experimental, test-only, stays out of the release flow; user decision — but its version follows the shared sync list and is part of the 11-file list)
-2. **Automated path (preferred)**: push the `v<x.y.z>` tag — `.github/workflows/release.yml` (`v*` tag trigger) builds the release exe on a windows runner, runs the packager, and opens a **draft** GitHub Release with the three assets (`KimiPlanbarTray-rust.exe`, the source-snapshot zip, `SHA256SUMS.txt`) attached; review the title/notes against `CHANGELOG.md`, then publish. Steps 3-4 below are what the workflow automates, kept as the manual fallback
+1. Bump the version in all these places (12 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`, `version` in `egui/Cargo.toml`, the `kimi-planbar-tray-egui` entry in `egui/Cargo.lock` (cargo rewrites it alongside `Cargo.toml`), and `<Version>` in `wpf/KimiPlanbarTray.csproj`; also sync the "Current version" line in `AGENTS.md`, finalize the release's bilingual `CHANGELOG.md` entry (English + Chinese, moved out of `Unreleased`), and keep this checklist in sync (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision; the egui/ edition is the same — experimental, test-only, stays out of the release flow; user decision — but its version follows the shared sync list and is part of the 12-file list; the wpf/ edition ships via Releases again since its 1.7.3 revival)
+2. **Automated path (preferred)**: push the `v<x.y.z>` tag — `.github/workflows/release.yml` (`v*` tag trigger) builds the rust release exe and the two WPF exes (framework-dependent + self-contained) on a windows runner, runs the packager, and opens a **draft** GitHub Release with the five assets (`KimiPlanbarTray-rust.exe`, `KimiPlanbarTray-wpf.exe`, `KimiPlanbarTray-wpf-selfcontained.exe`, the source-snapshot zip, `SHA256SUMS.txt`) attached; review the title/notes against `CHANGELOG.md`, then publish. Steps 3-4 below are what the workflow automates, kept as the manual fallback
 3. `npx tauri build` produces the release exe (manual fallback)
 4. `python scripts/release/make_release_zip.py` packages a zip of the source snapshot + the Rust release exe and generates `SHA256SUMS.txt`: each is written as `<name>.part`, the checksum file is renamed into place first and the zip last, and a failed zip rename rewrites the previous checksum file, so a failed run always leaves the previous consistent pair (a read-only target, a directory squatting on the target name, or a read-only leftover `.part` is rejected by name before anything is built; an empty source set aborts instead of shipping binaries only; the only residual windows are a process kill between the two renames and an exclusive lock taken at rename time)
 5. The zip and checksums are gitignored; they reach GitHub Releases as draft assets from the workflow, or via manual upload in the fallback path; **do not commit binaries to the repo**. To verify locally, drop the binary under its release name (e.g. `KimiPlanbarTray-rust.exe`) at the repo root and run `sha256sum -c SHA256SUMS.txt` — that name is gitignored and excluded by the packaging script, so it never enters the zip (`__pycache__` / `*.pyc` likewise)
@@ -209,8 +209,8 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 
 ## 9. Maintenance Boundaries and Documentation Map
 
-- New features go into the three active lines `rust/`, `qt/`, and `egui/` (Part 2 is the shared functional baseline); `wpf/` is frozen as a read-only reference; the experimental egui edition's (test-only) behavioral parity is gated by the phase acceptance record in `docs/archive/EGUI-MIGRATION.md` (completed and archived)
-- When behavior is ambiguous: Part 2 is the contract, `wpf/` is the reference implementation; the Qt edition's architecture plan and module mapping live in `docs/archive/QT-MIGRATION.md`; the egui edition's architecture plan and phase record live in `docs/archive/EGUI-MIGRATION.md`
+- New features go into the active lines `rust/`, `qt/`, `egui/`, and `wpf/` (Part 2 is the shared functional baseline; qt/egui are experimental lines, and `wpf/` is maintained in sync with rust/ since its 1.7.3 revival); the experimental egui edition's (test-only) behavioral parity is gated by the phase acceptance record in `docs/archive/EGUI-MIGRATION.md` (completed and archived)
+- When behavior is ambiguous: Part 2 is the contract and `rust/` is the current implementation baseline (`wpf/` is aligned with it); the Qt edition's architecture plan and module mapping live in `docs/archive/QT-MIGRATION.md`; the egui edition's architecture plan and phase record live in `docs/archive/EGUI-MIGRATION.md`
 
 | Document | Role |
 |---|---|
@@ -229,7 +229,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 # Part 2 — UI & Behavior Specification
 
 > This part was merged from the original `docs/UI-SPEC.md` (chapter numbers 1–12 → 10–21). All coordinates are in DIP (logical pixels); the DPI awareness mode is system-level (SystemAware).
-> The numeric baselines were originally extracted from the WPF reference implementation (`wpf/`, frozen at v1.5.0); the current implementation is `rust/`, and any behavior change must be reflected in this part.
+> The numeric baselines were originally extracted from the WPF reference implementation (`wpf/`, frozen at v1.5.0 at the time); the current implementation is `rust/` (and `wpf/` is aligned with it since its v1.7.3 revival), and any behavior change must be reflected in this part.
 
 ---
 
@@ -238,35 +238,37 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 All three windows are: **frameless** (`WindowStyle=None`), **transparent background + AllowsTransparency** (self-drawn rounded windows), **topmost** (`Topmost=True`), **not shown in the taskbar** (`ShowInTaskbar=False`), **non-resizable** (`ResizeMode=NoResize`). The window's own background is `Transparent`; the actual visible appearance is provided by an inner `Border` (corner radius + background color + shadow), with Margin on all sides as shadow space.
 
 ### 10.1 Main usage panel (MainWindow)
-- Size: `Width=380, Height=476`
-- Root Border: `CornerRadius=14`, `Margin=6` (shadow space), background `WindowBgBrush`
+- Size: `Width=424, Height=520`
+- Root Border: `CornerRadius=14`, `Margin=28` (shadow fade room; the window is 22 px larger than the visible card per side), background `WindowBgBrush`
 - Shadow: `DropShadowEffect BlurRadius=24, ShadowDepth=2, Opacity=0.25, Color=#000000`
 - Content Grid: `Margin=16`, 5 rows (Auto / * / Auto / Auto / Auto)
 - Positioning logic (`ShowNearTray`): bottom-right aligned to the work area
   ```
-  Left = WorkArea.Right  - Width  - 12
-  Top  = WorkArea.Bottom - Height - 12
+  Left = WorkArea.Right  - Width  - 12 + 22
+  Top  = WorkArea.Bottom - Height - 12 + 22
   ```
-  (`WorkArea` = the screen work area excluding the taskbar; i.e. 12 px from the right and bottom screen edges. WPF does not handle taskbars docked on other edges; a port may keep the same behavior.)
-- Focus-loss behavior: automatically `HideAnimated()` on `Deactivated`; suppressed via the `_suppressDeactivate` flag while the settings window is open.
+  (`WorkArea` = the screen work area excluding the taskbar; the `+22` compensates the Margin 6→28 shadow-room growth so the visible card stays 12 px from the right and bottom screen edges. WPF does not handle taskbars docked on other edges; a port may keep the same behavior.)
+- Focus-loss behavior: automatically `HideAnimated()` on `Deactivated`; suppressed while the settings OR skills window is open (WPF checks `Tray.IsSettingsOpen`/`IsSkillsOpen`, plus a `_suppressDeactivate` flag covering the instant the settings window opens; rust uses the `settings_open`/`skills_open` flags).
 - Window reuse: singleton `_popup`; triggering it again while already visible = collapse (toggle).
+- Hide-animation guard: the pending hide-completion callback must compare a generation counter and become a no-op if a newer show/hide happened in the meantime, so a stale callback can never hide a freshly shown window (rust `panel.rs finish_hide` + the frontend `hideGen`; WPF `_animGen`).
 
 ### 10.2 Settings window (SettingsWindow)
-- Size: `Width=360, Height=420`
+- Size: `Width=404, Height=464`
 - Startup position: `CenterScreen`
-- Root Border: `CornerRadius=14`, `Margin=6`, background `WindowBgBrush`, same shadow as the main panel (BlurRadius=24, Depth=2, Opacity=0.25)
+- Root Border: `CornerRadius=14`, `Margin=28` (shadow fade room; the window is 22 px larger than the visible card per side), background `WindowBgBrush`, same shadow as the main panel (BlurRadius=24, Depth=2, Opacity=0.25)
 - Content Grid: `Margin=16`, 2 rows (Auto / *)
 - Custom title bar: `DragMove()` on `MouseLeftButtonDown` anywhere on the row makes it draggable
 - Behavior: does not auto-close on focus loss; only the ✕ button or "Save" closes it. Singleton, reused.
+- Backfill tolerates malformed persisted values: an unmatched theme falls back to `system` (all editions); an unmatched `RefreshMinutes` checks the `5 min` pill in the WPF and egui editions, while the rust and qt frontends leave the pills empty and only coerce to 5 at Save time (the persisted outcome is identical), never leaving a control unchecked.
 
 ### 10.3 Tray right-click menu (TrayMenuWindow)
-- Size: `Width=150`, height `SizeToContent=Height` (auto-fits 5 items; the menu carries the Skills item since v1.6, see 21.3)
-- Root Border: `CornerRadius=12`, `Margin=5`, `Padding=4`, background `WindowBgBrush`
+- Size: `Width=188`, height `SizeToContent=Height` (auto-fits 5 items; the menu carries the Skills item since v1.6, see 21.3)
+- Root Border: `CornerRadius=12`, `Margin=24` (shadow fade room; the window is 19 px larger than the visible card per side), `Padding=4`, background `WindowBgBrush`
 - Shadow: `DropShadowEffect BlurRadius=20, ShadowDepth=2, Opacity=0.3, Color=#000000`
-- Positioning (`ShowAtCursor`):
-  - Take the cursor's physical-pixel coordinates `Cursor.Position`, convert to DIP with `GetDpiForWindow(hwnd)/96.0` (treat `scale<=0` as 1)
-  - `Left = min(cursorX_dip, WorkArea.Right - ActualWidth - 8)`
-  - Vertically: if `cursorY + ActualHeight + 24 > WorkArea.Bottom` (cursor near the bottom edge), pop upward with `Top = cursorY - h - 8`; otherwise downward with `Top = cursorY + 8`
+- Positioning (`ShowAtCursor`; described in terms of the visible card (window minus both margins), landing exactly where the old 150-wide/5-margin layout did):
+  - Take the cursor's physical-pixel coordinates `Cursor.Position`, convert to DIP using the DPI of the monitor under the cursor (`GetDpiForMonitor`; on mixed-DPI multi-monitor you must not use the window's own factor; treat `scale<=0` as 1)
+  - `cardX = min(cursorX_dip + 5, WorkArea.Right - cardW - 13)`, window `Left = cardX - 24` (the card trails the cursor by 5; its right edge stays 13 px inside the work area)
+  - Vertically: if `cursorY + cardH + 34 > WorkArea.Bottom` (cursor near the bottom edge), pop upward with `cardY = cursorY - cardH - 13`; otherwise downward with `cardY = cursorY + 13`; window `Top = cardY - 24`
   - After `Show()`, you must `Activate()` + P/Invoke `SetForegroundWindow(hwnd)` to grab the foreground, otherwise the menu never gets focus and is immediately closed by Deactivated
 - Close on focus loss: `Deactivated` → `Dispatcher.BeginInvoke` deferred check `if (IsVisible) Close()` (deferred to avoid a synchronous re-entrant crash from Deactivated during Close)
 - Each right-click creates a new instance (close the old menu first, then new)
@@ -358,7 +360,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
   - `"Refresh"` `Margin=3,0` → `SafeRefresh()` + `CheckAsync()`
   - `"Settings"` `Margin=3,0` → opens the settings window (focus-loss collapse is suppressed while it is open)
   - `"Exit"` `Margin=6,0,0,0` → `Application.Current.Shutdown()`
-- The Rust edition debounces manual refreshes by **2 seconds**: both the panel Refresh button and the tray menu "Refresh" go through `refresh_now`, and repeated triggers less than 2 s after the last manual refresh are silently ignored.
+- Manual refreshes are debounced by **2 seconds** (all editions): both the panel Refresh button and the tray menu "Refresh" go through one shared entry point (rust `refresh_now`; WPF `App.ManualRefreshAsync`), and repeated triggers less than 2 s after the last manual refresh are silently ignored.
 
 ---
 
@@ -380,7 +382,7 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 | Save | `Button "Save"`, style `ActionButton`, `Margin=0,26,0,0` | — | — |
 
 - Save action: write `settings.json` → `ApplyAutoStart()` → `Theme.Apply(theme)` → `Quota.Reschedule()` → `Close()`.
-- On open, the window back-fills the checked states from the current settings; `RefreshMinutes` is matched via the Tag string.
+- On open, the window back-fills the checked states from the current settings; `RefreshMinutes` is matched via the Tag string. The backfill tolerates malformed persisted values: an unmatched theme falls back to `system` (all editions); an unmatched interval checks the `5 min` pill in the WPF and egui editions, while rust and qt leave it empty and coerce to 5 at Save (persisted outcome identical), never leaving a control unchecked (the save path additionally clamps `RefreshMinutes` to 1–30).
 
 ### 13.3 Shared control styles (`Themes/Shared.xaml`)
 - **ActionButton**: `Padding=0,10`, `FontSize=13`, foreground `TextPrimaryBrush`, background `ButtonBgBrush`, no border, hand cursor; template `Border CornerRadius=10`, hover background `ButtonHoverBrush`
@@ -425,9 +427,10 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 - After the fade-out completes: `Hide()`, `Opacity = 1` (reset), notify `Tray.NotifyPopupHidden()` (records `_lastHide` for the 300 ms re-entry guard)
 
 ### 15.3 Others
-- **Hover glow** (Rust edition): clickable controls (ActionButton, tray menu items, the version-row card, the Skills Refresh mini-button) fade in an accent-colored outer glow on hover — a 1 px accent ring at 35% alpha plus an 8 px halo at 18% alpha (dark theme: 45% / 22%, 10 px), with the background-color change transitioned in sync; all **140 ms ease**. The glow is pre-painted on an `::after` pseudo-element and only its `opacity` is transitioned (the box-shadow itself never animates — compositor-only, no per-frame repaint).
+- **Hover glow** (SPEC 15.3, all editions): clickable controls (the four action buttons, tray menu items, the version-row card, the Skills Refresh mini-button) fade in an accent-colored outer glow on hover — a 1 px accent ring at 35% alpha plus an 8 px halo at 18% alpha (dark theme: 45% / 22%, 10 px), with the background-color change transitioned in sync; all **140 ms ease**. The glow is pre-painted on an `::after` pseudo-element and only its `opacity` is transitioned (the box-shadow itself never animates — compositor-only, no per-frame repaint).
 - **Hover glow (Qt edition deviation)**: the same visual target is self-drawn (`windows/hoverglow.h`: an independent halo child widget of the top-level window, expanding 8/10 px beyond the target control's rect, concentric rounded rings with alpha decreasing outward, 140 ms OutCubic fade in/out) and never touches the target control's own QSS painting; the earlier QGraphicsDropShadowEffect approach was abandoned (enabling it with blurRadius=0 renders the whole widget invisible, and toggling enable/disable inside a frameless translucent window flickers).
 - **Hover glow (egui edition deviation)**: the same visual target is painted by the egui painter (`ui/widgets.rs` `GlowTracker`: an animated 1 px accent ring plus a halo with alpha decreasing outward, 140 ms CSS ease fade in/out — per-frame immediate-mode repainting), visually equivalent to the CSS pseudo-element approach.
+- **Hover glow (WPF edition deviation)**: the CSS pseudo-element equivalent is a permanent decoration layer inside each control's `ControlTemplate` — every clickable control's template root `Grid` stacks three layers: a hover-background overlay `Border` (`ButtonHoverBrush`, `Opacity` 0→1) → a glow `Border` (`BorderThickness=1`, `BorderBrush=GlowStrokeBrush` (theme dictionaries: 35% / 45% accent), a `DropShadowEffect` (accent color, `ShadowDepth=0`, with `BlurRadius` 8/10 and `Opacity` 0.18/0.22 also from the theme dictionaries), `Opacity` 0→1, `IsHitTestVisible=False`) → the content layer; the `IsMouseOver` trigger's `EnterActions`/`ExitActions` each run a 140 ms `DoubleAnimation` (animating `Opacity` only). The glow layer is attached only to a decoration Border, never to the content control itself (an Effect with `BlurRadius=0` renders the whole control invisible — the same trap as the Qt edition); the hover background uses an independent overlay rather than animating the theme brush's color (DynamicResource brushes are shared instances — mutating a color would bleed across controls).
 - All other controls (theme radios, interval pills, the checkbox, the title-bar ✕) switch their hover state instantly. Progress bar width changes are not animated (the width is set directly).
 
 ---
@@ -454,11 +457,11 @@ Overall: `Grid Margin=16`, 5 rows. All copy is in English (terminology aligned w
 ### 16.3 Response JSON parsing
 - **5-hour segment**: `root.limits` (array; take the `detail` object of element 0) → `ParseSegment`
 - **Weekly segment**: `root.usage` (object) → `ParseSegment`
-- `ParseSegment`: `percent = used/limit*100` (`used`, `limit` tolerate numbers or numeric strings, missing treated as 0; `limit<=0` treated as 1 to avoid division by zero); `resetTime` (string, `DateTimeOffset.TryParse`) → `ResetAt`
+- `ParseSegment`: `percent = used/limit*100` (`used`, `limit` tolerate numbers or numeric strings, missing treated as 0; `limit<=0` treated as 1 to avoid division by zero); **non-finite percents become 0** — hostile strings (`"1e999"`, `"NaN"`) can parse to inf/NaN, and any percent that is not `IsFinite` is forced to 0; `resetTime` (string, `DateTimeOffset.TryParse`) → `ResetAt`
 - **Extra Usage**: `root.boosterWallet` (object):
   - Not an object / missing → `State = NotActivated` ("Not activated")
   - `isEnabled == false` → `NotActivated` (defense: when the booster is not enabled, `amountLeft` is an estimate of "monthly limit minus used" rather than a real balance, and must be treated as not activated — borrowed from the KimiCodeBar v1.1.1 bug)
-  - `balance.amountLeft` (numeric string, numeric type tolerated) parseable → `State = Ready`; the unit is **1e-8 yuan**, converted to cents: `BalanceCents = (raw + 500000) / 1000000` (with rounding)
+  - `balance.amountLeft` (numeric string, numeric type tolerated) parseable → `State = Ready`; the unit is **1e-8 yuan**, converted to cents: `BalanceCents = saturating_add(raw, 500000) / 1000000` (with rounding; the addition saturates to guard against overflow — a pathological value near `i64.MaxValue` must not wrap)
   - Otherwise → `State = NoData` ("No data")
   - `monthlyChargeLimitEnabled == true` → `MonthlyEnabled=true`, `monthlyUsed.priceInCents` → `MonthlyUsedCents`, `monthlyChargeLimit.priceInCents` → `MonthlyLimitCents` (unit cents, numeric strings)
 - **Note: all JSON numbers from the server are modeled as strings**, with numeric fallback tolerated during parsing.
@@ -475,11 +478,11 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 (On error, `Error` = exception type name, e.g. `"HttpRequestException"` / `"TaskCanceledException"` / `"no-token"`)
 
 ### 16.5 Refresh scheduling and failure retry (`SafeRefresh` / `Reschedule`)
-- `Reschedule()`: period = `max(1, RefreshMinutes)` minutes; the timer's first delay is **2 seconds** (first refresh 2 s after launch), then it follows the period
+- `Reschedule()`: period = `max(1, RefreshMinutes)` minutes (the millisecond conversion saturates against overflow); the timer's first delay is **2 seconds** (first refresh 2 s after launch), then it follows the period; every `Reschedule` bumps a schedule generation
 - `SafeRefresh()`:
-  1. `FetchAsync()`
+  1. `FetchAsync()` (capturing the current schedule generation at the start)
   2. **Keep last good data on failure**: if `r.Error != null && Last != null`, use `Last` to fill the null fields of `FiveHour`/`Week`/`Extra` (the UI is not cleared; only the status row shows it)
-  3. **Fast retry 30 seconds after failure**: the timer's next fire becomes `Error != null ? 30_000ms : periodMs`; the period itself is unchanged (on success it returns to the normal period); race exceptions from an already-Disposed timer are swallowed
+  3. **Fast retry 30 seconds after failure**: the timer's next fire becomes `Error != null ? 30_000ms : periodMs`; the period itself is unchanged (on success it returns to the normal period); race exceptions from an already-Disposed timer are swallowed; **if a `Reschedule` happened in the meantime (generation changed), this re-timing is skipped** — when settings are saved while a refresh is in flight, the freshly installed 2 s first-refresh tick must not be overwritten by the in-flight refresh's period re-time (same semantics as rust `polling.rs` draining the stale retime hint on reschedule)
   4. Raise the `Updated` event (on the UI thread)
 
 ---
@@ -555,8 +558,8 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 |---|---|---|
 | `--test-fetch` | Fetch quota once, print JSON | JSON of `QuotaResult` (indented, non-ASCII not escaped) |
 | `--test-update` | Run one version check | Single line: `local={x} latest={y} updateAvailable={bool} checkFailed={bool}` |
-| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `TrayMenuWindow OK` (the Rust / Qt editions additionally print `SkillsWindow OK`; the egui edition prints the same four lines — settings/skills/menu landed in Phase 3, with the menu placed at the current cursor position); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
-| `--test-skills` (Qt edition only) | Parse two built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests) | Prints `PASS` on success, diff details plus a non-zero exit on failure |
+| `--test-ui` | After applying the current theme, construct each window in turn to verify resource resolution and page loading | One line per window: `MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK` (identical across the four editions; rust/egui/qt also actually show the windows for visual inspection and exit after ~6 s — the WPF edition does the same since its 1.7.3 revival, with the menu placed at the current cursor position); on exception `UI-FAIL: {exception type}: {message}` + InnerException message |
+| `--test-skills` (Qt / WPF editions) | Parse five built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests: missing fields/quote stripping + BOM/GBK byte tolerance) | Prints `skills parser: PASS (5 fixture skills)` on success, diff details plus a non-zero exit on failure |
 | `--screenshot <path> [--dark] [--mock]` (WPF edition only) | Render the main panel as PNG with real (or mocked) quota data + the specified theme (for the README) | `saved: <path>` |
 
 - `--screenshot` (WPF edition only; the Rust edition has no such arg — see 7.2 for screenshot verification): light theme by default, `--dark` switches to dark; `--mock` injects fixed data (5h=42% resetting in 3.5 hours, week=68% resetting in 4 days, Extra: balance 1234 cents, monthly used 4567 / limit 10000 cents); otherwise it fetches real data. Renders as a 96 DPI Pbgra32 PNG and auto-creates the output directory.
@@ -567,7 +570,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 
 - **Single instance**: named mutex `"KimiPlanbarTray.SingleInstance"`; exits immediately if the mutex is not acquired; released on exit (exceptions swallowed). Closing windows does not exit the process (`ShutdownMode=OnExplicitShutdown`).
 - **Startup order**: load settings → construct Theme/Quota/Update services → (self-check branch) → single-instance check → apply theme → hook the system theme event → create the tray icon → start auto-refresh (first refresh after 2 s) → background version check.
-- **Focus-loss collapse**: only on the main panel; suppressed with `_suppressDeactivate` while the settings window is open (the settings window itself does not collapse on focus loss).
+- **Focus-loss collapse**: only on the main panel; suppressed while the settings OR skills window is open (WPF checks `Tray.IsSettingsOpen`/`IsSkillsOpen`, plus a `_suppressDeactivate` flag covering the instant the settings window opens; rust uses the `settings_open`/`skills_open` atomic flags).
 - **Real-time system theme following**: read the registry value `AppsUseLightTheme` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize` (DWORD, 0=dark, 1=light, default 1 if missing); listen via the `SystemEvents.UserPreferenceChanged` event, re-applying only when the setting is `"system"` (switch back to the UI thread). A Tauri port can use the `dark-light` crate or read the registry itself + listen for `WM_SETTINGCHANGE`.
 - **Theme switching implementation**: clear the app-level resource dictionary, then add Shared + Light/Dark in order. All colors go through dynamic resource references, so switching takes effect immediately without rebuilding windows. The Shared style dictionary is loaded only once.
 - **DPI**: locked to system-level DPI awareness (SystemAware). Tray menu positioning relies on `Cursor.Position` (physical pixels) ÷ `GetDpiForWindow/96` converted to DIP; without this conversion the menu would be positioned off-screen on high-DPI displays.
@@ -589,7 +592,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 
 ---
 
-## 21. Skills Read-Only Window (new in v1.6; implemented in both the Rust and Qt editions)
+## 21. Skills Read-Only Window (new in v1.6; implemented in all four editions)
 
 Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard), trimmed down to purely read-only display.
 

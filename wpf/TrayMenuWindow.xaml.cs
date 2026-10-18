@@ -61,14 +61,19 @@ public partial class TrayMenuWindow : Window
     private async void RefreshClick(object sender, RoutedEventArgs e)
     {
         Close();
-        await App.Quota.SafeRefresh();
-        await App.Updates.CheckAsync();
+        await App.ManualRefreshAsync();
     }
 
     private void SettingsClick(object sender, RoutedEventArgs e)
     {
         Close();
         App.Tray.ShowSettings();
+    }
+
+    private void SkillsClick(object sender, RoutedEventArgs e)
+    {
+        Close();
+        App.Tray.ShowSkills();
     }
 
     private void ExitClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();

@@ -15,6 +15,7 @@
             <Button Content="Open" Style="{StaticResource MenuItemButton}" Click="OpenClick"/>
             <Button Content="Refresh" Style="{StaticResource MenuItemButton}" Click="RefreshClick"/>
             <Button Content="Settings" Style="{StaticResource MenuItemButton}" Click="SettingsClick"/>
+            <Button Content="Skills" Style="{StaticResource MenuItemButton}" Click="SkillsClick"/>
             <Button Content="Exit" Style="{StaticResource MenuItemButton}" Click="ExitClick"/>
         </StackPanel>
     </Border>

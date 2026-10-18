@@ -19,19 +19,21 @@
 - **CLI 版本检测**——显示本机 `kimi --version`；[kimi-code Releases](https://github.com/MoonshotAI/kimi-code/releases) 有新版时出现橙色徽章（点击版本行直达发布页）。版本信息优先取自官方 changelog（GitHub API 兜底），GitHub 不可达也能正常工作
 - **悬停即新**——鼠标悬停托盘图标时后台预取额度（10 秒节流），tooltip 和悬浮窗永远显示最新数字
 - **Extra Usage 卡片**——显示 booster 钱包余额（¥）与本月已用/上限；未充值过时优雅显示 "Not activated / No data"
-- **Skills 速览**（Rust、Qt 与 egui 版）——右键菜单 → Skills 打开只读列表：按来源分组展示 `~/.kimi-code/skills`、`~/.agents/skills` 与插件 skills 的名称和描述；只在打开窗口时扫描一次并缓存，无后台轮询
+- **Skills 速览**（全版本）——右键菜单 → Skills 打开只读列表：按来源分组展示 `~/.kimi-code/skills`、`~/.agents/skills` 与插件 skills 的名称和描述；只在打开窗口时扫描一次并缓存，无后台轮询
 - **绿色免 UAC**——单 exe，仅操作用户域（自启走 HKCU，不碰 HKLM 和 Program Files）；在 exe 旁放一个空的 `portable.dat` 即切换为配置随身携带的便携模式
 - **占用小**——单 exe ~5.6 MB（使用系统自带 WebView2，无需额外安装），除刷新定时器外无任何后台轮询
 
 ## 下载
-
-> **WPF 版已停止维护**（停留在 v1.5.0）——新功能只进 Rust 版，`wpf/` 源码保留仅供参考（UI/UX 规格与设置文件同 Rust 版）；其最后的二进制仍在 [v1.5.0 Release](../../releases/tag/v1.5.0) 提供下载。
 
 从 [Releases](../../releases) 获取最新 exe：
 
 | 版本 | 体积 | 前提 | 内存占用（实测） |
 |---|---|---|---|
 | `KimiPlanbarTray-rust.exe` | ~5.6 MB | 无——使用系统自带 WebView2 | ~317 MB |
+| `KimiPlanbarTray-wpf.exe` | ~0.3 MB | 需安装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0) | — |
+| `KimiPlanbarTray-wpf-selfcontained.exe` | ~65 MB | 无——运行时已打包（单文件） | — |
+
+> **WPF 版**恢复维护（与 Rust 版对齐至 1.7.3，UI/UX 规格与设置文件同 Rust 版），以上两个 exe 恢复随 Releases 分发——framework-dependent 版需安装 .NET 8 桌面运行时，self-contained 版零前提。所有版本共用同名互斥锁，同时只能运行一个。
 
 > 另有一个**实验性 Qt 版**（`qt/`，C++ Qt6 Widgets，无 WebView2 依赖），功能与 Rust 版对齐。以目录形态分发（`qt/dist/`，约 36 MB——Qt DLL 随 exe 同目录，无单文件版）；与 Rust/WPF 版互斥（共用同名互斥锁，同时只能运行一个）；同样未签名（同样的 SmartScreen 提示）。仅从源码构建（见下文），不随 Releases 分发。
 
@@ -58,9 +60,9 @@
 
 ## 从源码构建
 
-本仓库包含四个版本：`wpf/`（原版 .NET 8 / WPF，**冻结于 v1.5.0**，保留仅供参考）、`rust/`（Tauri 2 / Rust 重写版，活跃开发中）、`qt/`（C++ Qt6 Widgets，实验性质，与 rust/ 功能对齐）和 `egui/`（纯 Rust UI，实验性质，与 rust/ 功能对齐）。共享 UI/UX 规格见 `docs/SPEC.md`。
+本仓库包含四个版本：`wpf/`（原生 .NET 8 / WPF，与 rust/ 1.7.3 对齐并恢复随 Releases 分发）、`rust/`（Tauri 2 / Rust 重写版，活跃开发中）、`qt/`（C++ Qt6 Widgets，实验性质，与 rust/ 功能对齐）和 `egui/`（纯 Rust UI，实验性质，与 rust/ 功能对齐）。共享 UI/UX 规格见 `docs/SPEC.md`。
 
-WPF 版（已停维护）——需要 .NET 8 SDK（Windows）：
+WPF 版——需要 .NET 8 SDK（Windows）：
 
 ```bash
 cd wpf
@@ -104,7 +106,7 @@ KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退
 
 ## 技术说明
 
-- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；Qt 版（实验性）：C++ Qt6 Widgets 单进程，无 WebView；egui 版（实验性）：纯 Rust（eframe/egui 0.36.2 + tray-icon）单进程，无 WebView、无 Node 工具链；WPF 版（已冻结）：.NET 8 / WPF，零第三方 NuGet 依赖
+- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；Qt 版（实验性）：C++ Qt6 Widgets 单进程，无 WebView；egui 版（实验性）：纯 Rust（eframe/egui 0.36.2 + tray-icon）单进程，无 WebView、无 Node 工具链；WPF 版：.NET 8 / WPF，零第三方 NuGet 依赖
 - UI 设计与布局改编自 [KimiCodeBar](https://github.com/xifandev/KimiCodeBar)（MIT），作者 [@xifandev](https://github.com/xifandev)
 - Skill 管理功能参考自 [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard)，作者 [@perinchiang](https://github.com/perinchiang)
 - 额度逻辑移植自 [kimi-planbar](https://github.com/baigong-ai/kimi-planbar)（MIT）——token 来源、接口与缓存/重试策略一致
