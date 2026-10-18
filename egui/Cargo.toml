@@ -1,6 +1,6 @@
 [package]
 name = "kimi-planbar-tray-egui"
-version = "1.7.3"
+version = "1.8.0"
 edition = "2021"
 description = "Kimi Code quota tray app — egui edition (pure-Rust UI, no WebView)"
 publish = false
