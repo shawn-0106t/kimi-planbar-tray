@@ -49,8 +49,8 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 - `rust/` — **活跃开发线之一（与 `qt/` 双轨并行）**：Tauri 2 + Rust 后端 + vanilla HTML/CSS/TS 前端（Vite 多页构建，无框架）
 - `qt/` — **活跃开发线之一（已完成，实验性质）**：C++ Qt6 + Qt Widgets，无 WebView 依赖；已达到与 rust/ 1.7.3 的 parity；架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`（已归档）
-- `egui/` — **活跃开发线之一（已完成，实验性质——仅供测试：可从源码构建独立 exe，不随 Releases 分发）**：Rust egui + tray-icon，无 WebView 依赖、无 Node 工具链；已达到与 rust/ 的 SPEC parity（Phase 4 审计 99 PASS / 2 项轻微偏差 / 6 项环境不可测）；版本随主清单同步（1.7.3）；方案与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`（已归档）
-- `wpf/` — 原生 .NET 8 / WPF 版（零第三方 NuGet 依赖），曾冻结于 v1.5.0，现已对齐 rust/ 1.7.3（Skills 窗口、图标动作行、hover glow、1.7.1 加固回移植），恢复随 Releases 分发双 exe（framework-dependent + self-contained）
+- `egui/` — **活跃开发线之一（已完成，实验性质——仅供测试：可从源码构建独立 exe，不随 Releases 分发）**：Rust egui + tray-icon，无 WebView 依赖、无 Node 工具链；已达到与 rust/ 的 SPEC parity（Phase 4 审计 99 PASS / 2 项轻微偏差 / 6 项环境不可测）；版本随主清单同步（1.8.0）；方案与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`（已归档）
+- `wpf/` — 原生 .NET 8 / WPF 版（零第三方 NuGet 依赖），曾冻结于 v1.5.0，现已对齐 rust/ 1.8.0（Skills 窗口、图标动作行、hover glow、1.7.1 加固回移植），恢复随 Releases 分发双 exe（framework-dependent + self-contained）
 - `docs/` — 本规格、截图基准、归档历史
 - 脚本均在 `scripts/` 下：`scripts/release/`（`make_release_zip.py` 发布打包、`make_screenshots.py` README 截图生成、`verify_icons.py` 图标与库逐字节比对）、`scripts/diagnostics/`（一次性诊断/测量脚本）
 - `.github/` — GitHub Actions 持续集成与依赖更新：`.github/workflows/ci.yml` 在每次 push 到 main 与每个 PR 上跑 `gitleaks` 全历史密钥扫描 job 与 windows-latest 构建门禁 job（内容与边界见 7.2）；`.github/dependabot.yml` 为 cargo/npm/github-actions 三生态开 weekly 依赖更新（见 7.2）

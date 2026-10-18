@@ -33,7 +33,7 @@ Get the latest exes from [Releases](../../releases):
 | `KimiPlanbarTray-wpf.exe` | ~0.3 MB | .NET 8 Desktop Runtime | — |
 | `KimiPlanbarTray-wpf-selfcontained.exe` | ~65 MB | Nothing — runtime is bundled (single file) | — |
 
-> The **WPF edition** is back in maintenance (aligned with the Rust edition at 1.7.3, same UI/UX spec and settings file) and ships via Releases again as the two exes above — the framework-dependent build needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed, the self-contained build has no prerequisites. All editions share the same named mutex, so only one can run at a time.
+> The **WPF edition** is back in maintenance (aligned with the Rust edition at 1.8.0, same UI/UX spec and settings file) and ships via Releases again as the two exes above — the framework-dependent build needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed, the self-contained build has no prerequisites. All editions share the same named mutex, so only one can run at a time.
 
 > There is also an **experimental Qt edition** (`qt/`, C++ Qt6 Widgets, no WebView2 dependency) at feature parity with the Rust build. It ships as a folder (`qt/dist/`, ~36 MB — Qt DLLs alongside the exe, no single-file build), is mutually exclusive with the Rust/WPF editions (same named mutex, only one instance runs at a time), and is likewise unsigned (same SmartScreen prompt). Build from source only (see below) — it is not distributed via Releases.
 
@@ -60,7 +60,7 @@ No credentials are stored or sent anywhere except the official `api.kimi.com/cod
 
 ## Build from source
 
-This repo hosts four editions: `wpf/` (native .NET 8 / WPF, aligned with rust/ 1.7.3 and shipping via Releases again), `rust/` (Tauri 2 / Rust rewrite, actively developed), `qt/` (C++ Qt6 Widgets, experimental, at parity with rust/), and `egui/` (pure-Rust UI, experimental, at parity with rust/). Shared UI/UX spec lives in `docs/SPEC.md`.
+This repo hosts four editions: `wpf/` (native .NET 8 / WPF, aligned with rust/ 1.8.0 and shipping via Releases again), `rust/` (Tauri 2 / Rust rewrite, actively developed), `qt/` (C++ Qt6 Widgets, experimental, at parity with rust/), and `egui/` (pure-Rust UI, experimental, at parity with rust/). Shared UI/UX spec lives in `docs/SPEC.md`.
 
 WPF edition — requires .NET 8 SDK (Windows):
 

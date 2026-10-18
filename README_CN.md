@@ -33,7 +33,7 @@
 | `KimiPlanbarTray-wpf.exe` | ~0.3 MB | 需安装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0) | — |
 | `KimiPlanbarTray-wpf-selfcontained.exe` | ~65 MB | 无——运行时已打包（单文件） | — |
 
-> **WPF 版**恢复维护（与 Rust 版对齐至 1.7.3，UI/UX 规格与设置文件同 Rust 版），以上两个 exe 恢复随 Releases 分发——framework-dependent 版需安装 .NET 8 桌面运行时，self-contained 版零前提。所有版本共用同名互斥锁，同时只能运行一个。
+> **WPF 版**恢复维护（与 Rust 版对齐至 1.8.0，UI/UX 规格与设置文件同 Rust 版），以上两个 exe 恢复随 Releases 分发——framework-dependent 版需安装 .NET 8 桌面运行时，self-contained 版零前提。所有版本共用同名互斥锁，同时只能运行一个。
 
 > 另有一个**实验性 Qt 版**（`qt/`，C++ Qt6 Widgets，无 WebView2 依赖），功能与 Rust 版对齐。以目录形态分发（`qt/dist/`，约 36 MB——Qt DLL 随 exe 同目录，无单文件版）；与 Rust/WPF 版互斥（共用同名互斥锁，同时只能运行一个）；同样未签名（同样的 SmartScreen 提示）。仅从源码构建（见下文），不随 Releases 分发。
 
@@ -60,7 +60,7 @@
 
 ## 从源码构建
 
-本仓库包含四个版本：`wpf/`（原生 .NET 8 / WPF，与 rust/ 1.7.3 对齐并恢复随 Releases 分发）、`rust/`（Tauri 2 / Rust 重写版，活跃开发中）、`qt/`（C++ Qt6 Widgets，实验性质，与 rust/ 功能对齐）和 `egui/`（纯 Rust UI，实验性质，与 rust/ 功能对齐）。共享 UI/UX 规格见 `docs/SPEC.md`。
+本仓库包含四个版本：`wpf/`（原生 .NET 8 / WPF，与 rust/ 1.8.0 对齐并恢复随 Releases 分发）、`rust/`（Tauri 2 / Rust 重写版，活跃开发中）、`qt/`（C++ Qt6 Widgets，实验性质，与 rust/ 功能对齐）和 `egui/`（纯 Rust UI，实验性质，与 rust/ 功能对齐）。共享 UI/UX 规格见 `docs/SPEC.md`。
 
 WPF 版——需要 .NET 8 SDK（Windows）：
 

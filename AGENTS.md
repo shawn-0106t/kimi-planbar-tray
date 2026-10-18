@@ -91,7 +91,7 @@ egui/                            # COMPLETED (experimental, test-only): pure-Rus
 │   ├── ui/                      # theme.rs / panel.rs / widgets.rs / settings_win.rs / skills_win.rs / menu_win.rs (painter-drawn windows)
 │   └── bin/spike.rs             # Phase 0 feasibility spike, kept untouched as reference
 
-wpf/                             # maintained (net8.0-windows, WPF, zero third-party NuGet deps; aligned with rust/ 1.7.3)
+wpf/                             # maintained (net8.0-windows, WPF, zero third-party NuGet deps; aligned with rust/ 1.8.0)
 ├── MainWindow / SettingsWindow / SkillsWindow / TrayMenuWindow (.xaml + .xaml.cs)
 ├── TrayManager.cs, App.xaml.cs  # App.xaml.cs hosts --test-fetch/--test-update/--test-skills/--test-ui/--screenshot + the 2s manual-refresh debounce
 ├── Services/{QuotaService,SettingsService,SkillsService,UpdateService,ThemeService}.cs
