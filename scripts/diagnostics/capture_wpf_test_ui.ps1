@@ -2,7 +2,7 @@
 # four windows are visible, and dump their exact rects for cropping.
 param([string]$OutPng = "$env:TEMP\kpt-wpf-testui.png",
       [string]$OutTxt = "$env:TEMP\kpt-wpf-testui-rects.txt")
-$exe = Join-Path $PSScriptRoot "bin\Release\net8.0-windows\KimiPlanbarTray.exe"
+$exe = Join-Path $PSScriptRoot "..\..\wpf\bin\Release\net8.0-windows\KimiPlanbarTray.exe"
 $p = Start-Process -FilePath $exe -ArgumentList "--test-ui" -PassThru
 Start-Sleep -Milliseconds 3800  # windows are up ~6s; grab mid-window
 Add-Type -AssemblyName System.Windows.Forms

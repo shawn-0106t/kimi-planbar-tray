@@ -260,7 +260,7 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 - 内容 Grid：`Margin=16`，2 行（Auto / *）
 - 自定义标题栏：整行 `MouseLeftButtonDown` 时 `DragMove()` 可拖动
 - 行为：失焦不自动关闭；仅 ✕ 按钮或 "Save" 关闭。单例复用。
-- 回填容忍损坏持久化值：theme 不匹配任何选项回落 `system`，`RefreshMinutes` 不匹配任何丸选项回落 `5`，不出现无选中态。
+- 回填容忍损坏持久化值：theme 不匹配任何选项回落 `system`（四版一致）；`RefreshMinutes` 不匹配任何丸选项时 WPF 版直接选中 `5 min` 丸（rust 前端留空不回落、仅 Save 时按 5 兜底，最终持久化结果一致），不出现无选中态。
 
 ### 10.3 托盘右键菜单（TrayMenuWindow）
 - 尺寸：`Width=188`，高度 `SizeToContent=Height`（5 项自适应；v1.6 起菜单含 Skills 项，见 21.3）
@@ -383,7 +383,7 @@ cargo build --release   # release exe → target/release/kimi-planbar-tray-egui.
 | 保存 | `Button "Save"`，样式 `ActionButton`，`Margin=0,26,0,0` | — | — |
 
 - 保存动作：写 `settings.json` → `ApplyAutoStart()` → `Theme.Apply(theme)` → `Quota.Reschedule()` → `Close()`。
-- 打开窗口时按当前设置回填勾选状态；`RefreshMinutes` 通过 Tag 字符串匹配。回填容忍损坏的持久化值：theme 无匹配回落 `system`、间隔无匹配回落 `5 min`，不出现无选中态（保存链路对 `RefreshMinutes` 另有 clamp 1–30）。
+- 打开窗口时按当前设置回填勾选状态；`RefreshMinutes` 通过 Tag 字符串匹配。回填容忍损坏的持久化值：theme 无匹配回落 `system`（四版一致）；间隔无匹配时 WPF 版选中 `5 min` 丸（rust 前端留空、仅 Save 按 5 兜底），不出现无选中态（保存链路对 `RefreshMinutes` 另有 clamp 1–30）。
 
 ### 13.3 共享控件样式（`Themes/Shared.xaml`）
 - **ActionButton**：`Padding=0,10`，`FontSize=13`，前景 `TextPrimaryBrush`，背景 `ButtonBgBrush`，无边框，手型光标；模板 `Border CornerRadius=10`，悬停背景 `ButtonHoverBrush`

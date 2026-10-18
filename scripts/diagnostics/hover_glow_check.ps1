@@ -1,7 +1,7 @@
 # One-off: run wpf --test-ui, hover the Refresh action button, grab the panel
 # region mid-hover to verify the SPEC 15.3 glow renders (accent ring + halo).
 param([string]$OutPng = "$env:TEMP\kpt-wpf-hover.png")
-$exe = Join-Path $PSScriptRoot "bin\Release\net8.0-windows\KimiPlanbarTray.exe"
+$exe = Join-Path $PSScriptRoot "..\..\wpf\bin\Release\net8.0-windows\KimiPlanbarTray.exe"
 $p = Start-Process -FilePath $exe -ArgumentList "--test-ui" -PassThru
 Start-Sleep -Milliseconds 3800
 Add-Type -AssemblyName System.Windows.Forms

@@ -50,7 +50,10 @@ public class QuotaService : IDisposable
 
     // Bumped by Reschedule: a refresh that started before a settings save must
     // not re-time the timer over the fresh 2s first-refresh tick the save
-    // installed (rust polling.rs drains the stale retime hint on reschedule).
+    // installed. Deliberately STRONGER than rust polling.rs's retime-hint
+    // drain: the drain only discards hints queued before the reschedule (a
+    // fetch completing after it can still win the select! race roughly half
+    // the time); the generation check skips the re-time deterministically.
     private int _scheduleGen;
 
     public void Reschedule()
@@ -89,8 +92,7 @@ public class QuotaService : IDisposable
                                   TimeSpan.FromMilliseconds(_periodMs));
                 }
                 catch (ObjectDisposedException) { }
-            }
-        }
+            }        }
         try { Application.Current?.Dispatcher.Invoke(() => Updated?.Invoke()); } catch { }
     }
 

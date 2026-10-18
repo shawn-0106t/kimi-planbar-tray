@@ -194,7 +194,7 @@ WPF 版冻结于 v1.5.0（最后提交 `fa04182` 2026-08-15），21 个文件，
 - **P5-1 `.gitignore` 无需改动**：`KimiPlanbarTray-*.exe` 通配已覆盖两个 wpf 资产名；`publish/`、`publish-sc/` 亦已被忽略。`kimi logo.webp` 本就未入库（gitignore 条目既有），仅删除了本地残留文件；`make_release_zip.py` 的排除项保留作纵深防御（其他工作副本可能仍有该文件）。
 - **P5-2 self-contained publish 追加 `-p:EnableCompressionInSingleFile=true`**（计划命令未含）：压缩后 64.8 MB vs 未压缩 147 MB，与仓库 README 的本地构建说明一致。
 - **P1-2 防抖入口**：抽为 `App.ManualRefreshAsync()`（面板 Refresh 与托盘菜单 Refresh 共用；两调用方均在 UI 线程，检查+置时间戳无竞态），对应 rust `refresh_now`。
-- **P1-6 结论：WPF 有同病，已修**。场景推演：刷新进行中保存设置 → `Reschedule` 装好 2s 首刷 → 在途刷新完成后的 `_timer.Change(period)` 会覆盖 2s tick（rust 修复前同型 bug）。修法：`Reschedule` 递增 `_scheduleGen`，`SafeRefresh` 开始时捕获代际、完成时代际变化则跳过重排——语义对应 rust `polling.rs` 在 reschedule 时 drain 残留 retime hint。
+- **P1-6 结论：WPF 有同病，已修**。场景推演：刷新进行中保存设置 → `Reschedule` 装好 2s 首刷 → 在途刷新完成后的 `_timer.Change(period)` 会覆盖 2s tick（rust 修复前同型 bug）。修法：`Reschedule` 递增 `_scheduleGen`，`SafeRefresh` 开始时捕获代际、完成时代际变化则跳过重排——比 rust `polling.rs` 的 retime-hint drain **更强**的确定性守卫（drain 只丢弃 reschedule 之前入队的 hint，reschedule 之后完成的 fetch 在 `select!` 双就绪时仍约有一半概率覆盖；代际检查则确定性地跳过）。
 - **P3-8 抑制判断**：`TrayManager` 暴露 `IsSettingsOpen`/`IsSkillsOpen`（窗口 `IsVisible` 判定），主面板 `Deactivated` 统一抑制——顺带修正了 v1.5.0 的既有偏差（`_suppressDeactivate` 只覆盖打开瞬间，面板聚焦后点击设置窗仍会收起；rust 自 v1.6 起为全程抑制）。
 - **Skills 窗口关闭即 Hide（单例常驻）**，与 rust `close_skills` 语义一致；`TrayManager.ShowSkills()` 每次开窗重 pin 404×520（对应 rust `open_skills` 的 `set_size` DPI 守卫）。
 - **验证脚本归档**：`capture_test_ui.ps1` → `scripts/diagnostics/capture_wpf_test_ui.ps1`（抓屏 + 按进程枚举窗口 RECT），`capture_hover_glow.ps1` → `scripts/diagnostics/hover_glow_check.ps1`（坐标为当次运行实测值，复用前需按 RECT 输出更新）。
@@ -202,7 +202,7 @@ WPF 版冻结于 v1.5.0（最后提交 `fa04182` 2026-08-15），21 个文件，
 ### C. 验收结果
 
 - `dotnet build -c Release`：零错误零警告。
-- `--test-fetch`：本机当前无有效凭证，WPF 与 rust 同机同为 `no-token`（错误串命名约定一致）；`KIMI_CODE_HOME` 指向空目录 → `"no-token"`，指向含合法结构假凭证的目录 → 错误变为 `HttpRequestException`（覆盖生效实证）。带真实凭证的逐字段 diff 留待有凭证环境复核（本周期不可行）。
+- `--test-fetch`：输出已对齐 rust 基准（camelCase 属性名 + 枚举序列化为字符串；settings.json 的 PascalCase schema 不受影响——那是跨版本共享的持久化格式，与此输出无关）。本机 `KIMI_CODE_HOME` 指向空目录 → `"no-token"`，指向含合法结构假凭证的目录 → `"HttpRequestException"`（覆盖生效实证）；修复轮期间本机凭证恢复可用，完成了**真实数据的逐字段对比**：字段名全同、值语义相等（WPF `percent: 3` vs rust `3.0` 为 f64 文本格式差异；`resetAt` 的 `+00:00` 与 `+08:00` 是同一时刻的两种偏移表示；`fetchedAt` 小数位精度与两次独立抓取的时刻差属预期）。
 - `--test-update`：与 rust 同机输出逐字段一致（`local=2.2.0 latest=2.1.1 updateAvailable=False checkFailed=False`）。
 - `--test-ui`：四行 OK（`MainWindow OK` / `SettingsWindow OK` / `SkillsWindow OK` / `TrayMenuWindow OK`），四窗物理尺寸实测 954×1170 / 909×1044 / 909×1170 / 423×515 = 424×520 / 404×464 / 404×520 / 188×229 DIP @225% 精确匹配。
 - `--test-skills`：`skills parser: PASS (5 fixture skills)`。
@@ -212,3 +212,16 @@ WPF 版冻结于 v1.5.0（最后提交 `fa04182` 2026-08-15），21 个文件，
 - `make_release_zip.py`：zip 227 项、根级 3 个 exe、`SHA256SUMS.txt` 四条，`sha256sum -c` 抽查通过。
 - 行为目检（CI 外的本地人工项）：托盘左/右键、hover 预取节流、300ms 重入守卫、主题切换三态等代码路径未改动或经审查，未逐一手测；settings/skills 打开期间失焦抑制已按新逻辑实现（见附录 B）。
 - CI 全绿与 code-reviewer 独立审查：随本 PR 进行（见 PR 描述）。
+
+### D. Code review 修复轮（2026-10-18）
+
+独立 code-reviewer 审查（证伪导向）确认 4 Major / 3 Minor，全部修复或澄清：
+
+- **M1**：`--test-fetch` 输出改为 camelCase + 字符串枚举，与 rust serde 输出字段级对齐（原 PascalCase + 数字枚举无法与 rust diff）。
+- **M2 + s1**：`verify_wpf_icon_paths.py` 归档后路径差一级（从未能按留档方式运行）——修正为仓库根三级定位；同时把按文档顺序索引改为按按钮 id 锚定提取，并把 Exit 图标的相对→绝对换算纳入自动校验（绝对坐标段容差比较，四图标全部 PASS）。
+- **M3**：两个抓屏脚本的 exe 路径适配 `scripts/diagnostics/` 归档位置（`..\..\wpf\bin\...`）。
+- **M4**：SPEC 双语中间隔"回落 5"的表述原写成四版通用契约，实际 rust 前端仅在 Save 时兜底 5、不回落选中——已加版本差异注记。
+- **m1**：调度守卫注释/附录措辞改为"比 rust drain 更强的确定性守卫"（原"同款语义"不严格成立）。
+- **m2**：`ManualRefreshAsync` 改为 quota 刷新与版本检查并行（对齐 rust `refresh_now` 的双 spawn）。
+- **m3**：`fade.Completed` 里的 `Opacity = 1` 原为 no-op（hold-end 动画优先于本地赋值）——先 `BeginAnimation(null)` 再赋值。
+- 未采纳：托盘菜单改为单例隐藏复用（s2）——v1.5.0 起即每次新建，用户可见行为等价，改动触及菜单关闭重入逻辑、风险大于收益，记录为已知偏差。

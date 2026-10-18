@@ -81,6 +81,9 @@ public partial class MainWindow : Window
         {
             if (gen != _animGen) return; // superseded by a newer show/hide
             Hide();
+            // Clear the completed hold-end animation first: an animation on
+            // the property overrides a plain local assignment
+            BeginAnimation(OpacityProperty, null);
             Opacity = 1;
             App.Tray?.NotifyPopupHidden();
         };

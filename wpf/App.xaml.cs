@@ -36,8 +36,16 @@ public partial class App : Application
         if (e.Args.Contains("--test-fetch"))
         {
             var r = Task.Run(() => Quota.FetchAsync()).GetAwaiter().GetResult();
-            Console.WriteLine(JsonSerializer.Serialize(r,
-                new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+            // camelCase + string enums so the output diffs field-by-field
+            // against the rust edition (serde rename_all = "camelCase");
+            // settings.json keeps its cross-edition PascalCase schema
+            Console.WriteLine(JsonSerializer.Serialize(r, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            }));
             Shutdown();
             return;
         }
@@ -157,8 +165,10 @@ public partial class App : Application
         var now = DateTimeOffset.UtcNow;
         if (now - _lastManualRefresh < TimeSpan.FromSeconds(2)) return;
         _lastManualRefresh = now;
+        // Both checks run concurrently, like rust refresh_now's two spawns
+        var updateCheck = Updates.CheckAsync();
         await Quota.SafeRefresh();
-        await Updates.CheckAsync();
+        await updateCheck;
     }
 
     protected override void OnExit(ExitEventArgs e)
