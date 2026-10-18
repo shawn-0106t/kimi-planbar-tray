@@ -1,8 +1,8 @@
 # WPF 版复活计划（对齐 rust/ Tauri 版 v1.7.3）
 
-> 状态：**已执行（2026-10-18，随本 PR 交付；执行记录与验收结果见文末附录）**。本文档是给执行 agent 的完整工作说明书，每个 Phase 含具体文件、参照行号与可勾选验收项。
+> 状态：**已执行并归档（2026-10-18 执行完毕，全部 Phase 交付并合并；执行记录、两轮 review 与验收结果见文末附录）**。本文档是给执行 agent 的完整工作说明书，每个 Phase 含具体文件、参照行号与可勾选验收项。
 > 行为契约：`docs/SPEC.md`（第 10–21 章）；当前实现的唯一事实：`rust/` 源码（v1.7.3）。
-> 本计划执行完毕、PR 合并后，将本文档移至 `docs/archive/`（与 QT-MIGRATION.md 同等处理）。
+> 本计划已执行完毕并归档至 `docs/archive/`（与 QT-MIGRATION.md 同等处理）。
 
 ## 0. 已确认的前置决策（不要再改）
 
@@ -153,7 +153,7 @@ WPF 版冻结于 v1.5.0（最后提交 `fa04182` 2026-08-15），21 个文件，
 - [x] **P6-3 `CHANGELOG.md`**：Unreleased 段新增双语条目（English 在前、中文在下）：WPF 版复活并对齐 v1.7.3（Skills 窗口、图标动作行、hover glow、1.7.1 加固回移植），重新随 Releases 分发双 exe。
 - [x] **P6-4 `README.md` + `README_CN.md`**：移除 WPF 冻结说明，恢复 WPF exe 下载说明（两资产各自适用场景：framework-dependent 需 .NET 8 桌面运行时，self-contained 免安装），构建说明同步。
 - [x] **P6-5 截图**：`scripts/release/make_screenshots.py` 是否覆盖 WPF 布局以其现状为准；如需重生成 `docs/screenshot-*.png`，用 rust 版的 headless Chrome 流程（AGENTS.md Testing 节有配方）或 WPF 独有 `--screenshot`，与 PR 分开提交。
-- [ ] **P6-6 归档**：本计划全部 Phase 完成、PR 合并后，把 `docs/WPF-REVIVAL.md` 移至 `docs/archive/` 并在 AGENTS.md 的 archive 清单里加一行。（合并后执行——本项是唯一留待 PR 合并后处理的任务。）
+- [x] **P6-6 归档**：本计划全部 Phase 完成、PR 合并后，把 `docs/WPF-REVIVAL.md` 移至 `docs/archive/` 并在 AGENTS.md 的 archive 清单里加一行。（已完成：随归档 PR 移入 `docs/archive/`，AGENTS.md 的 wpf/ 条目与 archive 清单、SPEC 第 9 章文档地图同步更新。）
 
 ## 验收标准（总）
 

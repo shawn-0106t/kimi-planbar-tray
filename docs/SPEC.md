@@ -231,6 +231,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
 | `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
 | `docs/archive/EGUI-MIGRATION.md` | egui 版（Rust egui + tray-icon）迁移规划（已归档，开发完成）：选型、目标架构、Phase 计划与实施状态 |
+| `docs/archive/WPF-REVIVAL.md` | WPF 版复活计划（已归档，执行完成）：差距分析、分阶段工作说明书、执行决策与两轮 review 记录、验收结果 |
 | `AGENTS.md` | AI 编码助手上手索引（结构、命令、陷阱摘要） |
 | `.github/workflows/ci.yml` | GitHub Actions 检查：gitleaks 全历史密钥扫描 + 构建门禁（push/PR 触发，见 7.2） |
 | `.github/dependabot.yml` | Dependabot weekly 依赖更新：cargo/npm/github-actions（见 7.2） |

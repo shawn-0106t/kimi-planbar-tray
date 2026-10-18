@@ -230,6 +230,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 | `docs/SPEC.md` (the Chinese original of this document) | The single authoritative spec: project-level + UI/behavior details |
 | `docs/archive/QT-MIGRATION.md` | Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): case survey, stack comparison, module mapping, phased roadmap |
 | `docs/archive/EGUI-MIGRATION.md` | egui edition (Rust egui + tray-icon) migration plan (archived; development complete): stack choice, target architecture, phase plan and status |
+| `docs/archive/WPF-REVIVAL.md` | WPF edition revival plan (archived; executed to completion): gap analysis, phased work spec, execution decisions with two review rounds, acceptance results |
 | `AGENTS.md` | Onboarding index for AI coding agents (structure, commands, trap summary) |
 | `.github/workflows/ci.yml` | GitHub Actions checks: gitleaks full-history secret scan + build gate (push/PR triggered, see 7.2) |
 | `.github/dependabot.yml` | Dependabot weekly dependency updates: cargo/npm/github-actions (see 7.2) |
