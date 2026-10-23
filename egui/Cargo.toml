@@ -9,7 +9,7 @@ publish = false
 # Pinned exact versions: the egui viewport API churns between releases, so a
 # spike that compiles today must keep compiling while later phases reuse it.
 eframe = { version = "=0.36.2", default-features = true, features = ["glow", "wgpu"] }
-egui = "0.36.2"
+egui = "0.37.0"
 tray-icon = "=0.26.1"
 # Business core, same versions as rust/src-tauri/Cargo.toml (Phase 1 port)
 serde = { version = "1", features = ["derive"] }
