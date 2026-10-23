@@ -120,7 +120,7 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 **qt/ 版**：C++17 + **Qt 6**（仅 Widgets / Network / Svg，无第三方库）；**CMake + MSVC** 构建；windeployqt 动态链接分发（LGPL 合规路线，目录形态，无单 exe）；一键打包 `PYTHONUTF8=1 python qt/package_release.py` → `qt/dist/`。与 Rust 栈的逐项对比见 `docs/archive/QT-MIGRATION.md` 第 2 节。
 
-**egui/ 版**：**egui 0.36.2（eframe 锁定 `=0.36.2`，glow 为主渲染后端、wgpu 备选）+ tray-icon 0.26.1**——纯 Rust 即时模式自绘 UI，无 WebView、无 Node 工具链；业务栈（tokio / reqwest / serde / regex / chrono / winreg / windows）与 rust/ 版同源同版本。选型对比、目标架构与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`。
+**egui/ 版**：**egui 0.37.0（eframe 锁定 `=0.37.0`，glow 为主渲染后端、wgpu 备选；`default_fonts` 为显式 feature）+ tray-icon 0.26.1**——纯 Rust 即时模式自绘 UI，无 WebView、无 Node 工具链；业务栈（tokio / reqwest / serde / regex / chrono / winreg / windows）与 rust/ 版同源同版本。选型对比、目标架构与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`。
 
 ## 5. 数据流
 
