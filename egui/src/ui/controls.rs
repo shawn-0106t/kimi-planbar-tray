@@ -88,7 +88,7 @@ pub fn titlebar(
         pos2(row.right() - 28.0, row.center().y - 11.0),
         Vec2::new(28.0, 22.0),
     );
-    let close_id = Id::new((id_prefix, "close"));
+    let close_id = Id::unique((id_prefix, "close"));
     let close = ui.interact(close_rect, close_id, Sense::click());
     if close.hovered() {
         painter.rect_filled(close_rect, CornerRadius::same(6), theme.button_hover);
@@ -105,7 +105,7 @@ pub fn titlebar(
 
     // Drag region: the row minus the close button (SPEC 13.1 whole-row drag).
     let drag_rect = Rect::from_min_max(row.min, pos2(close_rect.left() - 2.0, row.max.y));
-    let drag = ui.interact(drag_rect, Id::new((id_prefix, "drag")), Sense::drag());
+    let drag = ui.interact(drag_rect, Id::unique((id_prefix, "drag")), Sense::drag());
     if drag.drag_started() {
         ui.ctx()
             .send_viewport_cmd(egui::viewport::ViewportCommand::StartDrag);

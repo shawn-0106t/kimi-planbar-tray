@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries for v1.7.2 and earlier were reconstructed from the GitHub release notes of each tag.
 
+## [Unreleased]
+
+### Changed
+- egui/ edition: eframe/egui 0.36.2 → 0.37.0 (targeted `cargo update -p egui -p eframe`; winit stays 0.30.13, tray-icon stays =0.26.1, business-core versions unchanged). Mechanical migration only: 14 × `Id::new` → `Id::unique` (deprecated in 0.37, enforced by `-D warnings`), the `default_fonts` feature made explicit on the egui dependency (no longer a default feature in 0.37), and the FontProbe comments updated for the new `set_fonts` landing semantics (start of next pass, or immediately when no text was laid out this pass — the one-frame-later verification logic is unchanged). `windows.rs` / `panel_pos.rs` untouched. The Gate A/B regression protocol was re-run on the dev machine: `--test-fetch`/`--test-update`/`--test-ui` outputs field-identical with the rust baseline, caption-flash burst across five cold starts peaks at 0.40% bright-band (threshold < 1%; 0.36.2 control 0.00%), full-window screenshots pixel-stable versus 0.36.2 within a same-exe noise baseline, and the single-instance mutex self-checks stay green. Validation record: `docs/EGUI-0.37-UPGRADE.md`.
+- （中文）egui 版依赖升级：eframe/egui 0.36.2 → 0.37.0（定向 `cargo update -p egui -p eframe`；winit 保持 0.30.13、tray-icon 保持 =0.26.1、业务核心版本不变）。纯机械迁移：14 处 `Id::new` → `Id::unique`（0.37 弃用，`-D warnings` 强制）、egui 依赖显式启用 `default_fonts` feature（0.37 起不再是默认 feature）、FontProbe 注释按 `set_fonts` 新落地时序更新（下一 pass 开始时生效，或本 pass 未排版文本时立即生效 —— 延后一帧的验证逻辑不变）。`windows.rs` / `panel_pos.rs` 零改动。开发机复跑 Gate A/B 回归协议：`--test-fetch`/`--test-update`/`--test-ui` 输出与 rust 基线逐字段一致，五轮冷启动 caption-flash 连拍峰值 0.40% 亮带占比（阈值 <1%；0.36.2 对照 0.00%），全窗截图与 0.36.2 在同 exe 噪声基线内像素级稳定，单实例互斥自检全绿。验证记录：`docs/EGUI-0.37-UPGRADE.md`。
+
 ## [1.8.0] - 2026-10-18
 
 ### Added

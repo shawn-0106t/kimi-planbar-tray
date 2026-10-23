@@ -49,7 +49,7 @@ pub fn paint(ui: &mut Ui, biz: &AppCtx, bus: &Arc<WinBus>) {
         let rect = Rect::from_min_size(pos2(card.left() + 4.0, y), Vec2::new(item_w, item_h));
         if controls::menu_item(
             ui,
-            Id::new(("menu-item", i)),
+            Id::unique(("menu-item", i)),
             rect,
             label,
             &theme,

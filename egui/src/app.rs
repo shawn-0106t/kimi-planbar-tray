@@ -682,8 +682,9 @@ impl eframe::App for App {
             }
         }
 
-        // Fonts: install/verify one step per frame (set_fonts takes effect at
-        // the NEXT begin_pass — a same-frame coverage check would misreport).
+        // Fonts: install/verify one step per frame (since egui 0.37 set_fonts
+        // lands at the next pass start, or immediately if no text was laid out
+        // this pass; the one-frame-later check is correct under either).
         self.font_probe.step(&ctx);
 
         // (The AppEvent bus is consumed by the drain thread, which pushes
@@ -794,7 +795,7 @@ impl eframe::App for App {
             if std::env::var("KPT_GLOW_DEBUG").is_ok() {
                 let marker = self
                     .glow
-                    .peek(egui::Id::new("panel-btn-console"))
+                    .peek(egui::Id::unique("panel-btn-console"))
                     .unwrap_or(0.0);
                 ui.painter().rect_filled(
                     egui::Rect::from_min_size(

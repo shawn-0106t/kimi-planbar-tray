@@ -119,7 +119,7 @@ impl GlowTracker {
             glow.p = (glow.p - step).max(glow.target);
         }
         #[cfg(debug_assertions)]
-        if std::env::var("KPT_GLOW_DEBUG").is_ok() && id == Id::new("panel-btn-console") {
+        if std::env::var("KPT_GLOW_DEBUG").is_ok() && id == Id::unique("panel-btn-console") {
             eprintln!(
                 "[glow] hovered={hovered} internal={:.3} target={} dt={dt:?} step={step:.3}",
                 glow.p, glow.target,
