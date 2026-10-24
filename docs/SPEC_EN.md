@@ -120,7 +120,7 @@ All 4 pages share `common.ts` (DTO types + formatting helpers + theme init) and 
 
 **qt/ edition**: C++17 + **Qt 6** (Widgets / Network / Svg only, no third-party libraries); built with **CMake + MSVC**; distributed via windeployqt dynamic linking (the LGPL-compliant route, directory form, no single exe); one-shot packaging via `PYTHONUTF8=1 python qt/package_release.py` → `qt/dist/`. A point-by-point comparison with the Rust stack is in `docs/archive/QT-MIGRATION.md` section 2.
 
-**egui/ edition**: **egui 0.36.2 (eframe pinned `=0.36.2`, glow as the primary renderer with wgpu as the fallback) + tray-icon 0.26.1** — pure-Rust immediate-mode UI, no WebView, no Node toolchain; the business stack (tokio / reqwest / serde / regex / chrono / winreg / windows) matches the rust/ edition's versions. Stack comparison, target architecture, and phase record in `docs/archive/EGUI-MIGRATION.md`.
+**egui/ edition**: **egui 0.37.0 (eframe pinned `=0.37.0`, glow as the primary renderer with wgpu as the fallback; `default_fonts` is an explicit feature) + tray-icon 0.26.1** — pure-Rust immediate-mode UI, no WebView, no Node toolchain; the business stack (tokio / reqwest / serde / regex / chrono / winreg / windows) matches the rust/ edition's versions. Stack comparison, target architecture, and phase record in `docs/archive/EGUI-MIGRATION.md`.
 
 ## 5. Data Flow
 

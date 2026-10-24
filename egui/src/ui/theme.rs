@@ -140,9 +140,10 @@ fn push_back(fonts: &mut FontDefinitions, family: FontFamily, name: &str) {
 /// named weight families are ALWAYS bound (falling back to the regular fonts
 /// when a face is missing), so text layout can never panic on an unbound
 /// family. Returns the index of the CJK candidate actually installed, or None
-/// when none was readable. Takes effect on the NEXT frame (begin_pass
-/// rebuilds the font set), so coverage is verified a frame later by
-/// [`font_covers_cjk`] — same next-frame rule the Phase 0 spike hit.
+/// when none was readable. Since egui 0.37, `set_fonts` lands at the start of
+/// the next pass — or immediately when the current pass has not laid out text
+/// yet — so coverage is still conservatively verified one frame later by
+/// [`font_covers_cjk`] (correct under either landing time).
 pub fn install_fonts(ctx: &Context, start: usize) -> Option<usize> {
     // First readable candidate at/after `start` wins.
     let mut installed = None;
@@ -206,7 +207,8 @@ pub fn install_fonts(ctx: &Context, start: usize) -> Option<usize> {
 }
 
 /// Verify CJK + yen coverage of the regular family (call one frame AFTER
-/// install_fonts; the font set rebuilds at begin_pass).
+/// install_fonts: the install lands this pass when no text was laid out yet,
+/// or at the start of the next pass).
 pub fn font_covers_cjk(ctx: &Context) -> bool {
     let jia = ctx.fonts_mut(|f| f.has_glyph(&FontId::proportional(14.0), '\u{52a0}'));
     let yen = ctx.fonts_mut(|f| f.has_glyph(&FontId::proportional(14.0), '\u{a5}'));
@@ -233,8 +235,9 @@ impl FontProbe {
     }
 
     /// Advance one step per frame: verify the candidate installed on the
-    /// previous frame (set_fonts takes effect at the NEXT begin_pass — a
-    /// same-frame coverage check would misreport), else advance the chain.
+    /// previous frame (since egui 0.37 `set_fonts` lands immediately when the
+    /// pass hasn't laid out text yet, else at the next pass start — a
+    /// same-frame check could still see the old set), else advance the chain.
     pub fn step(&mut self, ctx: &Context) {
         if let FontProbe::Await { idx } = self {
             let next = *idx + 1;

@@ -1162,7 +1162,11 @@ fn settings_ui(ui: &mut egui::Ui, shared: &SharedArc) {
         egui::pos2(card.min.x + 16.0, card.min.y + 12.0),
         egui::vec2(card.width() - 32.0, 30.0),
     );
-    let resp = ui.interact(bar, egui::Id::new("settings-titlebar"), egui::Sense::drag());
+    let resp = ui.interact(
+        bar,
+        egui::Id::unique("settings-titlebar"),
+        egui::Sense::drag(),
+    );
     ui.painter().text(
         bar.left_center(),
         egui::Align2::LEFT_CENTER,

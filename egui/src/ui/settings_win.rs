@@ -152,7 +152,7 @@ pub fn paint(ui: &mut Ui, biz: &AppCtx, bus: &Arc<WinBus>) {
             8.0
         };
         let row = Rect::from_min_size(pos2(body_left, y), Vec2::new(body_w, 18.0));
-        let id = Id::new(("settings-theme", choice.as_str()));
+        let id = Id::unique(("settings-theme", choice.as_str()));
         if controls::theme_radio(ui, id, row, draft_theme == choice, choice.label(), &theme) {
             bus.draft.lock().unwrap().theme = choice;
         }
@@ -176,7 +176,7 @@ pub fn paint(ui: &mut Ui, biz: &AppCtx, bus: &Arc<WinBus>) {
         let label = format!("{minutes} min");
         let size = controls::pill_size(painter, &label);
         let rect = Rect::from_min_size(pos2(pill_x, y), size);
-        let id = Id::new(("settings-pill", minutes));
+        let id = Id::unique(("settings-pill", minutes));
         if controls::pill_radio(ui, id, rect, draft_minutes == minutes, &label, &theme) {
             bus.draft.lock().unwrap().minutes = minutes;
         }
@@ -190,7 +190,7 @@ pub fn paint(ui: &mut Ui, biz: &AppCtx, bus: &Arc<WinBus>) {
     let row = Rect::from_min_size(pos2(body_left, y), Vec2::new(body_w, 18.0));
     if controls::theme_checkbox(
         ui,
-        Id::new("settings-autostart"),
+        Id::unique("settings-autostart"),
         row,
         auto_start,
         "Launch at Windows startup",
@@ -211,7 +211,7 @@ pub fn paint(ui: &mut Ui, biz: &AppCtx, bus: &Arc<WinBus>) {
     let save_rect = Rect::from_min_size(pos2(body_left, y), Vec2::new(body_w, save_h));
     if controls::action_button(
         ui,
-        Id::new("settings-save"),
+        Id::unique("settings-save"),
         save_rect,
         "Save",
         &theme,

@@ -61,7 +61,7 @@ pub fn paint(ui: &mut Ui, biz: &AppCtx, bus: &Arc<WinBus>) {
     let btn_rect = Rect::from_min_size(pos2(summary_right - btn_size.x, summary_y), btn_size);
     if controls::btn_mini(
         ui,
-        Id::new("skills-refresh"),
+        Id::unique("skills-refresh"),
         btn_rect,
         "Refresh",
         &theme,
@@ -203,7 +203,11 @@ fn paint_skill_card(
     );
 
     // Card hover tooltip carries the full (unclamped) description.
-    let resp = ui.interact(card_rect, Id::new(("skills-card", index)), Sense::hover());
+    let resp = ui.interact(
+        card_rect,
+        Id::unique(("skills-card", index)),
+        Sense::hover(),
+    );
     if !skill.description.is_empty() {
         resp.on_hover_text(skill.description.clone());
     }

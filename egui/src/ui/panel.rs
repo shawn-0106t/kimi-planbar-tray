@@ -290,7 +290,7 @@ pub fn paint(
     extra_card(&painter, extra_row, extra_ref, theme, alpha);
 
     // ---- Version row (SPEC 12.6): whole-row clickable card
-    let version_id = Id::new("panel-version-row");
+    let version_id = Id::unique("panel-version-row");
     let v_resp = ui.interact(version_row, version_id, Sense::click());
     let v_glow = glow.progress(version_id, v_resp.hovered(), now);
     painter.rect_filled(
@@ -390,7 +390,7 @@ pub fn paint(
         );
         let resp = widgets::action_button(
             ui,
-            Id::new(name),
+            Id::unique(name),
             rect,
             icon,
             label,
