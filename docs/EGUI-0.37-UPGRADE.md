@@ -79,6 +79,45 @@ Known splits (pre-existing, not from this upgrade): winreg lock 0.56.0 vs rust 0
 - Items marked UNTESTABLE in §3 rows 8 should be re-run when the machine's shell
   environment recovers.
 
+## 5a. Post-reboot re-validation (2026-10-24 ~14:00–14:50 +08:00, after a full Windows restart at 13:31)
+
+Per the merge-gate plan (HANDOFF §5a), both blocked environment incidents were re-tested
+after a full Windows reboot. Both PERSIST, confirming they are machine state rather than a
+transient shell glitch:
+
+- Incident 1 (tray): after the reboot a fresh standalone PowerShell probe icon is rejected
+  outright — `Shell_NotifyIconW` NIM_ADD now returns FALSE (previously TRUE-but-invisible) —
+  the 0.37 GUI's icon is absent from both the main tray area and the opened overflow flyout
+  (verified by screenshot), and `Shell_NotifyIconGetRect` still returns E_FAIL. The five
+  real-tray probes of the restart protocol therefore remain unrunnable on this machine;
+  version-independence is re-confirmed by the non-KPT probe failing identically. Additional
+  build note: this Win11 26H2 taskbar exposes no tray buttons to UIA at all, so UIA-based
+  tray-button discovery is unavailable here.
+- Incident 2 (WebView2): the rust release GUI still panics at webview creation with
+  `0x800700AA` (identical signature, post-reboot). rust `--test-ui` and the rust-holder
+  mutex-matrix rows remain UNTESTABLE.
+
+Headless checks re-run after the reboot — all PASS, no drift vs the original Gate B evidence:
+
+- `--test-fetch`: rust and egui outputs field-identical (no-token path).
+- `--test-update`: rust and egui one-liners byte-identical
+  (`local=2.3.1 latest=2.3.1 updateAvailable=False checkFailed=False`).
+- egui `--test-ui`: all four OK lines; the only stderr output is the harmless
+  `Error removing system tray icon` (the icon never registered — incident 1 echo).
+
+Settings open/close cycle re-attempt (PostMessage clicks at DWM-rect-derived client
+coordinates): not conclusively extended. Cursor injection broke system-wide mid-session
+(`SetCursorPos` fails with err=2 from any process; a stale 4800x1800 cursor clip survives
+`ClipCursor(NULL)`; second-display topology in flux), so clicks were re-delivered via posted
+`WM_MOUSEMOVE`/`WM_LBUTTONDOWN`/`WM_LBUTTONUP`; combined with `--test-ui`'s ~6 s lifetime and
+a multi-second cross-viewport command latency while the app is idle, the reopen half could
+not be separated from app teardown. No 0.37-specific failure was observed in any attempt;
+§5's item-2 limitation (reopen half blocked by harness, close half and the whole event bus
+proven in the original session) stands unchanged.
+
+Bottom line: the reboot re-validation surfaced nothing that contradicts the Gate B verdict;
+the remaining unknowns are all machine-environment limitations, recorded above.
+
 ## 6. Verdict
 
 Gate A passed (mechanical only). Gate B passed (zero version regressions across every
