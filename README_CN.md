@@ -37,7 +37,7 @@
 
 > 另有一个**实验性 Qt 版**（`qt/`，C++ Qt6 Widgets，无 WebView2 依赖），功能与 Rust 版对齐。以目录形态分发（`qt/dist/`，约 36 MB——Qt DLL 随 exe 同目录，无单文件版）；与 Rust/WPF 版互斥（共用同名互斥锁，同时只能运行一个）；同样未签名（同样的 SmartScreen 提示）。仅从源码构建（见下文），不随 Releases 分发。
 
-> 还有一个**实验性 egui 版**（`egui/`，纯 Rust UI：eframe/egui 0.36.2 + tray-icon——无 WebView、无 Node 工具链），与 Rust 版达到 SPEC parity（Phase 4 审计：99 PASS / 2 项轻微偏差 / 6 项环境不可测）。构建为单个 ~21.8 MB exe，冷启动约 91 ms（对比 Rust 版约 1060 ms，同机实测）；与其余版本互斥（共用同名互斥锁）；同样未签名。**仅供测试：从源码构建（见下文），不随 Releases 分发。** 一个已知视觉怪癖：亮色桌面下窗口边缘有一圈隐约的 1-2px 细线（winit 特有的 DWM hairline，Rust 版没有此现象）——已定位根因并接受现状，详见 `docs/archive/EGUI-MIGRATION.md` 第 7 节。
+> 还有一个**实验性 egui 版**（`egui/`，纯 Rust UI：eframe/egui 0.37.0 + tray-icon——无 WebView、无 Node 工具链），与 Rust 版达到 SPEC parity（Phase 4 审计：99 PASS / 2 项轻微偏差 / 6 项环境不可测）。构建为单个 ~21.8 MB exe，冷启动约 91 ms（对比 Rust 版约 1060 ms，同机实测）；与其余版本互斥（共用同名互斥锁）；同样未签名。**仅供测试：从源码构建（见下文），不随 Releases 分发。** 此前两个已知视觉怪癖——亮色桌面下窗口边缘的 1-2px 细线（winit 特有的 DWM hairline，Rust 版没有此现象）与窗口打开/激活瞬间的单帧白色原生标题栏闪烁——均已定位根因并修复于 `egui/src/windows.rs`（26H2 外框/caption 修复 + caption 闪烁加固；验证记录：`docs/EGUI-CAPTION-FLASH-FIX.md`）。
 
 > exe 未做代码签名，首次运行 Windows SmartScreen 可能提示"已保护你的电脑"——点"更多信息 → 仍要运行"即可，这是未签名个人作品的正常提示。
 
@@ -106,7 +106,7 @@ KimiPlanbarTray.exe --test-ui      # 构造全部 4 个窗口，打印 OK 后退
 
 ## 技术说明
 
-- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；Qt 版（实验性）：C++ Qt6 Widgets 单进程，无 WebView；egui 版（实验性）：纯 Rust（eframe/egui 0.36.2 + tray-icon）单进程，无 WebView、无 Node 工具链；WPF 版：.NET 8 / WPF，零第三方 NuGet 依赖
+- Rust 版：Tauri 2 后端 + vanilla HTML/CSS/TS 前端（无框架）；Qt 版（实验性）：C++ Qt6 Widgets 单进程，无 WebView；egui 版（实验性）：纯 Rust（eframe/egui 0.37.0 + tray-icon）单进程，无 WebView、无 Node 工具链；WPF 版：.NET 8 / WPF，零第三方 NuGet 依赖
 - UI 设计与布局改编自 [KimiCodeBar](https://github.com/xifandev/KimiCodeBar)（MIT），作者 [@xifandev](https://github.com/xifandev)
 - Skill 管理功能参考自 [kimi-code-dashboard](https://github.com/perinchiang/kimi-code-dashboard)，作者 [@perinchiang](https://github.com/perinchiang)
 - 额度逻辑移植自 [kimi-planbar](https://github.com/baigong-ai/kimi-planbar)（MIT）——token 来源、接口与缓存/重试策略一致
