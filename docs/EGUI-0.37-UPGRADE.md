@@ -8,11 +8,14 @@
 
 ## 1. Change summary (the whole diff)
 
-- `egui/Cargo.toml`: `eframe = "=0.37.0"`, `egui = { version = "0.37.0", features = ["default_fonts"] }`
-  (default_fonts is no longer a default feature since 0.37); `tray-icon = "=0.26.1"` untouched.
-- `Cargo.lock`: targeted `cargo update -p egui -p eframe` — egui family 0.36.2 → 0.37.0,
-  new `egui_system_font_provider 0.37.0` + fontique/parlance stack (Windows builds take the
-  windows branch). winit stays 0.30.13. Business-core versions unchanged (see §2).
+- `egui/Cargo.toml`: `eframe = "=0.37.0"`, `egui = { version = "=0.37.0", features = ["default_fonts"] }`
+  (default_fonts is no longer a default feature since 0.37; both pins exact so a future egui
+  patch release cannot split the pair under the weekly Dependabot); `tray-icon = "=0.26.1"` untouched.
+- `Cargo.lock`: targeted `cargo update -p egui -p eframe` — egui family 0.36.2 → 0.37.0
+  (transitive ripple confined to the egui tree: accesskit family bumps, phf 0.13→0.14,
+  vello 0.1→0.2, glifo 0.2→0.3), new `egui_system_font_provider 0.37.0` + fontique/parlance
+  stack (Windows builds take the windows branch). winit stays 0.30.13. Business-core versions
+  unchanged (see §2).
 - 14 × `Id::new(` → `Id::unique(` (0.37 deprecates the former; `-D warnings` makes it
   mandatory): app.rs ×1, ui/controls.rs ×2, ui/panel.rs ×2, ui/settings_win.rs ×4,
   ui/menu_win.rs ×1, ui/skills_win.rs ×2, ui/widgets.rs ×1, bin/spike.rs ×1.
@@ -76,6 +79,15 @@ Known splits (pre-existing, not from this upgrade): winreg lock 0.56.0 vs rust 0
 - The reopen-after-close half of item 6 was blocked by coordinate estimation limits of
   the injected-click harness, not by an observed failure (the close half and the whole
   event bus are proven).
+- eframe 0.37.0 pulls in `egui_system_font_provider` (new in the egui 0.37 tree, see §1), and
+  egui 0.37 added a font-provider mechanism whose discovered fonts are appended to the
+  requested family's fallback chain. This validation did not analyze that interaction in
+  isolation: the project overrides `FontDefinitions` wholesale in `theme.rs::install_fonts`,
+  FontProbe verifies CJK+yen against the installed set, and the Gate B full-window font pixel
+  diff showed zero systematic delta. Residual caveat for the frozen edition: on a machine
+  where no project font candidate is readable, a provider-supplied glyph could make
+  `font_covers_cjk` pass via fallback rather than the project chain — check the provider
+  before trusting a pass that the baseline build fails.
 - Items marked UNTESTABLE in §3 rows 8 should be re-run when the machine's shell
   environment recovers.
 
