@@ -583,6 +583,13 @@ async fn handle_batch(app: &AppHandle, batch: Vec<FailureEvent>) {
                 // RenderProcessExited + RenderProcessUnresponsive); only the
                 // first one in a batch counts as the single allowed reload.
                 if reloaded_in_batch.contains(&event.label) {
+                    // The first event in this batch already reloaded the page;
+                    // this duplicate must not leave the label marked dead or
+                    // the next show would destroy and rebuild a working window.
+                    {
+                        let mut inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
+                        inner.dead.remove(&event.label);
+                    }
                     actions.push((event, "ignored (duplicate in batch)".to_string()));
                     continue;
                 }

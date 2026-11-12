@@ -675,7 +675,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 
 - single-flight：同一时刻只允许一轮恢复；期间到达的事件入队，本轮结束后按 generation 合并处理。
 - 退避：第 1/2/3 次重建前分别等待 1s / 2s / 5s。
-- 上限：滑动 30s 内最多 3 次重建；超限后停止自动重建（`disabled`），记录日志并保留托盘与最后已知数据，不弹错误对话框、不删除 WebView2 用户数据目录。达到上限时额外安装一个原生 quit-only 托盘菜单（菜单项 id `kpt-fallback-quit`），保证 webview 菜单已失效时仍能退出；`show_menu` 检测到该状态后不再显示 webview 菜单。
+- 上限：滑动 30s 内最多 3 次重建；超限后停止自动重建（`disabled`），记录日志并保留托盘与最后已知数据，不弹错误对话框、不删除 WebView2 用户数据目录。达到上限且 webview 菜单已不可用（缺失或已报故障）时，额外安装一个原生 quit-only 托盘菜单（菜单项 id `kpt-fallback-quit`），保证仍能退出；`show_menu` 检测到该状态后不再显示 webview 菜单。菜单健康时不会安装，避免一次短时崩溃风暴永久失去 Open/Refresh/Settings/Skills。
 
 ### 22.5 自检隔离
 

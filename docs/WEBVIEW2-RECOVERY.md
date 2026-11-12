@@ -131,7 +131,7 @@ Rust 版使用 Tauri 2 + Wry + WebView2。四个窗口在启动时创建，之�
 - **3.3 进程内重建**：快照可见性（用 show/hide 时维护的 `last_visible`，避免与失焦隐藏竞态）→ hide → bump generation → `destroy()` → 轮询 label 从 manager 移除（≤3 s）→ `WebviewWindowBuilder::from_config` 用同一 `tauri.conf.json` WindowConfig 重建 → 重新应用 DWM 无圆角 → 重新订阅 ProcessFailed → 等页面加载（≤2 s）→ 按快照与 `pending_show` 恢复可见窗口（main 走 `show_panel`，settings/skills 走原打开路径，menu 始终隐藏），并按实际展示结果回写 `settings_open` / `skills_open` 与可见性缓存。`destroy` 不触发 `CloseRequested`；重建在后台线程执行（主线程 build 会自锁）。
   - 实测发现：`BrowserProcessExited` 一次性销毁全部四窗时，Tauri 会在最后一个窗口销毁后请求隐式退出。`run()` 的 `RunEvent::ExitRequested` 必须对 `code == None` 调用 `api.prevent_exit()`，否则进程在重建前退出；`app.exit(code)`（`code = Some`）不受影响。
   - 托盘菜单是 Settings / Skills / Exit 的唯一入口：菜单窗缺失时同样触发一次重建（重建后不自动弹出，用户再次右键即可）。
-- **3.4 限流**：1 s / 2 s / 5 s 退避，滑动 30 s 内最多 3 次；超限置 `disabled`，保留托盘与最后已知数据，静默降级，不弹窗、不删用户数据目录。达到上限时额外安装原生 quit-only 托盘菜单（`kpt-fallback-quit`），保证 webview 菜单失效时仍能退出。
+- **3.4 限流**：1 s / 2 s / 5 s 退避，滑动 30 s 内最多 3 次；超限置 `disabled`，保留托盘与最后已知数据，静默降级，不弹窗、不删用户数据目录。达到上限且 webview 菜单已不可用（缺失或已报故障）时，额外安装原生 quit-only 托盘菜单（`kpt-fallback-quit`），保证仍能退出；菜单健康时不安装。
 - **打开窗口健康检查**：`recovery::gate_show` 在窗口缺失或其 webview 已报故障（dead 标记）时记录 `pending_show` 并在无恢复进行时入队一次重建请求；ProcessFailed 仍是主信号。
 
 与原建议的差异：

@@ -59,30 +59,48 @@ fn disable_dwm_corner_rounding(app: &tauri::App) {
 /// (SPEC 22.4). `show_menu` stands down once this is active.
 pub(crate) fn install_fallback_tray_menu(app: &AppHandle) {
     use tauri::menu::{Menu, MenuItem};
-    let Ok(quit) = MenuItem::with_id(
-        app,
-        "kpt-fallback-quit",
-        "Quit Kimi Planbar Tray",
-        true,
-        None::<&str>,
-    ) else {
-        return;
-    };
-    let Ok(menu) = Menu::with_items(app, &[&quit]) else {
-        return;
-    };
-    let Some(tray) = app.tray_by_id("tray") else {
-        return;
-    };
-    if tray.set_menu(Some(menu)).is_err() {
-        return;
-    }
-    // A native menu must not hijack left-click (which toggles the panel).
-    let _ = tray.set_show_menu_on_left_click(false);
-    app.state::<AppState>()
+    // Idempotent claim: the coordinator (cap branch) and the show gate can
+    // race here within a few milliseconds.
+    if app
+        .state::<AppState>()
         .recovery
         .fallback_menu
-        .store(true, Ordering::SeqCst);
+        .swap(true, Ordering::SeqCst)
+    {
+        return;
+    }
+    let installed = (|| -> bool {
+        let Ok(quit) = MenuItem::with_id(
+            app,
+            "kpt-fallback-quit",
+            "Quit Kimi Planbar Tray",
+            true,
+            None::<&str>,
+        ) else {
+            return false;
+        };
+        let Ok(menu) = Menu::with_items(app, &[&quit]) else {
+            return false;
+        };
+        let Some(tray) = app.tray_by_id("tray") else {
+            return false;
+        };
+        if tray.set_menu(Some(menu)).is_err() {
+            return false;
+        }
+        // A native menu must not hijack left-click (which toggles the panel).
+        if tray.set_show_menu_on_left_click(false).is_err() {
+            recovery::log("fallback menu: failed to disable show-on-left-click");
+        }
+        true
+    })();
+    if !installed {
+        app.state::<AppState>()
+            .recovery
+            .fallback_menu
+            .store(false, Ordering::SeqCst);
+        return;
+    }
     recovery::log("fallback tray menu installed (quit only)");
 }
 
@@ -345,11 +363,18 @@ pub(crate) fn app_data_dir_override() -> Option<std::path::PathBuf> {
     if dir.is_empty() {
         return None;
     }
-    let path = std::path::PathBuf::from(dir);
+    let path = std::path::PathBuf::from(&dir);
     // Tauri resolves a relative Root against the exe directory, while a bare
     // PathBuf resolves against the CWD — reject relatives so settings/log/
     // WebView2 data cannot split across two places.
-    path.is_absolute().then_some(path)
+    if path.is_absolute() {
+        return Some(path);
+    }
+    static WARNED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    if WARNED.set(()).is_ok() {
+        eprintln!("KPT_APP_DATA_DIR ignored (not an absolute path): {dir}");
+    }
+    None
 }
 
 fn apply_app_data_dir_override(context: &mut tauri::Context<tauri::Wry>) {

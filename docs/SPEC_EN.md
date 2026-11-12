@@ -674,7 +674,7 @@ Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com
 
 - Single-flight: only one recovery round may run at a time; events arriving meanwhile are queued and merged by generation after the round.
 - Backoff: 1 s / 2 s / 5 s before the 1st / 2nd / 3rd rebuild.
-- Cap: at most 3 rebuilds in a sliding 30 s window; past the cap, auto-recovery is disabled, the event is logged, and the tray plus last-known state stay alive — no error dialogs and never delete the WebView2 user-data directory. When the cap is hit, a native quit-only tray menu (item id `kpt-fallback-quit`) is installed so the app can still be exited even if the webview menu is dead; `show_menu` stands down once that menu is active.
+- Cap: at most 3 rebuilds in a sliding 30 s window; past the cap, auto-recovery is disabled, the event is logged, and the tray plus last-known state stay alive — no error dialogs and never delete the WebView2 user-data directory. When the cap is hit and the webview menu is unusable (missing or reported failed), a native quit-only tray menu (item id `kpt-fallback-quit`) is installed so the app can still be exited; `show_menu` stands down once that menu is active. A healthy menu is left untouched, so a transient crash storm cannot permanently remove Open/Refresh/Settings/Skills.
 
 ### 22.5 Self-check isolation
 
