@@ -49,15 +49,15 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 
 - `rust/` — **活跃开发线之一（与 `qt/` 双轨并行）**：Tauri 2 + Rust 后端 + vanilla HTML/CSS/TS 前端（Vite 多页构建，无框架）
 - `qt/` — **活跃开发线之一（已完成，实验性质）**：C++ Qt6 + Qt Widgets，无 WebView 依赖；已达到与 rust/ 1.7.3 的 parity；架构方案与模块映射见 `docs/archive/QT-MIGRATION.md`（已归档）
-- `egui/` — **活跃开发线之一（已完成，实验性质——仅供测试：可从源码构建独立 exe，不随 Releases 分发）**：Rust egui + tray-icon，无 WebView 依赖、无 Node 工具链；已达到与 rust/ 的 SPEC parity（Phase 4 审计 99 PASS / 2 项轻微偏差 / 6 项环境不可测）；版本随主清单同步（1.8.0）；方案与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`（已归档）
-- `wpf/` — 原生 .NET 8 / WPF 版（零第三方 NuGet 依赖），曾冻结于 v1.5.0，现已对齐 rust/ 1.8.0（Skills 窗口、图标动作行、hover glow、1.7.1 加固回移植），恢复随 Releases 分发双 exe（framework-dependent + self-contained）
+- `egui/` — **活跃开发线之一（已完成，实验性质——仅供测试：可从源码构建独立 exe，不随 Releases 分发）**：Rust egui + tray-icon，无 WebView 依赖、无 Node 工具链；已达到与 rust/ 的 SPEC parity（Phase 4 审计 99 PASS / 2 项轻微偏差 / 6 项环境不可测）；版本随主清单同步（1.9.0）；方案与 Phase 记录见 `docs/archive/EGUI-MIGRATION.md`（已归档）
+- `wpf/` — 原生 .NET 8 / WPF 版（零第三方 NuGet 依赖），曾冻结于 v1.5.0，现已对齐 rust/ 1.9.0（Skills 窗口、图标动作行、hover glow、1.7.1 加固回移植），恢复随 Releases 分发双 exe（framework-dependent + self-contained）
 - `docs/` — 本规格、截图基准、归档历史
 - 脚本均在 `scripts/` 下：`scripts/release/`（`make_release_zip.py` 发布打包、`make_screenshots.py` README 截图生成、`verify_icons.py` 图标与库逐字节比对）、`scripts/diagnostics/`（一次性诊断/测量脚本）
 - `.github/` — GitHub Actions 持续集成与依赖更新：`.github/workflows/ci.yml` 在每次 push 到 main 与每个 PR 上跑 `gitleaks` 全历史密钥扫描 job 与 windows-latest 构建门禁 job（内容与边界见 7.2）；`.github/dependabot.yml` 为 cargo/npm/github-actions 三生态开 weekly 依赖更新（见 7.2）
 
 ### 3.2 进程与窗口模型
 
-单进程。启动时创建全部 4 个 WebView 窗口（隐藏态），均为**单例复用**（关闭即隐藏，永不销毁）；另有托盘图标、配额轮询定时器、系统主题注册表监听。单实例由命名互斥锁保证（见 20.1）。
+单进程。启动时创建全部 4 个 WebView 窗口（隐藏态），均为**单例复用**（关闭即隐藏，正常路径永不销毁；唯一的例外是 WebView2 进程故障后的自动重建，见第 22 章）；另有托盘图标、配额轮询定时器、系统主题注册表监听。单实例由命名互斥锁保证（见 20.1）。
 
 | 窗口 | 前端页 | 逻辑尺寸 |
 |---|---|---|
@@ -81,6 +81,7 @@ Windows 系统托盘常驻应用，让 Kimi Code 套餐用量一键可查：5 �
 | `skills.rs` | 本地 skills 只读扫描（首开扫描一次并缓存） |
 | `update.rs` | `kimi --version` + changelog Range 请求 + GitHub API 兜底 |
 | `theme_watch.rs` | 注册表监听系统亮暗主题切换 |
+| `recovery.rs` | WebView2 ProcessFailed 检测、webview.log 诊断日志、进程内窗口重建与限流（第 22 章） |
 | `state.rs` | AppState 共享状态（RwLock、缓存、调度通知） |
 
 > Qt 版（`qt/`）：上述后端模块与 4 个前端页面合并进同一 C++ 进程，无前后端边界与 IPC；模块与文件映射见 `docs/archive/QT-MIGRATION.md` 第 3 节。
@@ -204,7 +205,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 ### 7.3 发布
 
-1. 版本号同步（12 处）：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`rust/src-tauri/Cargo.lock` 的 `kimi-planbar-tray` 条目、`rust/package-lock.json` 的根版本（顶层与 `packages[""]` 两处；`cd rust && npm install` 可让 npm 自行同步）、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)`、`qt/src/main.cpp` 的 `setApplicationVersion`、`qt/resources.rc` 的 `FILEVERSION`/`PRODUCTVERSION` 与 `FileVersion`/`ProductVersion` 字符串、`egui/Cargo.toml` 的 `version`、`egui/Cargo.lock` 的 `kimi-planbar-tray-egui` 条目（cargo 随 `Cargo.toml` 一并重写）、`wpf/KimiPlanbarTray.csproj` 的 `<Version>`；另同步 `AGENTS.md` 顶部 "Current version" 行、`CHANGELOG.md`（双语条目——英文 + 中文，从 `Unreleased` 移出定稿）与本清单（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定；egui/ 版同理：experimental 测试版，不纳入发布流程——用户已定，但其版本号随主清单同步，在上述 12 处内；wpf/ 版自 1.7.3 复活起随 release 分发）
+1. 版本号同步（12 处）：`rust/package.json`、`rust/src-tauri/Cargo.toml`、`rust/src-tauri/tauri.conf.json`、`rust/src-tauri/Cargo.lock` 的 `kimi-planbar-tray` 条目、`rust/package-lock.json` 的根版本（顶层与 `packages[""]` 两处；`cd rust && npm install` 可让 npm 自行同步）、`scripts/release/make_release_zip.py` 的 `VERSION`、`qt/CMakeLists.txt` 的 `project(VERSION ...)`、`qt/src/main.cpp` 的 `setApplicationVersion`、`qt/resources.rc` 的 `FILEVERSION`/`PRODUCTVERSION` 与 `FileVersion`/`ProductVersion` 字符串、`egui/Cargo.toml` 的 `version`、`egui/Cargo.lock` 的 `kimi-planbar-tray-egui` 条目（cargo 随 `Cargo.toml` 一并重写）、`wpf/KimiPlanbarTray.csproj` 的 `<Version>`；另同步 `AGENTS.md` 顶部 "Current version" 行、`CHANGELOG.md`（双语条目——英文 + 中文，从 `Unreleased` 移出定稿）、`README.md` / `README_CN.md` 中的版本/对齐引用与本清单（qt 版仅实验性质，不纳入 `make_release_zip.py`，不随 release 分发——用户已定；egui/ 版同理：experimental 测试版，不纳入发布流程——用户已定，但其版本号随主清单同步，在上述 12 处内；wpf/ 版自 1.7.3 复活起随 release 分发）
 2. **自动路径（首选）**：push `v<x.y.z>` tag——`.github/workflows/release.yml`（`v*` tag 触发）在 windows runner 上构建 rust release exe 与 WPF 双 exe（framework-dependent + self-contained）、运行打包脚本并创建挂好五件资产（`KimiPlanbarTray-rust.exe`、`KimiPlanbarTray-wpf.exe`、`KimiPlanbarTray-wpf-selfcontained.exe`、源码快照 zip、`SHA256SUMS.txt`）的 **draft** Release；按 `CHANGELOG.md` 核对标题/说明后手动 Publish。第 3-4 步即该 workflow 自动化的内容，保留为手动兜底
 3. `npx tauri build` 出 release exe（手动兜底）
 4. `python scripts/release/make_release_zip.py` 打源码快照 + 二进制的 zip，并生成 `SHA256SUMS.txt`：两者各先写 `<name>.part`，校验和文件先改名、zip 最后改名，zip 改名失败会把旧校验和原样写回，故失败后留下的始终是**上一轮一致的那一对**（只读目标、占位目录或只读的残留 `.part` 会在构建前被指名拒绝；源码集为空则直接报错不产包；残留窗口只有两处——两次改名之间被杀进程、改名瞬间被别的进程独占）
@@ -229,6 +230,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 | `README.md` / `README_CN.md` | 面向用户：功能、下载、使用、构建 |
 | `docs/SPEC.md`（本文档） | 唯一权威规格：项目级 + UI/行为细则 |
 | `docs/SPEC_EN.md` | 本文档的英文版（章节编号一致，便于交叉对照） |
+| `docs/WEBVIEW2-RECOVERY.md` | WebView2 故障恢复方案与落地记录（第 22 章的设计背景/差异说明） |
 | `docs/archive/QT-MIGRATION.md` | Qt 版（C++ Qt6 Widgets）迁移规划（已归档，开发完成）：案例调研、栈对比、模块映射、分阶段计划 |
 | `docs/archive/EGUI-MIGRATION.md` | egui 版（Rust egui + tray-icon）迁移规划（已归档，开发完成）：选型、目标架构、Phase 计划与实施状态 |
 | `docs/archive/WPF-REVIVAL.md` | WPF 版复活计划（已归档，执行完成）：差距分析、分阶段工作说明书、执行决策与两轮 review 记录、验收结果 |
@@ -537,6 +539,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 ## 18. 设置持久化（SettingsService）
 
 ### 18.1 配置文件路径（便携模式逻辑）
+- **诊断覆盖**：`KPT_APP_DATA_DIR`（绝对路径）存在时优先于以下两种模式，配置目录 = 该目录（见 22.5）
 - **便携模式**：exe 同目录存在 `portable.dat` 文件（内容任意，仅检测存在性）→ 配置目录 = exe 所在目录
 - **否则**：`%APPDATA%\KimiPlanbarTray\`
 - 配置文件：`<ConfigDir>\settings.json`
@@ -576,6 +579,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 | `--test-skills`（Qt / WPF 版） | 解析五个内置 frontmatter 测试夹具（移植 rust 版 `skills.rs` 的两个 cargo 单测：缺字段/引号剥离 + BOM/GBK 字节容忍） | 通过打印 `skills parser: PASS (5 fixture skills)`，失败打印差异详情并非零退出 |
 | `--screenshot <path> [--dark] [--mock]`（仅 WPF 版） | 真实（或模拟）额度数据 + 指定主题渲染主面板为 PNG（README 用） | `saved: <path>` |
 
+- `--test-ui`（rust/ 版）在隔离的 app-data 根目录下运行（见 22.5），不会与正在使用的实例共享 WebView2 数据目录。
 - `--screenshot`（仅 WPF 版；Rust 版无此参数，截图验证见 7.2）：默认 light 主题，`--dark` 切 dark；`--mock` 注入固定数据（5h=42% 3.5 小时后重置，week=68% 4 天后重置，Extra：余额 1234 分、月度已用 4567/上限 10000 分）；否则真实拉取。渲染为 96 DPI Pbgra32 PNG，自动创建输出目录。
 
 ---
@@ -583,7 +587,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 ## 20. 其他实现细节
 
 - **单实例**：命名 Mutex `"KimiPlanbarTray.SingleInstance"`，未抢到直接退出；退出时释放（异常吞掉）。关窗口不退进程（`ShutdownMode=OnExplicitShutdown`）。
-- **启动顺序**：加载设置 → 构造 Theme/Quota/Update 服务 →（自检分支）→ 单实例检查 → 应用主题 → 挂系统主题事件 → 创建托盘 → 启动自动刷新（2s 后首刷）→ 后台版本检查。
+- **启动顺序**：加载设置 → 构造 Theme/Quota/Update 服务 →（自检分支）→ 单实例检查 → 应用主题 → 挂系统主题事件 → 创建托盘 → 启动自动刷新（2s 后首刷）→ 后台版本检查。WebView2 恢复：窗口创建完成后、托盘创建之前，为四个 webview 订阅 ProcessFailed 并启动恢复协调器（第 22 章）。
 - **失焦收起**：仅主面板有；settings 或 skills 窗口打开期间抑制（WPF 判 `Tray.IsSettingsOpen`/`IsSkillsOpen`，另有 `_suppressDeactivate` 覆盖打开设置窗的瞬间；rust 为 `settings_open`/`skills_open` 原子标志）。
 - **系统主题实时跟随**：读注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize` 的 `AppsUseLightTheme`（DWORD，0=dark，1=light，缺失默认 1）；通过 `SystemEvents.UserPreferenceChanged` 事件监听，仅当设置为 `"system"` 时重新应用（切回 UI 线程）。Tauri 复刻可用 `dark-light` crate 或自读注册表 + 监听 `WM_SETTINGCHANGE`。
 - **主题切换实现**：清空应用级资源字典，依次加入 Shared + Light/Dark。所有颜色经动态资源引用，切换即时生效无需重建窗口。Shared 样式字典只加载一次。
@@ -632,3 +636,51 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 - 全部颜色走 `theme.css` 变量，自动跟随 Moonlit/Moondark。
 - 前端渲染一律 `textContent`（skill 描述是外部输入，不用 innerHTML）。
 - 入口：托盘右键菜单新增 "Skills"（位于 Settings 与 Exit 之间），菜单高度由前端内容自适应上报，无需改定位逻辑。
+
+---
+
+## 22. WebView2 故障检测与恢复（v1.9 新增，仅 rust/ 版）
+
+### 22.1 诊断
+
+- 每个 webview 创建后通过 `WebviewWindow::with_webview` 取得原生 `ICoreWebView2Controller`，订阅 `CoreWebView2.ProcessFailed`；重建出的新 webview 必须重新订阅。
+- 事件回调只做 COM 读取与非阻塞入队（label、generation、kind、reason、exit code、process description），不在回调里调用窗口命令或做 IO。
+- 每次失败写一行 `config_dir()/webview.log`（便携模式跟随 exe）：时间、label、kind、reason、exit code、process description、PID、HWND、窗口可见性、DPI（`GetDpiForWindow`）、WebView2 Runtime 版本、应用运行时长、最近 8 条 UI 事件（show / hide / scale / wake-gap）、恢复动作与结果。
+- 日志超过 256 KB 时按行边界截断到后 128 KB；不得包含 OAuth token、API key、完整凭据路径或配额响应正文。
+- 刷新循环把墙钟跳变（实际等待 > 预期间隔 + 60s）记为 wake-gap 诊断事件，仅用于日志，不改变调度。
+
+### 22.2 分级策略
+
+| ProcessFailedKind | 动作 |
+|---|---|
+| `RenderProcessExited` / `RenderProcessUnresponsive` / `FrameRenderProcessExited` | 先对受影响窗口 `reload()` 一次；同一 label 120s 内再次失败 → 重建该窗口 |
+| `BrowserProcessExited` | 隐藏并销毁四个窗口，统一重建 |
+| `GPUProcessExited` | 只记录，交给 WebView2 自身恢复 |
+| 其余（utility / sandbox helper / PPAPI / unknown） | 只记录 |
+
+- 失败事件带 generation：重建开始时递增，旧 webview 的迟到事件按 stale 丢弃。
+- 打开窗口时的健康检查是补充信号：`recovery::gate_show` 在窗口缺失或其 webview 已报故障（dead 标记）时记录 `pending_show` 并等待/触发重建，避免把操作落到空壳上；`ProcessFailed` 仍是主信号。托盘菜单窗是 Settings / Skills / Exit 的唯一入口，因此菜单缺失或已死时也会触发一次重建（菜单本身不自动弹出，重建后再次右键即可）。
+
+### 22.3 进程内重建
+
+1. 快照受影响窗口的可见性以及 `settings_open` / `skills_open`（主面板若正处于收起动画中，视为不可见）。
+2. 先 `hide()`，再递增 generation，再 `destroy()`（`destroy` 不触发 `CloseRequested`，不受“关闭即隐藏”拦截）。
+3. 轮询 `get_webview_window(label)` 直到 label 从 manager 移除（上限 3s，超时则放弃本轮并记录）。
+4. 用 `WebviewWindowBuilder::from_config` + 同一 `tauri.conf.json` WindowConfig 重建（同 label、同 URL、同尺寸/透明/置顶/跳过任务栏配置），立即重新应用 DWM 无圆角并重新订阅 ProcessFailed。
+5. 等待页面 `PageLoadEvent::Finished`（上限 2s）后恢复：`main` 走 `show_panel`（重新 pin 尺寸、定位、emit `panel-show`），`settings` / `skills` 走原打开路径（pin 尺寸 + `settings-show` / `skills-show`）；`menu` 是瞬态窗口，一律保持隐藏；此前隐藏的窗口保持隐藏。
+6. 托盘、轮询、主题监听与 `AppState` 一律复用，不重新执行 `run()`，不创建第二个托盘或第二组轮询任务。
+7. 重建必须在后台线程执行：`WebviewWindowBuilder::build` 在主线程会自锁。
+8. `BrowserProcessExited` 会一次性销毁全部四窗，Tauri 在最后一个窗口销毁时会请求退出；`run()` 的 `RunEvent::ExitRequested` 回调必须对 `code == None`（隐式退出）调用 `api.prevent_exit()`，否则进程在重建前退出。`app.exit(code)`（`code = Some`）不受影响，退出菜单仍正常。
+
+### 22.4 限流与降级
+
+- single-flight：同一时刻只允许一轮恢复；期间到达的事件入队，本轮结束后按 generation 合并处理。
+- 退避：第 1/2/3 次重建前分别等待 1s / 2s / 5s。
+- 上限：滑动 30s 内最多 3 次重建；超限后停止自动重建（`disabled`），记录日志并保留托盘与最后已知数据，不弹错误对话框、不删除 WebView2 用户数据目录。达到上限且 webview 菜单已不可用（缺失或已报故障）时，额外安装一个原生 quit-only 托盘菜单（菜单项 id `kpt-fallback-quit`），保证仍能退出；`show_menu` 检测到该状态后不再显示 webview 菜单。菜单健康时不会安装，避免一次短时崩溃风暴永久失去 Open/Refresh/Settings/Skills。
+
+### 22.5 自检隔离
+
+- `--test-ui` 在 build 前通过 `context.config_mut().app.app_directories_override = Root(...)` 把 app data 根目录指向 `%TEMP%\kimi-planbar-tray-testui-<pid>`，WebView2 用户数据目录随之隔离，可与正式实例同时运行。
+- 正常退出后尝试删除本轮目录（WebView2 子进程释放文件可能延迟约 10s，删除带重试；失败则保留用于诊断，下次启动清理超过 10 分钟的陈旧目录）。
+- 诊断/测试钩子：设置 `KPT_APP_DATA_DIR`（必须是绝对路径）可把正式 GUI 的 app data 根目录整体重定向到指定目录——含 WebView2 数据目录、`settings.json` 与 `webview.log`，并跳过 HKCU 自启写入——用于在隔离环境中跑第二实例或复现验证；未设置时行为不变。
+- 四条 OK 行输出与退出时长保持不变（SPEC 19）。

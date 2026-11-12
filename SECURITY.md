@@ -17,7 +17,7 @@ Please use GitHub's **private vulnerability reporting** (Security tab → Report
 
 ## Scope
 
-- This app reads the local Kimi Code CLI credential (the OAuth access_token from `~/.kimi-code/credentials/kimi-code.json`, or an api_key from `~/.kimi-code/config.toml`) and sends it only as a Bearer token to `https://api.kimi.com/coding/v1/usages`. The token is never persisted elsewhere, logged, transmitted as telemetry, or sent to any other endpoint.
+- This app reads the local Kimi Code CLI credential (the OAuth access_token from `~/.kimi-code/credentials/kimi-code.json`, or an api_key from `~/.kimi-code/config.toml`) and sends it only as a Bearer token to `https://api.kimi.com/coding/v1/usages`. The token is never persisted elsewhere, logged, transmitted as telemetry, or sent to any other endpoint. The optional WebView2 recovery log (`webview.log`, SPEC 22) records process-failure metadata only — it never contains the token, credential paths, or quota data.
 - Examples worth reporting: credential leaks or exfiltration, improper file permissions, arbitrary file read/write via path-handling flaws, injection, crashes.
 - Out of scope: vulnerabilities in upstream dependencies (report those to the upstream project); purely visual/UX issues (open a regular issue).
 
@@ -42,6 +42,6 @@ Please use GitHub's **private vulnerability reporting** (Security tab → Report
 
 ## 范围说明
 
-- 本应用读取本地 Kimi Code CLI 凭证（`~/.kimi-code/credentials/kimi-code.json` 的 OAuth access_token，或 `~/.kimi-code/config.toml` 里的 api_key），仅作为 Bearer token 发往 `https://api.kimi.com/coding/v1/usages` 查询配额；token 不落盘到其他位置、不写日志、不上报遥测、不发送到任何其他端点。
+- 本应用读取本地 Kimi Code CLI 凭证（`~/.kimi-code/credentials/kimi-code.json` 的 OAuth access_token，或 `~/.kimi-code/config.toml` 里的 api_key），仅作为 Bearer token 发往 `https://api.kimi.com/coding/v1/usages` 查询配额；token 不落盘到其他位置、不写日志、不上报遥测、不发送到任何其他端点。可选的 WebView2 恢复日志（`webview.log`，SPEC 22）只记录进程故障元数据，绝不包含 token、凭据路径或配额数据。
 - 值得报告的问题示例：凭证泄漏或外发、文件权限不当、路径处理缺陷导致的任意文件读写、注入与崩溃。
 - 不在本仓库范围：上游依赖自身的漏洞（请报告给上游项目）；纯视觉/体验问题（开普通 issue 即可）。

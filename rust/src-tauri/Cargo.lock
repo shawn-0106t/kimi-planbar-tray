@@ -2008,7 +2008,7 @@ dependencies = [
 
 [[package]]
 name = "kimi-planbar-tray"
-version = "1.8.0"
+version = "1.9.0"
 dependencies = [
  "chrono",
  "regex",
@@ -2020,6 +2020,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tokio",
+ "webview2-com",
  "windows",
  "winreg 0.56.0",
 ]

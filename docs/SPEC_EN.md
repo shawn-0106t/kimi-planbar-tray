@@ -57,7 +57,7 @@ A resident Windows system tray app that puts Kimi Code plan quota one click away
 
 ### 3.2 Process and window model
 
-Single process. All 4 WebView windows are created at startup (hidden) and are all **singletons, reused** (closing hides them, they are never destroyed); there are also a tray icon, the quota polling timer, and a system-theme registry watcher. Single instance is guaranteed by a named mutex (see 20.1).
+Single process. All 4 WebView windows are created at startup (hidden) and are all **singletons, reused** (closing hides them; they are never destroyed on the normal path — the only exception is the automatic rebuild after a WebView2 process failure, see chapter 22); there are also a tray icon, the quota polling timer, and a system-theme registry watcher. Single instance is guaranteed by a named mutex (see 20.1).
 
 | Window | Frontend page | Logical size |
 |---|---|---|
@@ -81,6 +81,7 @@ Single process. All 4 WebView windows are created at startup (hidden) and are al
 | `skills.rs` | Read-only scan of local skills (scanned once on first open and cached) |
 | `update.rs` | `kimi --version` + changelog Range request + GitHub API fallback |
 | `theme_watch.rs` | Registry watch for system light/dark theme changes |
+| `recovery.rs` | WebView2 ProcessFailed detection, `webview.log` diagnostics, in-process window rebuild and rate limiting (chapter 22) |
 | `state.rs` | AppState shared state (RwLock, caches, scheduling notification) |
 
 > Qt edition (`qt/`): the backend modules above and the 4 frontend pages merge into a single C++ process — there is no frontend/backend boundary and no IPC; see the module mapping in `docs/archive/QT-MIGRATION.md` section 3.
@@ -204,7 +205,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 
 ### 7.3 Release
 
-1. Bump the version in all these places (12 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`, `version` in `egui/Cargo.toml`, the `kimi-planbar-tray-egui` entry in `egui/Cargo.lock` (cargo rewrites it alongside `Cargo.toml`), and `<Version>` in `wpf/KimiPlanbarTray.csproj`; also sync the "Current version" line in `AGENTS.md`, finalize the release's bilingual `CHANGELOG.md` entry (English + Chinese, moved out of `Unreleased`), and keep this checklist in sync (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision; the egui/ edition is the same — experimental, test-only, stays out of the release flow; user decision — but its version follows the shared sync list and is part of the 12-file list; the wpf/ edition ships via Releases again since its 1.7.3 revival)
+1. Bump the version in all these places (12 files): `rust/package.json`, `rust/src-tauri/Cargo.toml`, `rust/src-tauri/tauri.conf.json`, the `kimi-planbar-tray` entry in `rust/src-tauri/Cargo.lock`, the root version in `rust/package-lock.json` (top level and `packages[""]`; `cd rust && npm install` lets npm resync it), `VERSION` in `scripts/release/make_release_zip.py`, `project(VERSION ...)` in `qt/CMakeLists.txt`, `setApplicationVersion` in `qt/src/main.cpp`, the `FILEVERSION`/`PRODUCTVERSION` tuple plus the `FileVersion`/`ProductVersion` strings in `qt/resources.rc`, `version` in `egui/Cargo.toml`, the `kimi-planbar-tray-egui` entry in `egui/Cargo.lock` (cargo rewrites it alongside `Cargo.toml`), and `<Version>` in `wpf/KimiPlanbarTray.csproj`; also sync the "Current version" line in `AGENTS.md`, the version/alignment references in `README.md` / `README_CN.md`, finalize the release's bilingual `CHANGELOG.md` entry (English + Chinese, moved out of `Unreleased`), and keep this checklist in sync (the qt/ edition is experimental only and is NOT distributed via Releases — no zip integration into `make_release_zip.py`; user decision; the egui/ edition is the same — experimental, test-only, stays out of the release flow; user decision — but its version follows the shared sync list and is part of the 12-file list; the wpf/ edition ships via Releases again since its 1.7.3 revival)
 2. **Automated path (preferred)**: push the `v<x.y.z>` tag — `.github/workflows/release.yml` (`v*` tag trigger) builds the rust release exe and the two WPF exes (framework-dependent + self-contained) on a windows runner, runs the packager, and opens a **draft** GitHub Release with the five assets (`KimiPlanbarTray-rust.exe`, `KimiPlanbarTray-wpf.exe`, `KimiPlanbarTray-wpf-selfcontained.exe`, the source-snapshot zip, `SHA256SUMS.txt`) attached; review the title/notes against `CHANGELOG.md`, then publish. Steps 3-4 below are what the workflow automates, kept as the manual fallback
 3. `npx tauri build` produces the release exe (manual fallback)
 4. `python scripts/release/make_release_zip.py` packages a zip of the source snapshot + the Rust release exe and generates `SHA256SUMS.txt`: each is written as `<name>.part`, the checksum file is renamed into place first and the zip last, and a failed zip rename rewrites the previous checksum file, so a failed run always leaves the previous consistent pair (a read-only target, a directory squatting on the target name, or a read-only leftover `.part` is rejected by name before anything is built; an empty source set aborts instead of shipping binaries only; the only residual windows are a process kill between the two renames and an exclusive lock taken at rename time)
@@ -228,6 +229,7 @@ There is no unit-test suite beyond the `skills.rs` frontmatter-parser tests (`ca
 |---|---|
 | `README.md` / `README_CN.md` | User-facing: features, download, usage, build |
 | `docs/SPEC.md` (the Chinese original of this document) | The single authoritative spec: project-level + UI/behavior details |
+| `docs/WEBVIEW2-RECOVERY.md` | WebView2 failure-recovery design and as-built record (background/deviations for chapter 22) |
 | `docs/archive/QT-MIGRATION.md` | Qt edition (C++ Qt6 Widgets) migration plan (archived; development complete): case survey, stack comparison, module mapping, phased roadmap |
 | `docs/archive/EGUI-MIGRATION.md` | egui edition (Rust egui + tray-icon) migration plan (archived; development complete): stack choice, target architecture, phase plan and status |
 | `docs/archive/WPF-REVIVAL.md` | WPF edition revival plan (archived; executed to completion): gap analysis, phased work spec, execution decisions with two review rounds, acceptance results |
@@ -536,6 +538,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 ## 18. Settings Persistence (SettingsService)
 
 ### 18.1 Config file path (portable mode logic)
+- **Diagnostic override**: when `KPT_APP_DATA_DIR` (an absolute path) is set, it wins over the two modes below and the config directory becomes that path (see 22.5)
 - **Portable mode**: a `portable.dat` file exists next to the exe (any content; only existence is checked) → config directory = the exe's directory
 - **Otherwise**: `%APPDATA%\KimiPlanbarTray\`
 - Config file: `<ConfigDir>\settings.json`
@@ -575,6 +578,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 | `--test-skills` (Qt / WPF editions) | Parse five built-in frontmatter test fixtures (a port of the two `skills.rs` cargo unit tests: missing fields/quote stripping + BOM/GBK byte tolerance) | Prints `skills parser: PASS (5 fixture skills)` on success, diff details plus a non-zero exit on failure |
 | `--screenshot <path> [--dark] [--mock]` (WPF edition only) | Render the main panel as PNG with real (or mocked) quota data + the specified theme (for the README) | `saved: <path>` |
 
+- `--test-ui` (rust/ edition) runs with an isolated app-data root (see 22.5), so it never shares the WebView2 user-data folder with a live instance.
 - `--screenshot` (WPF edition only; the Rust edition has no such arg — see 7.2 for screenshot verification): light theme by default, `--dark` switches to dark; `--mock` injects fixed data (5h=42% resetting in 3.5 hours, week=68% resetting in 4 days, Extra: balance 1234 cents, monthly used 4567 / limit 10000 cents); otherwise it fetches real data. Renders as a 96 DPI Pbgra32 PNG and auto-creates the output directory.
 
 ---
@@ -582,7 +586,7 @@ All self-check modes run **before the single-instance mutex check** (so they wor
 ## 20. Other Implementation Details
 
 - **Single instance**: named mutex `"KimiPlanbarTray.SingleInstance"`; exits immediately if the mutex is not acquired; released on exit (exceptions swallowed). Closing windows does not exit the process (`ShutdownMode=OnExplicitShutdown`).
-- **Startup order**: load settings → construct Theme/Quota/Update services → (self-check branch) → single-instance check → apply theme → hook the system theme event → create the tray icon → start auto-refresh (first refresh after 2 s) → background version check.
+- **Startup order**: load settings → construct Theme/Quota/Update services → (self-check branch) → single-instance check → apply theme → hook the system theme event → create the tray icon → start auto-refresh (first refresh after 2 s) → background version check. WebView2 recovery: after the windows exist and before the tray is created, subscribe all four webviews to ProcessFailed and start the recovery coordinator (chapter 22).
 - **Focus-loss collapse**: only on the main panel; suppressed while the settings OR skills window is open (WPF checks `Tray.IsSettingsOpen`/`IsSkillsOpen`, plus a `_suppressDeactivate` flag covering the instant the settings window opens; rust uses the `settings_open`/`skills_open` atomic flags).
 - **Real-time system theme following**: read the registry value `AppsUseLightTheme` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize` (DWORD, 0=dark, 1=light, default 1 if missing); listen via the `SystemEvents.UserPreferenceChanged` event, re-applying only when the setting is `"system"` (switch back to the UI thread). A Tauri port can use the `dark-light` crate or read the registry itself + listen for `WM_SETTINGCHANGE`.
 - **Theme switching implementation**: clear the app-level resource dictionary, then add Shared + Light/Dark in order. All colors go through dynamic resource references, so switching takes effect immediately without rebuilding windows. The Shared style dictionary is loaded only once.
@@ -631,3 +635,51 @@ Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com
 - All colors come from `theme.css` variables, automatically following Moonlit/Moondark.
 - The frontend renders everything with `textContent` (skill descriptions are external input; no innerHTML).
 - Entry point: a new "Skills" item in the tray right-click menu (between Settings and Exit); the menu height is auto-reported by the frontend content, no change to the positioning logic.
+
+---
+
+## 22. WebView2 Failure Detection and Recovery (new in v1.9, rust/ edition only)
+
+### 22.1 Diagnostics
+
+- After every webview is created, obtain the native `ICoreWebView2Controller` through `WebviewWindow::with_webview` and subscribe to `CoreWebView2.ProcessFailed`; a rebuilt webview must be subscribed again.
+- The event callback only reads COM arguments and enqueues a non-blocking event (label, generation, kind, reason, exit code, process description); it never calls window APIs or performs IO.
+- Each failure appends one line to `config_dir()/webview.log` (portable mode: next to the exe): timestamp, label, kind, reason, exit code, process description, PID, HWND, window visibility, DPI (`GetDpiForWindow`), WebView2 Runtime version, app uptime, the last 8 UI events (show / hide / scale / wake-gap), and the recovery action/result.
+- The log is truncated to its last 128 KB (on a line boundary) once it exceeds 256 KB; it must never contain the OAuth token, API keys, full credential paths, or quota response bodies.
+- The polling loop records a wall-clock jump (actual wait > scheduled delay + 60 s) as a wake-gap diagnostic event; logging only, no scheduling change.
+
+### 22.2 Classification
+
+| ProcessFailedKind | Action |
+|---|---|
+| `RenderProcessExited` / `RenderProcessUnresponsive` / `FrameRenderProcessExited` | reload the affected page once; if the same label fails again within 120 s, rebuild that window |
+| `BrowserProcessExited` | hide and destroy all four windows, rebuild them together |
+| `GPUProcessExited` | log only; leave recovery to WebView2 itself |
+| the rest (utility / sandbox helper / PPAPI / unknown) | log only |
+
+- Every failure event carries a generation, incremented when a rebuild starts; late events from the old webview are dropped as stale.
+- The show-path health check is supplementary: `recovery::gate_show` records `pending_show` and waits for/triggers a rebuild when the window is missing or its webview has reported a failure (dead mark), so interaction never lands on a dead shell; `ProcessFailed` remains the primary signal. The tray menu window is the only entry to Settings / Skills / Exit, so a missing or dead menu also triggers one rebuild (the menu is not re-shown automatically; right-click again after the rebuild).
+
+### 22.3 In-process rebuild
+
+1. Snapshot the affected windows' visibility plus `settings_open` / `skills_open` (a main panel mid-hide-animation counts as not visible).
+2. `hide()`, bump the generation, then `destroy()` (`destroy` bypasses `CloseRequested`, so the hide-on-close guard does not block it).
+3. Poll `get_webview_window(label)` until the label leaves the manager map (3 s cap; on timeout, abort this round and log).
+4. Rebuild with `WebviewWindowBuilder::from_config` and the same `tauri.conf.json` WindowConfig (same label, URL, size, transparency, topmost, skip-taskbar settings); immediately re-apply DWM no-round and re-subscribe to ProcessFailed.
+5. Wait for `PageLoadEvent::Finished` (2 s cap), then restore: `main` goes through `show_panel` (re-pin size, position, emit `panel-show`), `settings` / `skills` go through their open paths (pin size + `settings-show` / `skills-show`); `menu` is transient and always stays hidden; previously hidden windows stay hidden.
+6. The tray, polling, theme watch and `AppState` are reused; never re-run `run()`, never create a second tray icon or a second polling task.
+7. Rebuilds must run on a background thread: `WebviewWindowBuilder::build` deadlocks when called on the main thread.
+8. A `BrowserProcessExited` recovery destroys all four windows at once, and Tauri requests an exit when the last window is destroyed; the `RunEvent::ExitRequested` handler in `run()` must call `api.prevent_exit()` for `code == None` (implicit exit) or the process exits before the rebuild. `app.exit(code)` (`code = Some`) is unaffected, so the tray Quit action still works.
+
+### 22.4 Rate limiting and degradation
+
+- Single-flight: only one recovery round may run at a time; events arriving meanwhile are queued and merged by generation after the round.
+- Backoff: 1 s / 2 s / 5 s before the 1st / 2nd / 3rd rebuild.
+- Cap: at most 3 rebuilds in a sliding 30 s window; past the cap, auto-recovery is disabled, the event is logged, and the tray plus last-known state stay alive — no error dialogs and never delete the WebView2 user-data directory. When the cap is hit and the webview menu is unusable (missing or reported failed), a native quit-only tray menu (item id `kpt-fallback-quit`) is installed so the app can still be exited; `show_menu` stands down once that menu is active. A healthy menu is left untouched, so a transient crash storm cannot permanently remove Open/Refresh/Settings/Skills.
+
+### 22.5 Self-check isolation
+
+- Before building, `--test-ui` sets `context.config_mut().app.app_directories_override = Root(...)` to `%TEMP%\kimi-planbar-tray-testui-<pid>`, which also moves the WebView2 user-data directory; it can therefore run alongside a live instance.
+- The directory is removed on a clean exit when possible (WebView2 can keep files locked for ~10 s, so deletion retries; leftovers are kept for diagnosis and swept on the next run once older than 10 minutes).
+- Diagnostic/test hook: setting `KPT_APP_DATA_DIR` (must be an absolute path) redirects the production GUI's app-data root — including the WebView2 user-data folder, `settings.json` and `webview.log` — and suppresses HKCU autostart writes, for running a second instance or reproducing faults in isolation; unset means unchanged behavior.
+- The four OK lines and the ~6 s exit behavior are unchanged (SPEC 19).

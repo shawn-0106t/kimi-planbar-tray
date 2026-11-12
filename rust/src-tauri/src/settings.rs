@@ -25,7 +25,12 @@ impl Default for SettingsData {
 
 /// Portable mode: a `portable.dat` next to the exe pins the config dir to the
 /// exe directory; otherwise %APPDATA%\KimiPlanbarTray (SPEC 18.1).
+/// `KPT_APP_DATA_DIR` (diagnostic/test override, SPEC 22.5) wins over both so
+/// an isolated instance never touches the user's settings.
 pub fn config_dir() -> PathBuf {
+    if let Some(dir) = crate::app_data_dir_override() {
+        return dir;
+    }
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()));
@@ -63,6 +68,10 @@ pub fn save(data: &SettingsData) {
 
 /// HKCU Run key autostart (per-user, no UAC). All errors silently swallowed.
 pub fn apply_auto_start(data: &SettingsData) {
+    // A diagnostic/test instance must not rewrite the real autostart entry.
+    if crate::app_data_dir_override().is_some() {
+        return;
+    }
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);

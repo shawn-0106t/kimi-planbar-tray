@@ -1,6 +1,6 @@
 [package]
 name = "kimi-planbar-tray"
-version = "1.8.0"
+version = "1.9.0"
 description = "Kimi Code quota tray app (Rust/Tauri 2 port of the WPF KimiPlanbarTray)"
 edition = "2021"
 rust-version = "1.77.2"
@@ -23,6 +23,9 @@ reqwest = { version = "0.13", features = ["json"] }
 regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
 winreg = "0.56"
+# Direct dependency for the WebView2 ProcessFailed event (SPEC 22). Must match
+# the version tauri-runtime-wry resolves (0.39) so the COM types are identical.
+webview2-com = "0.39"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Security",

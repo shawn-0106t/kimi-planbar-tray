@@ -41,6 +41,7 @@ pub async fn run(app: AppHandle) {
     loop {
         let reschedule = app.state::<AppState>().reschedule.clone();
         let retime = app.state::<AppState>().retime.clone();
+        let wall_start = std::time::SystemTime::now();
         tokio::select! {
             _ = tokio::time::sleep(next) => {}
             _ = reschedule.notified() => {
@@ -57,6 +58,17 @@ pub async fn run(app: AppHandle) {
                     next = d;
                 }
                 continue;
+            }
+        }
+        // Diagnostic only (SPEC 22.1): a wall-clock jump far beyond the
+        // scheduled sleep usually means the machine slept or was suspended.
+        if let Ok(wall) = wall_start.elapsed() {
+            if wall > next + Duration::from_secs(60) {
+                crate::recovery::note_ui_event(
+                    &app,
+                    "app",
+                    &format!("wake-gap={}s", wall.as_secs()),
+                );
             }
         }
         let r = safe_refresh(&app).await;

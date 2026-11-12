@@ -1,4 +1,5 @@
 use crate::quota::QuotaResult;
+use crate::recovery::RecoveryState;
 use crate::settings::SettingsData;
 use crate::skills::SkillInfo;
 use crate::update::UpdateStatus;
@@ -36,6 +37,9 @@ pub struct AppState {
     /// _timer.Change(error ? 30s : period, period) (SPEC 16.5 step 3)
     pub retime: Arc<Notify>,
     pub retime_delay: Mutex<Option<Duration>>,
+    /// WebView2 failure detection, diagnostics and window rebuild state
+    /// (SPEC 22)
+    pub recovery: RecoveryState,
 }
 
 impl AppState {
@@ -56,6 +60,7 @@ impl AppState {
             reschedule: Arc::new(Notify::new()),
             retime: Arc::new(Notify::new()),
             retime_delay: Mutex::new(None),
+            recovery: RecoveryState::new(),
         }
     }
 }

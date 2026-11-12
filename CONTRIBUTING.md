@@ -44,6 +44,8 @@ kimi-planbar-tray.exe --test-update   # CLI version check, one line
 kimi-planbar-tray.exe --test-ui       # constructs all 4 windows, prints OK lines
 ```
 
+`--test-ui` runs with an isolated app-data/WebView2 root (SPEC 22.5), so it is safe alongside a live tray instance.
+
 For visual changes, compare against the `docs/*.png` baselines (`docs/SPEC.md` chapters 10, 11 and 15 define window sizes, colors and animation timings).
 
 ## Conventions
@@ -107,6 +109,8 @@ kimi-planbar-tray.exe --test-fetch    # 拉取一次额度，打印 JSON（需�
 kimi-planbar-tray.exe --test-update   # CLI 版本检测，单行输出
 kimi-planbar-tray.exe --test-ui       # 构造全部 4 个窗口，打印 OK
 ```
+
+`--test-ui` 使用隔离的 app-data/WebView2 根目录（SPEC 22.5），可与正在运行的托盘实例并存。
 
 视觉改动请与 `docs/*.png` 基准对比（`docs/SPEC.md` 第 10、11、15 章定义窗口尺寸、配色与动画时序）。
 

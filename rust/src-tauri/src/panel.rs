@@ -61,6 +61,11 @@ fn work_area_dip(app: &AppHandle) -> (f64, f64, f64, f64) {
 
 /// ShowNearTray: bottom-right of the work area, 12px margin (SPEC 10.1).
 pub fn show_panel(app: &AppHandle) {
+    // Supplementary health gate (SPEC 22.3): never show a missing shell; the
+    // request is replayed once the rebuild finishes.
+    if !crate::recovery::gate_show(app, "main") {
+        return;
+    }
     let Some(w) = app.get_webview_window("main") else {
         return;
     };
@@ -89,6 +94,8 @@ pub fn show_panel(app: &AppHandle) {
     let _ = w.show();
     let _ = w.set_focus();
     let _ = app.emit("panel-show", ());
+    crate::recovery::note_ui_event(app, "main", "show");
+    crate::recovery::set_last_visible(app, "main", true);
 }
 
 /// Ask the frontend to play the slide-out animation (re-entry guarded).
@@ -109,10 +116,12 @@ pub fn finish_hide(app: &AppHandle) {
     if !st.panel_hiding.swap(false, Ordering::SeqCst) {
         return;
     }
+    crate::recovery::set_last_visible(app, "main", false);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.hide();
     }
     *st.last_hide.lock().unwrap() = Some(Instant::now());
+    crate::recovery::note_ui_event(app, "main", "hide");
 }
 
 /// TogglePopup: visible -> hide, hidden -> show. Tray left-clicks within 300ms
@@ -166,6 +175,13 @@ pub fn show_menu(app: &AppHandle, px: f64, py: f64) {
     use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
     use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
 
+    if !crate::recovery::gate_show(app, "menu") {
+        return;
+    }
+    if crate::recovery::fallback_menu_active(app) {
+        // The native quit-only menu is shown by the tray itself.
+        return;
+    }
     let Some(w) = app.get_webview_window("menu") else {
         return;
     };
@@ -229,4 +245,6 @@ pub fn show_menu(app: &AppHandle, px: f64, py: f64) {
             let _ = SetForegroundWindow(h);
         }
     }
+    crate::recovery::note_ui_event(app, "menu", "show");
+    crate::recovery::set_last_visible(app, "menu", true);
 }
