@@ -137,7 +137,7 @@ After Rust changes: `cd rust && cargo build` (in `src-tauri/`) plus `npm run bui
 
 ## Release process
 
-Follow the checklist in `docs/SPEC.md` section 7.3 (mirror: `docs/SPEC_EN.md`): bump the version per the sync list (includes `<Version>` in `wpf/KimiPlanbarTray.csproj`) plus the "Current version" line at the top of this file, finalize the release's bilingual `CHANGELOG.md` entry (moved out of `Unreleased`), then push the `v<x.y.z>` tag — `.github/workflows/release.yml` builds, packages, and opens a **draft** Release with the five assets; review and publish manually. The manual fallback steps, the packager's `.part` failure semantics, and the local checksum-verification recipe are all documented there.
+Follow the checklist in `docs/SPEC.md` section 7.3 (mirror: `docs/SPEC_EN.md`): bump the version per the sync list (includes `<Version>` in `wpf/KimiPlanbarTray.csproj`) plus the "Current version" line at the top of this file, finalize the release's bilingual `CHANGELOG.md` entry (moved out of `Unreleased`), then push the `v<x.y.z>` tag — `.github/workflows/release.yml` builds, packages, and opens a **draft** Release with the five assets; the draft body is generated from the matching CHANGELOG section (English + Chinese mirror + full-changelog link; a missing section fails the job), so review the title/assets and publish manually. The manual fallback steps, the packager's `.part` failure semantics, and the local checksum-verification recipe are all documented there.
 
 ## Code style and conventions
 
