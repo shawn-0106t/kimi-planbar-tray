@@ -116,12 +116,12 @@ pub fn finish_hide(app: &AppHandle) {
     if !st.panel_hiding.swap(false, Ordering::SeqCst) {
         return;
     }
+    crate::recovery::set_last_visible(app, "main", false);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.hide();
     }
     *st.last_hide.lock().unwrap() = Some(Instant::now());
     crate::recovery::note_ui_event(app, "main", "hide");
-    crate::recovery::set_last_visible(app, "main", false);
 }
 
 /// TogglePopup: visible -> hide, hidden -> show. Tray left-clicks within 300ms

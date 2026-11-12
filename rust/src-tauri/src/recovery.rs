@@ -83,6 +83,9 @@ struct RecoveryInner {
     /// site. A failure can precede the focus-loss hide, so the current native
     /// state is not a reliable restore snapshot.
     last_visible: HashMap<String, bool>,
+    /// Labels whose current webview reported a failure and has not been
+    /// rebuilt since. The native window may still exist as a dead shell.
+    dead: HashSet<String>,
     /// Diagnostic ring buffer attached to every failure log line.
     recent_ui: VecDeque<UiEvent>,
     /// Whether the rate-limit cutoff was already logged.
@@ -231,7 +234,7 @@ static LOG_LOCK: Mutex<()> = Mutex::new(());
 /// Append one line to `webview.log` next to settings.json. Never contains
 /// credentials or quota data. Truncates the file to its tail past 256 KB so a
 /// crash loop cannot grow it without bound.
-fn log(msg: &str) {
+pub(crate) fn log(msg: &str) {
     let _guard = LOG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let dir = crate::app_data_dir_override().unwrap_or_else(settings::config_dir);
     let _ = std::fs::create_dir_all(&dir);
@@ -346,11 +349,17 @@ pub fn set_last_visible(app: &AppHandle, label: &str, visible: bool) {
         .insert(label.to_string(), visible);
 }
 
-/// Supplementary show gate: never interact with a missing shell. Defers the
-/// request until the rebuild finishes (`pending_show`) and, when no recovery
-/// is running, asks the coordinator to rebuild the window.
+/// Supplementary show gate: never interact with a missing or failed shell.
+/// Defers the request until the rebuild finishes (`pending_show`) and, when no
+/// recovery is running, asks the coordinator to rebuild the window.
 pub fn gate_show(app: &AppHandle, label: &str) -> bool {
-    if app.get_webview_window(label).is_some() {
+    let present = app.get_webview_window(label).is_some();
+    let st = app.state::<AppState>();
+    let dead = {
+        let inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.dead.contains(label)
+    };
+    if present && !dead {
         return true;
     }
     // The tray menu is the only path to Settings/Skills/Exit, so it must also
@@ -359,8 +368,15 @@ pub fn gate_show(app: &AppHandle, label: &str) -> bool {
     if !restore_after_rebuild && label != "menu" {
         return false;
     }
-    let st = app.state::<AppState>();
     if st.recovery.disabled.load(Ordering::SeqCst) {
+        // The webview menu is the only way to Exit; replace it lazily once its
+        // webview is known dead (or missing) after auto-recovery was disabled.
+        if label == "menu"
+            && !st.recovery.fallback_menu.load(Ordering::SeqCst)
+            && (!present || dead)
+        {
+            crate::install_fallback_tray_menu(app);
+        }
         return false;
     }
     let generation = {
@@ -527,27 +543,40 @@ async fn handle_batch(app: &AppHandle, batch: Vec<FailureEvent>) {
             continue;
         }
         let window_present = app.get_webview_window(&event.label).is_some();
-        match classify(event.kind) {
+        let class = classify(event.kind);
+        {
+            let mut inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
+            match class {
+                Class::RebuildAll => {
+                    for label in ["main", "settings", "skills", "menu"] {
+                        inner.dead.insert(label.to_string());
+                    }
+                }
+                Class::Missing | Class::ReloadThenRebuild => {
+                    inner.dead.insert(event.label.clone());
+                }
+                Class::LogOnly => {}
+            }
+        }
+        match class {
             Class::RebuildAll => {
                 rebuild_all = true;
-                actions.push((event, "rebuild all windows".to_string()));
+                actions.push((event, "request rebuild all windows".to_string()));
             }
             Class::Missing => {
-                if window_present {
-                    actions.push((event, "ignored (window present)".to_string()));
-                } else {
-                    if !rebuild_labels.contains(&event.label) {
-                        rebuild_labels.push(event.label.clone());
-                    }
-                    actions.push((event, "rebuild window".to_string()));
+                // A synthetic event from gate_show: the window is missing or a
+                // known-dead shell, so it always needs a rebuild.
+                if !rebuild_labels.contains(&event.label) {
+                    rebuild_labels.push(event.label.clone());
                 }
+                actions.push((event, "request rebuild window".to_string()));
             }
             Class::ReloadThenRebuild => {
                 if !window_present {
                     if !rebuild_labels.contains(&event.label) {
                         rebuild_labels.push(event.label.clone());
                     }
-                    actions.push((event, "rebuild window (already gone)".to_string()));
+                    actions.push((event, "request rebuild window (already gone)".to_string()));
                     continue;
                 }
                 // One crash can emit several events for the same label (e.g.
@@ -567,7 +596,7 @@ async fn handle_batch(app: &AppHandle, batch: Vec<FailureEvent>) {
                     if !rebuild_labels.contains(&event.label) {
                         rebuild_labels.push(event.label.clone());
                     }
-                    actions.push((event, "rebuild window (repeat failure)".to_string()));
+                    actions.push((event, "request rebuild window (repeat failure)".to_string()));
                 } else {
                     {
                         let mut inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -578,6 +607,13 @@ async fn handle_batch(app: &AppHandle, batch: Vec<FailureEvent>) {
                             .push(Instant::now());
                     }
                     reloaded_in_batch.insert(event.label.clone());
+                    {
+                        // The reload replaces the failed renderer; clear the
+                        // dead flag optimistically (a repeat failure re-sets it
+                        // and escalates to a rebuild).
+                        let mut inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
+                        inner.dead.remove(&event.label);
+                    }
                     if !reload_labels.contains(&event.label) {
                         reload_labels.push(event.label.clone());
                     }
@@ -651,9 +687,21 @@ async fn rebuild(app: &AppHandle, labels: Vec<String>) {
                 "auto-recovery disabled: 3 rebuild attempts within {}s",
                 REBUILD_WINDOW.as_secs()
             ));
-            // The webview tray menu is gone with the browser process; install a
-            // native quit-only menu so the app can still be closed.
-            crate::install_fallback_tray_menu(app);
+            // Install the native quit-only menu only when the webview menu is
+            // unusable; a transient crash storm on other windows must not take
+            // the healthy Open/Refresh/Settings/Skills menu away permanently.
+            let menu_unusable = labels.iter().any(|l| l == "menu")
+                || app.get_webview_window("menu").is_none()
+                || st
+                    .recovery
+                    .inner
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .dead
+                    .contains("menu");
+            if menu_unusable {
+                crate::install_fallback_tray_menu(app);
+            }
         }
         st.recovery.recovering.store(false, Ordering::SeqCst);
         return;
@@ -686,15 +734,71 @@ async fn rebuild(app: &AppHandle, labels: Vec<String>) {
                     inner.pending_show.remove(label);
                 }
             }
-            if app.get_webview_window("settings").is_none() {
-                st.settings_open.store(false, Ordering::SeqCst);
-            }
-            if app.get_webview_window("skills").is_none() {
-                st.skills_open.store(false, Ordering::SeqCst);
-            }
+            reconcile_after_failure(app, &labels);
         }
     }
     st.recovery.recovering.store(false, Ordering::SeqCst);
+
+    // Deferred show requests for labels outside this round (e.g. Settings was
+    // missing while only main was being rebuilt) must not be swallowed: queue
+    // them again now that the coordinator is free.
+    let mut extra: Vec<(String, u64)> = Vec::new();
+    {
+        let inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
+        for label in &inner.pending_show {
+            if !labels.contains(label) {
+                extra.push((
+                    label.clone(),
+                    inner.generations.get(label).copied().unwrap_or(0),
+                ));
+            }
+        }
+    }
+    for (label, generation) in extra {
+        let _ = st.recovery.tx.send(FailureEvent {
+            label,
+            generation,
+            kind: KIND_MISSING_WINDOW,
+            reason: None,
+            exit_code: None,
+            description: None,
+            at: Instant::now(),
+        });
+    }
+}
+
+/// After a failed round, reconcile the suppression flags and the visibility
+/// cache with the windows that actually survived: a round can fail halfway
+/// (some windows rebuilt, others not), leaving `settings_open` true over a
+/// hidden window, which would disable the panel's focus-loss auto-hide.
+fn reconcile_after_failure(app: &AppHandle, labels: &[String]) {
+    let st = app.state::<AppState>();
+    let mut visible_now: HashMap<String, bool> = HashMap::new();
+    for label in labels {
+        let visible = app
+            .get_webview_window(label)
+            .and_then(|w| w.is_visible().ok())
+            .unwrap_or(false);
+        visible_now.insert(label.clone(), visible);
+    }
+    {
+        let mut inner = st.recovery.inner.lock().unwrap_or_else(|e| e.into_inner());
+        for (label, visible) in &visible_now {
+            inner.last_visible.insert(label.clone(), *visible);
+        }
+    }
+    if labels.iter().any(|l| l == "settings")
+        && !visible_now.get("settings").copied().unwrap_or(false)
+    {
+        st.settings_open.store(false, Ordering::SeqCst);
+    }
+    if labels.iter().any(|l| l == "skills") && !visible_now.get("skills").copied().unwrap_or(false)
+    {
+        st.skills_open.store(false, Ordering::SeqCst);
+    }
+    if labels.iter().any(|l| l == "main") && !visible_now.get("main").copied().unwrap_or(false) {
+        st.panel_hiding.store(false, Ordering::SeqCst);
+    }
 }
 
 async fn do_rebuild(app: &AppHandle, labels: &[String]) -> Result<(), String> {
@@ -787,6 +891,14 @@ async fn do_rebuild(app: &AppHandle, labels: &[String]) -> Result<(), String> {
             .map_err(|e| format!("rebuild {label}: {e}"))?;
         crate::apply_no_round(&window);
         install(&window);
+        // The new webview is alive again; clear the dead mark before the
+        // restore loop calls the gated show paths.
+        st.recovery
+            .inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .dead
+            .remove(label);
         rebuilt.push((label.clone(), window, load_rx));
     }
 
@@ -815,7 +927,11 @@ async fn do_rebuild(app: &AppHandle, labels: &[String]) -> Result<(), String> {
             "skills" => crate::show_skills_window(app),
             _ => {}
         }
-        shown.insert(label.clone());
+        // Only count it as restored if the window still exists (a show helper
+        // bails out when the window disappeared between build and show).
+        if app.get_webview_window(label).is_some() {
+            shown.insert(label.clone());
+        }
     }
 
     // Reconcile the suppression flags and the visibility cache with what was

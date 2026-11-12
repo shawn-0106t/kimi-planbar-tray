@@ -28,10 +28,8 @@ impl Default for SettingsData {
 /// `KPT_APP_DATA_DIR` (diagnostic/test override, SPEC 22.5) wins over both so
 /// an isolated instance never touches the user's settings.
 pub fn config_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("KPT_APP_DATA_DIR") {
-        if !dir.is_empty() {
-            return PathBuf::from(dir);
-        }
+    if let Some(dir) = crate::app_data_dir_override() {
+        return dir;
     }
     let exe_dir = std::env::current_exe()
         .ok()
@@ -71,7 +69,7 @@ pub fn save(data: &SettingsData) {
 /// HKCU Run key autostart (per-user, no UAC). All errors silently swallowed.
 pub fn apply_auto_start(data: &SettingsData) {
     // A diagnostic/test instance must not rewrite the real autostart entry.
-    if std::env::var("KPT_APP_DATA_DIR").is_ok_and(|dir| !dir.is_empty()) {
+    if crate::app_data_dir_override().is_some() {
         return;
     }
     use winreg::enums::HKEY_CURRENT_USER;

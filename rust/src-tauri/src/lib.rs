@@ -71,13 +71,19 @@ pub(crate) fn install_fallback_tray_menu(app: &AppHandle) {
     let Ok(menu) = Menu::with_items(app, &[&quit]) else {
         return;
     };
-    if let Some(tray) = app.tray_by_id("tray") {
-        let _ = tray.set_menu(Some(menu));
+    let Some(tray) = app.tray_by_id("tray") else {
+        return;
+    };
+    if tray.set_menu(Some(menu)).is_err() {
+        return;
     }
+    // A native menu must not hijack left-click (which toggles the panel).
+    let _ = tray.set_show_menu_on_left_click(false);
     app.state::<AppState>()
         .recovery
         .fallback_menu
         .store(true, Ordering::SeqCst);
+    recovery::log("fallback tray menu installed (quit only)");
 }
 
 // ---- IPC DTOs ----
@@ -187,11 +193,11 @@ fn close_settings(app: AppHandle) {
     app.state::<AppState>()
         .settings_open
         .store(false, Ordering::SeqCst);
+    recovery::set_last_visible(&app, "settings", false);
     if let Some(w) = app.get_webview_window("settings") {
         let _ = w.hide();
     }
     recovery::note_ui_event(&app, "settings", "hide");
-    recovery::set_last_visible(&app, "settings", false);
 }
 
 /// Skills window: same reuse pattern as settings (SPEC 21). The scan itself
@@ -225,11 +231,11 @@ fn close_skills(app: AppHandle) {
     app.state::<AppState>()
         .skills_open
         .store(false, Ordering::SeqCst);
+    recovery::set_last_visible(&app, "skills", false);
     if let Some(w) = app.get_webview_window("skills") {
         let _ = w.hide();
     }
     recovery::note_ui_event(&app, "skills", "hide");
-    recovery::set_last_visible(&app, "skills", false);
 }
 
 /// Cached skill list; `refresh` forces a rescan. Read-only (SPEC 21.2).
@@ -292,11 +298,11 @@ fn quit_app(app: AppHandle) {
 /// Tray menu items (SPEC 14): Open/Refresh/Settings/Skills/Exit; menu window closes first.
 #[tauri::command]
 fn menu_action(app: AppHandle, action: String) {
+    recovery::set_last_visible(&app, "menu", false);
     if let Some(w) = app.get_webview_window("menu") {
         let _ = w.hide();
     }
     recovery::note_ui_event(&app, "menu", "hide");
-    recovery::set_last_visible(&app, "menu", false);
     match action.as_str() {
         "open" => panel::toggle_panel(&app, false),
         "refresh" => refresh_now(app),
@@ -335,10 +341,15 @@ pub async fn check_and_emit(app: &AppHandle) {
 /// second instance or a sandboxed test without touching the user profile
 /// (SPEC 22.5). Empty/unset means the normal per-user locations.
 pub(crate) fn app_data_dir_override() -> Option<std::path::PathBuf> {
-    std::env::var("KPT_APP_DATA_DIR")
-        .ok()
-        .filter(|value| !value.is_empty())
-        .map(std::path::PathBuf::from)
+    let dir = std::env::var("KPT_APP_DATA_DIR").ok()?;
+    if dir.is_empty() {
+        return None;
+    }
+    let path = std::path::PathBuf::from(dir);
+    // Tauri resolves a relative Root against the exe directory, while a bare
+    // PathBuf resolves against the CWD — reject relatives so settings/log/
+    // WebView2 data cannot split across two places.
+    path.is_absolute().then_some(path)
 }
 
 fn apply_app_data_dir_override(context: &mut tauri::Context<tauri::Wry>) {
@@ -361,9 +372,9 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         tauri::WindowEvent::Focused(false) => match window.label() {
             "main" => panel::on_main_blur(window.app_handle()),
             "menu" => {
+                recovery::set_last_visible(window.app_handle(), "menu", false);
                 let _ = window.hide();
                 recovery::note_ui_event(window.app_handle(), "menu", "hide");
-                recovery::set_last_visible(window.app_handle(), "menu", false);
             }
             _ => {}
         },
@@ -377,9 +388,9 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                 "skills" => st.skills_open.store(false, Ordering::SeqCst),
                 _ => {}
             }
+            recovery::set_last_visible(window.app_handle(), window.label(), false);
             let _ = window.hide();
             recovery::note_ui_event(window.app_handle(), window.label(), "hide");
-            recovery::set_last_visible(window.app_handle(), window.label(), false);
         }
         tauri::WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
             recovery::note_ui_event(
@@ -515,7 +526,12 @@ pub fn run_ui_test() {
     let test_root =
         std::env::temp_dir().join(format!("kimi-planbar-tray-testui-{}", std::process::id()));
     let mut context = tauri::generate_context!();
-    // Keep the diagnostic log inside the same isolated root (SPEC 22.5).
+    // Keep the diagnostic log inside the same isolated root (SPEC 22.5), and
+    // inherit the user's saved theme/interval so the self-check still renders
+    // with the "current theme" (SPEC 19) without touching the real file.
+    let real_settings = settings::config_dir().join("settings.json");
+    let _ = std::fs::create_dir_all(&test_root);
+    let _ = std::fs::copy(real_settings, test_root.join("settings.json"));
     std::env::set_var("KPT_APP_DATA_DIR", &test_root);
     context.config_mut().app.app_directories_override = Some(
         tauri::utils::config::AppDirectoriesOverride::Root(test_root.clone()),

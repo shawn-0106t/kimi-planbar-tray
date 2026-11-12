@@ -539,6 +539,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 ## 18. 设置持久化（SettingsService）
 
 ### 18.1 配置文件路径（便携模式逻辑）
+- **诊断覆盖**：`KPT_APP_DATA_DIR`（绝对路径）存在时优先于以下两种模式，配置目录 = 该目录（见 22.5）
 - **便携模式**：exe 同目录存在 `portable.dat` 文件（内容任意，仅检测存在性）→ 配置目录 = exe 所在目录
 - **否则**：`%APPDATA%\KimiPlanbarTray\`
 - 配置文件：`<ConfigDir>\settings.json`
@@ -657,7 +658,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 | 其余（utility / sandbox helper / PPAPI / unknown） | 只记录 |
 
 - 失败事件带 generation：重建开始时递增，旧 webview 的迟到事件按 stale 丢弃。
-- 打开窗口时的健康检查是补充信号：`recovery::gate_show` 在窗口缺失时记录 `pending_show` 并等待/触发重建，避免把操作落到空壳上；`ProcessFailed` 仍是主信号。托盘菜单窗是 Settings / Skills / Exit 的唯一入口，因此菜单缺失时也会触发一次重建（菜单本身不自动弹出，重建后再次右键即可）。
+- 打开窗口时的健康检查是补充信号：`recovery::gate_show` 在窗口缺失或其 webview 已报故障（dead 标记）时记录 `pending_show` 并等待/触发重建，避免把操作落到空壳上；`ProcessFailed` 仍是主信号。托盘菜单窗是 Settings / Skills / Exit 的唯一入口，因此菜单缺失或已死时也会触发一次重建（菜单本身不自动弹出，重建后再次右键即可）。
 
 ### 22.3 进程内重建
 
@@ -680,5 +681,5 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 
 - `--test-ui` 在 build 前通过 `context.config_mut().app.app_directories_override = Root(...)` 把 app data 根目录指向 `%TEMP%\kimi-planbar-tray-testui-<pid>`，WebView2 用户数据目录随之隔离，可与正式实例同时运行。
 - 正常退出后尝试删除本轮目录（WebView2 子进程释放文件可能延迟约 10s，删除带重试；失败则保留用于诊断，下次启动清理超过 10 分钟的陈旧目录）。
-- 诊断/测试钩子：设置 `KPT_APP_DATA_DIR` 可把正式 GUI 的 app data 根目录（含 WebView2 数据目录与 `webview.log`）整体重定向到指定目录，用于在隔离环境中跑第二实例或复现验证；未设置时行为不变。
+- 诊断/测试钩子：设置 `KPT_APP_DATA_DIR`（必须是绝对路径）可把正式 GUI 的 app data 根目录整体重定向到指定目录——含 WebView2 数据目录、`settings.json` 与 `webview.log`，并跳过 HKCU 自启写入——用于在隔离环境中跑第二实例或复现验证；未设置时行为不变。
 - 四条 OK 行输出与退出时长保持不变（SPEC 19）。

@@ -538,6 +538,7 @@ QuotaResult  { five_hour: Option<QuotaSegment>, week: Option<QuotaSegment>,
 ## 18. Settings Persistence (SettingsService)
 
 ### 18.1 Config file path (portable mode logic)
+- **Diagnostic override**: when `KPT_APP_DATA_DIR` (an absolute path) is set, it wins over the two modes below and the config directory becomes that path (see 22.5)
 - **Portable mode**: a `portable.dat` file exists next to the exe (any content; only existence is checked) → config directory = the exe's directory
 - **Otherwise**: `%APPDATA%\KimiPlanbarTray\`
 - Config file: `<ConfigDir>\settings.json`
@@ -656,7 +657,7 @@ Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com
 | the rest (utility / sandbox helper / PPAPI / unknown) | log only |
 
 - Every failure event carries a generation, incremented when a rebuild starts; late events from the old webview are dropped as stale.
-- The show-path health check is supplementary: `recovery::gate_show` records `pending_show` and waits for/triggers a rebuild when the window is missing, so interaction never lands on a dead shell; `ProcessFailed` remains the primary signal. The tray menu window is the only entry to Settings / Skills / Exit, so a missing menu also triggers one rebuild (the menu is not re-shown automatically; right-click again after the rebuild).
+- The show-path health check is supplementary: `recovery::gate_show` records `pending_show` and waits for/triggers a rebuild when the window is missing or its webview has reported a failure (dead mark), so interaction never lands on a dead shell; `ProcessFailed` remains the primary signal. The tray menu window is the only entry to Settings / Skills / Exit, so a missing or dead menu also triggers one rebuild (the menu is not re-shown automatically; right-click again after the rebuild).
 
 ### 22.3 In-process rebuild
 
@@ -679,5 +680,5 @@ Borrowed from the `/api/skills` idea of [kimi-code-dashboard](https://github.com
 
 - Before building, `--test-ui` sets `context.config_mut().app.app_directories_override = Root(...)` to `%TEMP%\kimi-planbar-tray-testui-<pid>`, which also moves the WebView2 user-data directory; it can therefore run alongside a live instance.
 - The directory is removed on a clean exit when possible (WebView2 can keep files locked for ~10 s, so deletion retries; leftovers are kept for diagnosis and swept on the next run once older than 10 minutes).
-- Diagnostic/test hook: setting `KPT_APP_DATA_DIR` redirects the production GUI's app-data root (including the WebView2 user-data folder and `webview.log`) to the given directory, for running a second instance or reproducing faults in isolation; unset means unchanged behavior.
+- Diagnostic/test hook: setting `KPT_APP_DATA_DIR` (must be an absolute path) redirects the production GUI's app-data root — including the WebView2 user-data folder, `settings.json` and `webview.log` — and suppresses HKCU autostart writes, for running a second instance or reproducing faults in isolation; unset means unchanged behavior.
 - The four OK lines and the ~6 s exit behavior are unchanged (SPEC 19).
