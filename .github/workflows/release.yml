@@ -105,6 +105,57 @@ jobs:
           cp wpf/publish-sc/KimiPlanbarTray.exe KimiPlanbarTray-wpf-selfcontained.exe
           test -f "KimiPlanbarTray-v${GITHUB_REF_NAME#v}.zip"
 
+      # Seed the draft body from the CHANGELOG version section (English half +
+      # the Chinese mirror) so publishing does not depend on hand-copying
+      # notes. A missing section fails the job: the changelog must be finalized
+      # before tagging (SPEC 7.3 step 1).
+      - name: Compose release notes
+        shell: bash
+        run: |
+          python - "${{ github.ref_name }}" "${{ github.repository }}" > "$RUNNER_TEMP/notes.md" <<'PY'
+          import sys
+          from pathlib import Path
+
+          tag, repo = sys.argv[1], sys.argv[2]
+          version = tag[1:] if tag.startswith("v") else tag
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          marker = "# 更新日志（中文）"
+          english, chinese = text.split(marker, 1) if marker in text else (text, "")
+
+          def section(body: str, heading: str) -> str:
+              out = []
+              capturing = False
+              for line in body.splitlines():
+                  if line.startswith("## ["):
+                      if capturing:
+                          break
+                      if line.startswith(f"## [{heading}]"):
+                          capturing = True
+                          out.append(line)
+                          continue
+                  if capturing:
+                      out.append(line)
+              return "\n".join(out).strip()
+
+          en = section(english, version)
+          if not en:
+              sys.exit(f"CHANGELOG.md has no '## [{version}]' section — finalize the changelog before tagging")
+          zh = section(chinese, version)
+          parts = [en]
+          if zh:
+              parts += ["", "---", "", zh]
+          parts += [
+              "",
+              f"Full bilingual changelog: https://github.com/{repo}/blob/{tag}/CHANGELOG.md",
+              "",
+              "SHA256SUMS.txt covers the uploaded assets. The exe is unsigned — SmartScreen may warn on first launch (More info → Run anyway).",
+              "",
+              "<!-- Maintainer checklist: review the five assets, verify SHA256SUMS.txt, then publish. -->",
+          ]
+          print("\n".join(parts))
+          PY
+          test -s "$RUNNER_TEMP/notes.md"
+
       - name: Create draft release
         shell: bash
         env:
@@ -115,7 +166,6 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null | grep -q true; then
             gh release delete "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --yes
           fi
-          printf 'Auto-generated draft from tag push %s.\n\n- Curated changes: the matching version section in CHANGELOG.md\n- Review the five assets, adjust title/notes, then publish.\n' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --draft --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
             KimiPlanbarTray-rust.exe KimiPlanbarTray-wpf.exe KimiPlanbarTray-wpf-selfcontained.exe \
