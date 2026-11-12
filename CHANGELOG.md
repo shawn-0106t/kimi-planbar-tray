@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-12
+
+### Added
+- Rust edition: WebView2 failure detection and in-process recovery (SPEC 22). Every webview subscribes to `CoreWebView2.ProcessFailed`; renderer exits/unresponsive events reload once and escalate to a window rebuild on a repeat failure, a browser-process exit rebuilds all four windows, and GPU exits are logged only. Windows are rebuilt in place with the same label and `tauri.conf.json` WindowConfig — the tray, polling and `AppState` are reused, never restarted. Rebuilds are single-flight, back off 1/2/5 s, stop after 3 attempts within 30 s (silent degradation with a native quit-only tray menu), and are recorded in `%APPDATA%\KimiPlanbarTray\webview.log` (portable mode: next to the exe) with kind/reason/exit code/process description/DPI/runtime version/recent UI events — never credentials or quota data. Visibility is restored from a last-known-visible cache; a missing tray menu can also trigger a rebuild; show paths gate on a missing window and replay the request after the rebuild. `--test-ui` now runs with an isolated app-data root under `%TEMP%\kimi-planbar-tray-testui-<pid>` (WebView2 user-data folder included), so it can run next to a live GUI instance; the directory is removed on exit when possible and leftovers are swept after 10 minutes. `KPT_APP_DATA_DIR` provides the same isolation for the production GUI. New `scripts/diagnostics/kill_webview2_process.ps1` injects browser/renderer/GPU failures for verification.
+
 ### Changed
 - egui/ edition: eframe/egui 0.36.2 → 0.37.0 (targeted `cargo update -p egui -p eframe`, which also re-resolves the egui tree's transitives: accesskit family bumps, phf 0.13→0.14, vello 0.1→0.2, glifo 0.2→0.3, and the new `egui_system_font_provider` with its fontique/parlance stack; winit stays 0.30.13, tray-icon stays =0.26.1, business-core versions unchanged). Mechanical migration only: 14 × `Id::new` → `Id::unique` (deprecated in 0.37, enforced by `-D warnings`), the `default_fonts` feature made explicit on the egui dependency (no longer a default feature in 0.37), and the FontProbe comments updated for the new `set_fonts` landing semantics (start of next pass, or immediately when no text was laid out this pass — the one-frame-later verification logic is unchanged). `windows.rs` / `panel_pos.rs` untouched. The Gate A/B regression protocol was re-run on the dev machine: `--test-fetch`/`--test-update`/`--test-ui` outputs field-identical with the rust baseline, caption-flash burst across five cold starts peaks at 0.40% bright-band (threshold < 1%; 0.36.2 control 0.00%), full-window screenshots pixel-stable versus 0.36.2 within a same-exe noise baseline, and the single-instance mutex self-checks stay green. Validation record: `docs/EGUI-0.37-UPGRADE.md`.
-- （中文）egui 版依赖升级：eframe/egui 0.36.2 → 0.37.0（定向 `cargo update -p egui -p eframe`，同时连带重解析 egui 依赖树的传递依赖：accesskit 家族、phf 0.13→0.14、vello 0.1→0.2、glifo 0.2→0.3，以及新增的 `egui_system_font_provider` 及其 fontique/parlance 栈；winit 保持 0.30.13、tray-icon 保持 =0.26.1、业务核心版本不变）。纯机械迁移：14 处 `Id::new` → `Id::unique`（0.37 弃用，`-D warnings` 强制）、egui 依赖显式启用 `default_fonts` feature（0.37 起不再是默认 feature）、FontProbe 注释按 `set_fonts` 新落地时序更新（下一 pass 开始时生效，或本 pass 未排版文本时立即生效 —— 延后一帧的验证逻辑不变）。`windows.rs` / `panel_pos.rs` 零改动。开发机复跑 Gate A/B 回归协议：`--test-fetch`/`--test-update`/`--test-ui` 输出与 rust 基线逐字段一致，五轮冷启动 caption-flash 连拍峰值 0.40% 亮带占比（阈值 <1%；0.36.2 对照 0.00%），全窗截图与 0.36.2 在同 exe 噪声基线内像素级稳定，单实例互斥自检全绿。验证记录：`docs/EGUI-0.37-UPGRADE.md`。
 
 ## [1.8.0] - 2026-10-18
 
@@ -125,7 +129,8 @@ Review-hardening round; no new features.
 
 Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly usage cards with reset countdowns, Moonlit/Moondark themes following the system, portable and UAC-free (.NET 8 / WPF).
 
-[Unreleased]: https://github.com/shawn-0106t/kimi-planbar-tray/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/shawn-0106t/kimi-planbar-tray/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.9.0
 [1.8.0]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.8.0
 [1.7.3]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.7.3
 [1.7.2]: https://github.com/shawn-0106t/kimi-planbar-tray/releases/tag/v1.7.2
@@ -144,6 +149,14 @@ Initial release: Windows tray app for Kimi Code plan quota — 5-hour and weekly
 # 更新日志（中文）
 
 > 以下为上方英文各版本的中文对照（发版时双语同步维护）；版本链接见英文区。
+
+## [1.9.0] - 2026-11-12
+
+### 新增
+- Rust 版：WebView2 故障检测与进程内恢复（SPEC 22）。每个 webview 订阅 `CoreWebView2.ProcessFailed`；renderer 退出/无响应先 reload 一次，重复失败则重建该窗口；browser 进程退出重建全部四窗；GPU 退出只记录。窗口用同一 label 与 `tauri.conf.json` WindowConfig 原地重建，托盘、轮询与 `AppState` 全部复用、不重启进程。重建为 single-flight，退避 1/2/5 秒，30 秒内最多 3 次后静默停止（并安装原生 quit-only 托盘菜单保证仍可退出）；诊断写入 `%APPDATA%\KimiPlanbarTray\webview.log`（便携模式跟随 exe），含 kind/reason/exit code/process description/DPI/Runtime 版本/最近 UI 事件，绝不记录凭据或配额正文。可见性按 show/hide 时维护的 last-known-visible 缓存恢复；托盘菜单缺失也可触发重建；展示路径对缺失窗口做了 gate，重建完成后回放请求。`--test-ui` 改用 `%TEMP%\kimi-planbar-tray-testui-<pid>` 下的独立 app-data 根目录（含 WebView2 数据目录），可与正式实例同时运行；正常退出尽量清理，残留目录 10 分钟后在下一次启动清扫。`KPT_APP_DATA_DIR` 为正式 GUI 提供同样的隔离。新增 `scripts/diagnostics/kill_webview2_process.ps1` 用于注入 browser/renderer/GPU 故障验证。
+
+### 变更
+- egui 版依赖升级：eframe/egui 0.36.2 → 0.37.0（定向 `cargo update -p egui -p eframe`，同时连带重解析 egui 依赖树的传递依赖：accesskit 家族、phf 0.13→0.14、vello 0.1→0.2、glifo 0.2→0.3，以及新增的 `egui_system_font_provider` 及其 fontique/parlance 栈；winit 保持 0.30.13、tray-icon 保持 =0.26.1、业务核心版本不变）。纯机械迁移：14 处 `Id::new` → `Id::unique`（0.37 弃用，`-D warnings` 强制）、egui 依赖显式启用 `default_fonts` feature（0.37 起不再是默认 feature）、FontProbe 注释按 `set_fonts` 新落地时序更新（下一 pass 开始时生效，或本 pass 未排版文本时立即生效 —— 延后一帧的验证逻辑不变）。`windows.rs` / `panel_pos.rs` 零改动。开发机复跑 Gate A/B 回归协议：`--test-fetch`/`--test-update`/`--test-ui` 输出与 rust 基线逐字段一致，五轮冷启动 caption-flash 连拍峰值 0.40% 亮带占比（阈值 <1%；0.36.2 对照 0.00%），全窗截图与 0.36.2 在同 exe 噪声基线内像素级稳定，单实例互斥自检全绿。验证记录：`docs/EGUI-0.37-UPGRADE.md`。
 
 ## [1.8.0] - 2026-10-18
 
