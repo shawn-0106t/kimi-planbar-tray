@@ -1,5 +1,8 @@
 # Kimi Planbar Tray
 
+> [!WARNING]
+> **本项目已停止维护（2026-11-14 归档）。** 后续由 [Quota Tray](https://github.com/shawn-0106t/quota-tray) 取代：它在同一个托盘面板中整合了本项目的 Kimi Code 额度卡片与 DeepSeek 余额/用量。v1.9.0 为最终版本；已有 Release 与源码保持原样可查，此后不再提供修复、发布或安全更新。
+
 [![CI](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml/badge.svg)](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml)
 
 [English](README.md)

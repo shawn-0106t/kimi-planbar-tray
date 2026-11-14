@@ -1,5 +1,7 @@
 # AGENTS.md — Kimi Planbar Tray
 
+> **Status: archived (2026-11-14) — no longer maintained.** The project is superseded by [Quota Tray](https://github.com/shawn-0106t/quota-tray). This document is kept for historical reference only; do not make further changes to this repository.
+
 Guidance for AI coding agents working in this repository. Read this first; it assumes no prior knowledge of the project.
 
 ## Project overview
