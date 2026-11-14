@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Deprecated
+- Repository archived on 2026-11-14; maintenance has ended. The project is superseded by [Quota Tray](https://github.com/shawn-0106t/quota-tray), which merges this app's Kimi Code quota panel with DeepSeek balance and usage in one tray app. v1.9.0 is the final release; existing releases and source remain available unchanged, and no further fixes, releases, or security updates will be provided.
+
 ## [1.9.0] - 2026-11-12
 
 ### Added

@@ -1,5 +1,8 @@
 # Kimi Planbar Tray
 
+> [!WARNING]
+> **This project is no longer maintained (archived 2026-11-14).** It has been superseded by [Quota Tray](https://github.com/shawn-0106t/quota-tray), which combines this app's Kimi Code quota panel with DeepSeek balance and usage in a single tray app. v1.9.0 is the final release; existing releases and source remain available as-is, and no further fixes, releases, or security updates will be provided here.
+
 [![CI](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml/badge.svg)](https://github.com/shawn-0106t/kimi-planbar-tray/actions/workflows/ci.yml)
 
 [中文](README_CN.md)
